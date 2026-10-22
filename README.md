@@ -16,6 +16,8 @@ validator follows, how strictly it follows it, or whether it follows any rule at
 cp .env.example .env              # set RPC_URL and RPC_WS_URL (env only; see "RPC provider")
 docker compose up                 # select validators (if needed) + print the window plan. Never sends.
 docker compose run --rm sender dry-run --duration-secs 86400   # real-time loop, nothing sent
+# Windows native, unattended 24 h (restarts, gap log, hourly clock report):
+#   powershell -ExecutionPolicy Bypass -File scripts\dryrun24h.ps1
 docker compose run --rm analyze   # regenerate docs/REPORT.md from committed data/
 docker compose run --rm verify    # re-fetch every block and check it against data/manifest.jsonl
 # live (operator only; the cap is mandatory and cannot exceed 0.05 SOL):
@@ -41,9 +43,12 @@ connections; docs checked 2026-10-22). Endpoints come **only** from the environm
 (`RPC_URL`, `RPC_WS_URL`, or a git-ignored `.env`). There is no default endpoint, no CLI flag
 for it, and no provider region or key anywhere in the code.
 
-- **Rate limit.** One token bucket is shared by every RPC call of the process: 8 req/s sustained,
-  burst 2, so at most 10 in any second. Retries count too. `sendTransaction` additionally
-  waits for its own 1/s bucket. A 429 is retried with exponential backoff (250 ms doubling,
+- **Rate limit.** One budget for the whole machine: every `sender` process (live, dry-run,
+  collect, select-validators, ...) and `scripts/verify_facts.py` share a GCRA token bucket
+  stored in `data/.ratelimit/` under an OS file lock (`ratelimit.rs`, Python twin
+  `scripts/ratelimit.py`). It allows 8 req/s sustained, burst 2, so at most 10 in any second
+  across all processes. Retries count too. `sendTransaction` additionally waits for its own
+  shared 1/s bucket. A 429 is retried with exponential backoff (250 ms doubling,
   8 s cap, `Retry-After` honoured) and logged. `--rpc-rps` / `--send-tx-rps` can only lower
   the limits.
 - **WebSockets.** At most 4 per process. Only standard `slotSubscribe` is used:
@@ -60,12 +65,15 @@ for it, and no provider region or key anywhere in the code.
   error message and stored endpoint (`redact.rs`). `cargo test --test no_api_keys` and
   `make secrets-check` fail if a key pattern appears in any tracked file or anywhere under
   `data/`.
-- **RPC comparison path = `rpc-helius-staked`.** Helius documents `sendTransaction` as routed
-  through staked connections by default ("Staked Connections (default)", 1 credit), but states
-  this explicitly only for paid plans. The free plan also caps it at 1/s, so an 8-tx RPC window
-  is spread over ≈ 7 s, beyond a 4-slot leader window. Calibration therefore treats this path
-  as a landing test. If the free plan rejects or does not land these txs, that is reported as a
-  landing result and the arm is dropped. Helius Sender is not used: it requires tips.
+- **RPC delivery check = `rpc-helius-staked`.** Every k-th live window (`--rpc-every k`) sends
+  **exactly one tx** (the first in send order) through Helius `sendTransaction`. It is never
+  a burst arm: the free plan allows 1 sendTransaction/s. Its manifest lines carry
+  `ordering_eligible: false` and it is reported separately. No ordering conclusion is drawn
+  from it. The question it answers: does a (documented) staked path land where our unstaked
+  QUIC does not? Helius documents staked routing as the default ("Staked Connections
+  (default)", 1 credit), but states it explicitly only for paid plans. If the free plan rejects
+  or does not land these txs, that is a reported landing result, and the path is dropped.
+  Helius Sender is not used: it requires tips.
 
 ## Phases
 
@@ -88,6 +96,9 @@ Without Docker: `make test`, `make facts`, `make verify`.
   on proof: the tx landed (actual `meta.fee`), or it is past `lastValidBlockHeight` at
   *finalized* commitment and absent from history. `reconcile` checks wallet deltas, ledger and
   on-chain fees against each other, and fails loudly on any mismatch.
+- **One writer.** The ledger holds an exclusive OS lock (`ledger.jsonl.lock`) for its whole
+  lifetime. A second `live`, `fund`, `sweep` or `collect` refuses to start while one runs, and
+  the OS releases the lock if the holder crashes.
 - **Keys** come only from `./secrets` (gitignored, mounted read-only except in the `keys`
   service) or env. Secret bytes are never logged. CI runs gitleaks and a keypair-pattern check.
 - **No Jito bundles, tips or block-engine endpoints.** Plain transactions only.
@@ -119,10 +130,9 @@ Conclusions are per validator and date, never per client.
 Primary path: direct QUIC to the leader's gossip `tpuQuic` (ALPN `solana-tpu`, one
 unidirectional stream per tx). The connection is opened about 1.5 s before the burst; all txs are
 signed in advance, and the burst loop only writes bytes, each within 2 ms of its planned
-offset. Comparison path: `live --rpc-every k` sends every k-th window through RPC
-`sendTransaction`, recorded as path `rpc-helius-staked` (see "RPC provider"; sends are
-spaced ≥ 1 s by the free plan's limit, and the actual send times are recorded).
-`summary.json` reports sent/errors/landed/expired per path. Each tx records monotonic and wall-clock send times, connection and stream
+offset. Delivery check: `live --rpc-every k` sends one tx of every k-th window through RPC
+`sendTransaction`, recorded as path `rpc-helius-staked` and excluded from ordering analysis
+(see "RPC provider"). `summary.json` reports sent/errors/landed/expired per path. Each tx records monotonic and wall-clock send times, connection and stream
 id, handshake time and RTT. Send time comes from a slot clock fitted to `slotSubscribe`
 notifications. Its slope uses ~600 observations, its intercept is re-anchored on the last 3
 (`--clock-window`, `--clock-anchor-k`, recorded in run.json), and it is re-predicted
@@ -132,6 +142,15 @@ parameters (exploratory). Every window logs predicted vs observed start
 address may route to a BAM node (F7). Harmonic FIFO timestamps arrival "at the builder". The
 public RPC slot feed was too noisy for sub-window timing (median 217 ms, p95 1.3 s). With the
 Helius feed, a 10-min dry-run gave median 75 ms, p95 200 ms (exploratory, LOGBOOK).
+**Limitation of this metric:** "prediction error" is measured against the moment the window's
+first slot *notification arrives at our machine*, not the leader's real block start. The two
+differ by the provider's propagation delay, which is unknown, possibly variable, and absorbed
+by the calibrated send offset. Real window-hit accuracy is judged in calibration by the slot
+in which our txs actually land (and by `producer_mismatch` exclusions).
+Unattended runs log every blind period to `<run>/gaps.jsonl`: host sleep or stall, slot-feed
+stall, RPC outage. A silent WebSocket is dropped after 10 s and reconnected, and the slot
+clock is cleared after a host stall of more than 30 s. `clock_hourly.json` (per run, and
+merged per campaign by `sender clock-report`) gives the error distribution by UTC hour.
 
 ### Interaction of our own transactions with each other
 In arms P, F, X and R, each tx has its own fee payer and no other writable account (tested), so
