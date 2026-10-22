@@ -86,6 +86,30 @@ pub struct RunConfig {
     pub min_clock_obs: usize,
     /// Commit of the frozen pre-registration (`prereg-v1`). Required for confirmatory runs.
     pub prereg: Option<String>,
+    /// Name of the RPC send path in the manifest (`SendRecord.path`).
+    pub rpc_path_label: &'static str,
+    /// RPC endpoint with the API key redacted (provenance in run.json).
+    pub endpoint: String,
+    pub clock: crate::clock::ClockParams,
+}
+
+/// Manifest name of the RPC comparison path. Helius routes `sendTransaction` through its
+/// staked connections by default (docs: "Staked Connections (default)"; stated for paid
+/// plans, unstated for the free plan, which calibration checks). Other endpoints: "rpc".
+pub fn rpc_path_label(rpc_url: &str) -> &'static str {
+    let host = rpc_url
+        .split("://")
+        .nth(1)
+        .unwrap_or(rpc_url)
+        .split(['/', '?', ':'])
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if host == "helius-rpc.com" || host.ends_with(".helius-rpc.com") {
+        "rpc-helius-staked"
+    } else {
+        "rpc"
+    }
 }
 
 impl Default for RunConfig {
@@ -103,6 +127,9 @@ impl Default for RunConfig {
             // a stable slope needs ~100 notifications (~20 s); see clock.rs
             min_clock_obs: 100,
             prereg: None,
+            rpc_path_label: "rpc",
+            endpoint: String::new(),
+            clock: crate::clock::ClockParams::default(),
         }
     }
 }
@@ -268,6 +295,20 @@ pub struct RunSummary {
     pub spent_total_lamports: Option<u64>,
     pub clock_prep: ClockStats,
     pub stopped_early: Option<String>,
+    /// Landing result per send path ("quic", "rpc-helius-staked", ...). For the RPC path
+    /// this is the calibration check of whether the provider's free plan delivers at all.
+    pub by_path: BTreeMap<String, PathStats>,
+    /// Estimated provider credits used by this process so far (credits.rs).
+    pub credits: Option<crate::credits::Usage>,
+    pub month_to_date_credits: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct PathStats {
+    pub sent: usize,
+    pub send_errors: usize,
+    pub landed: usize,
+    pub expired: usize,
 }
 
 /// Collapse numbers so skip reasons aggregate ("lead 812 ms < min 3000" -> "lead # ms < min #").
@@ -582,6 +623,8 @@ impl<'a> Runner<'a> {
             self.summary.reserved_run_lamports = Some(t.reserved_run);
             self.summary.spent_total_lamports = Some(t.spent_total);
         }
+        self.summary.credits = Some(self.rpc.meter().usage());
+        self.summary.month_to_date_credits = Some(self.rpc.meter().month_to_date());
         self.summary.finished = ts();
         std::fs::write(
             self.run_dir.join("summary.json"),
@@ -637,9 +680,20 @@ impl<'a> Runner<'a> {
         let lines = self.collector.apply(&obs, ledger)?;
         for l in &lines {
             self.pool.release(&l.tx.payer);
+            let ps = self
+                .summary
+                .by_path
+                .entry(l.tx.send.path.clone())
+                .or_default();
             match l.outcome.status {
-                Status::Landed => self.summary.landed += 1,
-                Status::Expired => self.summary.expired += 1,
+                Status::Landed => {
+                    self.summary.landed += 1;
+                    ps.landed += 1;
+                }
+                Status::Expired => {
+                    self.summary.expired += 1;
+                    ps.expired += 1;
+                }
             }
         }
         Ok(())
@@ -958,7 +1012,7 @@ impl<'a> Runner<'a> {
                         }
                     }
                     _ => {
-                        let mut sink = RpcSink::new(&self.rpc, auth);
+                        let mut sink = RpcSink::new(&self.rpc, auth, self.cfg.rpc_path_label);
                         burst::run_burst(&mut sink, &burst_txs, start).await
                     }
                 };
@@ -975,8 +1029,11 @@ impl<'a> Runner<'a> {
                         .get(&t.idx)
                         .map(|r| (*r).clone())
                         .context("send record")?;
+                    let ps = self.summary.by_path.entry(rec.path.clone()).or_default();
+                    ps.sent += 1;
                     if rec.error.is_some() {
                         self.summary.send_errors += 1;
+                        ps.send_errors += 1;
                     }
                     sent.push(SentTx {
                         sig: b.signature.to_string(),

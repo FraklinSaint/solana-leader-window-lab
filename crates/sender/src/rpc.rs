@@ -1,7 +1,20 @@
-//! Minimal JSON-RPC client. Retries rate limits (HTTP 429 and the public RPC's
-//! "Too many requests" error) with linear backoff and logs each retry, since rate limits are
-//! LOGBOOK material.
+//! Minimal JSON-RPC client.
+//!
+//! - Every request (retries included) waits for a token from one shared bucket
+//!   (`ratelimit.rs`, <= 8 req/s sustained); `sendTransaction` also waits for its own 1/s
+//!   bucket. Clones share both buckets, so the window loop, the collector and the slot-feed
+//!   fallback together stay under the limit.
+//! - HTTP 429 and "Too many requests" bodies are retried with exponential backoff
+//!   (Retry-After honoured) and logged, since rate limits are LOGBOOK material.
+//! - Only methods in [`ALLOWED_METHODS`] can be called: standard Solana JSON-RPC, no
+//!   provider extensions (no transactionSubscribe, blockSubscribe, priority-fee APIs ...).
+//! - Every call is counted by the credit meter (`credits.rs`).
+//! - The endpoint URL carries the API key: it is never logged, and transport errors are
+//!   stripped of their URL and redacted.
 
+use crate::credits::CreditMeter;
+use crate::ratelimit::{MAX_RPC_PER_SEC, MAX_SEND_TX_PER_SEC, RPC_BURST, TokenBucket};
+use crate::redact::redact;
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -12,11 +25,61 @@ pub fn init_crypto() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 }
 
+/// Standard Solana JSON-RPC methods this lab uses. Anything else is refused before a
+/// request is made (instruction: no paid-only or provider-specific extensions; outcomes
+/// come from getBlock and getSignatureStatuses).
+pub const ALLOWED_METHODS: &[&str] = &[
+    "getBalance",
+    "getBlock",
+    "getBlockHeight",
+    "getClusterNodes",
+    "getEpochInfo",
+    "getFeeForMessage",
+    "getGenesisHash",
+    "getLatestBlockhash",
+    "getLeaderSchedule",
+    "getMinimumBalanceForRentExemption",
+    "getMultipleAccounts",
+    "getSignatureStatuses",
+    "getSlot",
+    "getSlotLeaders",
+    "getTransaction",
+    "getVoteAccounts",
+    "requestAirdrop",
+    "sendTransaction",
+    "simulateTransaction",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RpcLimits {
+    pub per_sec: f64,
+    pub send_tx_per_sec: f64,
+}
+
+impl Default for RpcLimits {
+    fn default() -> Self {
+        Self {
+            per_sec: MAX_RPC_PER_SEC,
+            send_tx_per_sec: MAX_SEND_TX_PER_SEC,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Rpc {
     url: String,
     http: reqwest::Client,
     max_retries: u32,
+    bucket: TokenBucket,
+    send_bucket: TokenBucket,
+    meter: CreditMeter,
+}
+
+/// Backoff before retry `attempt` (0-based): 250 ms doubling, capped at 8 s, or the
+/// server's Retry-After if that is longer.
+pub fn backoff(attempt: u32, retry_after: Option<Duration>) -> Duration {
+    let exp = Duration::from_millis(250u64 << attempt.min(5)).min(Duration::from_secs(8));
+    retry_after.map_or(exp, |r| r.max(exp))
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -63,8 +126,22 @@ pub struct LatestBlockhash {
 }
 
 impl Rpc {
+    /// Client with the default limits (8 req/s, sendTransaction 1/s) and its own meter.
     pub fn new(url: &str) -> Self {
+        Self::with_limits(url, RpcLimits::default(), CreditMeter::default())
+    }
+
+    /// Limits above the defaults are refused: the CLI value can only lower them.
+    pub fn with_limits(url: &str, limits: RpcLimits, meter: CreditMeter) -> Self {
         init_crypto();
+        assert!(
+            limits.per_sec > 0.0 && limits.per_sec <= MAX_RPC_PER_SEC,
+            "rpc rate must be in (0, {MAX_RPC_PER_SEC}]"
+        );
+        assert!(
+            limits.send_tx_per_sec > 0.0 && limits.send_tx_per_sec <= MAX_SEND_TX_PER_SEC,
+            "sendTransaction rate must be in (0, {MAX_SEND_TX_PER_SEC}]"
+        );
         Self {
             url: url.to_string(),
             http: reqwest::Client::builder()
@@ -72,43 +149,94 @@ impl Rpc {
                 .build()
                 .expect("http client"),
             max_retries: 8,
+            bucket: TokenBucket::new(limits.per_sec, RPC_BURST),
+            send_bucket: TokenBucket::new(limits.send_tx_per_sec, 1.0),
+            meter,
         }
     }
 
-    pub fn url(&self) -> &str {
-        &self.url
+    /// The endpoint with its API key redacted (safe to log and to store).
+    pub fn endpoint(&self) -> String {
+        redact(&self.url).into_owned()
+    }
+
+    pub fn meter(&self) -> &CreditMeter {
+        &self.meter
+    }
+
+    pub fn limits(&self) -> RpcLimits {
+        RpcLimits {
+            per_sec: self.bucket.rate(),
+            send_tx_per_sec: self.send_bucket.rate(),
+        }
     }
 
     pub async fn call(&self, method: &str, params: Value) -> Result<Value> {
+        if !ALLOWED_METHODS.contains(&method) {
+            bail!("{method}: not a standard method this lab may call (rpc.rs ALLOWED_METHODS)");
+        }
         let body = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
         for attempt in 0..=self.max_retries {
+            if method == "sendTransaction" {
+                self.send_bucket.acquire().await;
+            }
+            self.bucket.acquire().await;
+            self.meter.http_call(method);
             let resp = self.http.post(&self.url).json(&body).send().await;
             let resp = match resp {
                 Ok(r) => r,
-                Err(e) if attempt < self.max_retries => {
-                    tracing::warn!(method, attempt, error = %e, "rpc transport error, retrying");
-                    tokio::time::sleep(Duration::from_millis(500 * (attempt as u64 + 1))).await;
-                    continue;
+                Err(e) => {
+                    // reqwest errors print the URL, which carries the API key.
+                    let e = redact(&e.without_url().to_string()).into_owned();
+                    if attempt < self.max_retries {
+                        tracing::warn!(method, attempt, error = %e, "rpc transport error, retrying");
+                        tokio::time::sleep(backoff(attempt, None)).await;
+                        continue;
+                    }
+                    bail!("{method}: transport error: {e}");
                 }
-                Err(e) => return Err(e).context(method.to_string()),
             };
             if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                tracing::warn!(method, attempt, "rpc rate limited (429)");
-                tokio::time::sleep(Duration::from_millis(1000 * (attempt as u64 + 1))).await;
+                self.meter.rate_limited();
+                let ra = resp
+                    .headers()
+                    .get(reqwest::header::RETRY_AFTER)
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.trim().parse::<f64>().ok())
+                    .map(Duration::from_secs_f64);
+                let wait = backoff(attempt, ra);
+                tracing::warn!(
+                    method,
+                    attempt,
+                    wait_ms = wait.as_millis() as u64,
+                    "rpc rate limited (429)"
+                );
+                tokio::time::sleep(wait).await;
                 continue;
             }
-            let v: Value = resp
-                .json()
-                .await
-                .with_context(|| format!("{method}: bad json"))?;
+            let status = resp.status();
+            let v: Value = match resp.json().await {
+                Ok(v) => v,
+                Err(e) => bail!(
+                    "{method}: bad json (HTTP {status}): {}",
+                    redact(&e.without_url().to_string())
+                ),
+            };
             if let Some(err) = v.get("error") {
                 let msg = err.get("message").and_then(Value::as_str).unwrap_or("");
                 if msg.contains("Too many requests") && attempt < self.max_retries {
-                    tracing::warn!(method, attempt, "rpc rate limited (error body)");
-                    tokio::time::sleep(Duration::from_millis(1000 * (attempt as u64 + 1))).await;
+                    self.meter.rate_limited();
+                    let wait = backoff(attempt, None);
+                    tracing::warn!(
+                        method,
+                        attempt,
+                        wait_ms = wait.as_millis() as u64,
+                        "rpc rate limited (error body)"
+                    );
+                    tokio::time::sleep(wait).await;
                     continue;
                 }
-                bail!("{method}: rpc error {err}");
+                bail!("{method}: rpc error {}", redact(&err.to_string()));
             }
             return v
                 .get("result")
@@ -275,5 +403,67 @@ impl Rpc {
             json!([wire_b64, {"encoding": "base64", "skipPreflight": true, "maxRetries": 0}]),
         )
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backoff_is_exponential_capped_and_honours_retry_after() {
+        assert_eq!(backoff(0, None), Duration::from_millis(250));
+        assert_eq!(backoff(2, None), Duration::from_millis(1000));
+        assert_eq!(backoff(9, None), Duration::from_secs(8));
+        assert_eq!(
+            backoff(0, Some(Duration::from_secs(3))),
+            Duration::from_secs(3)
+        );
+        assert_eq!(
+            backoff(3, Some(Duration::from_millis(1))),
+            Duration::from_secs(2)
+        );
+    }
+
+    #[tokio::test]
+    async fn refuses_non_standard_methods_without_a_request() {
+        let rpc = Rpc::new(&format!(
+            "http://127.0.0.1:9/?api-key={}",
+            "0f3c2b1a-9d8e-4f70-a1b2"
+        ));
+        for m in [
+            "transactionSubscribe",
+            "blockSubscribe",
+            "getPriorityFeeEstimate",
+            "sendBundle",
+        ] {
+            let e = rpc.call(m, json!([])).await.unwrap_err().to_string();
+            assert!(e.contains("not a standard method"), "{e}");
+        }
+        assert!(rpc.meter().usage().by_method.is_empty());
+    }
+
+    #[tokio::test]
+    async fn transport_errors_do_not_leak_the_key() {
+        let key = "0f3c2b1a-9d8e-4f70-a1b2-c3d4e5f60718";
+        let mut rpc = Rpc::new(&format!("http://127.0.0.1:9/?api-key={key}"));
+        rpc.max_retries = 0;
+        let e = format!("{:#}", rpc.slot().await.unwrap_err());
+        assert!(!e.contains(key), "{e}");
+        assert!(!rpc.endpoint().contains(key));
+        assert_eq!(rpc.meter().usage().by_method["getSlot"].calls, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "rpc rate")]
+    fn limits_can_only_be_lowered() {
+        let _ = Rpc::with_limits(
+            "http://127.0.0.1:9",
+            RpcLimits {
+                per_sec: 20.0,
+                send_tx_per_sec: 1.0,
+            },
+            CreditMeter::default(),
+        );
     }
 }

@@ -1,24 +1,37 @@
 //! Diagnostic: record slot notifications for N seconds and show how the clock fit behaves.
-//! `cargo run --example slotfeed_probe -- <rpc_url> <seconds> [out.jsonl]`
+//! `cargo run --example slotfeed_probe -- <seconds> [out.jsonl]`
+//!
+//! Endpoints come from the environment only: `RPC_URL` (getSlot fallback) and
+//! `RPC_WS_URL` (slotSubscribe; default derived from RPC_URL). Nothing is printed that
+//! could contain the API key. Replay the output with `examples/clock_eval.rs`.
 
-use slwlab_sender::{clock::SlotClock, feed, rpc::Rpc};
+use slwlab_sender::{clock::SlotClock, feed, redact::redact, rpc::Rpc};
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    let url = args
-        .get(1)
-        .cloned()
-        .unwrap_or_else(|| "https://api.mainnet-beta.solana.com".into());
-    let secs: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(60);
+    let url = std::env::var("RPC_URL").map_err(|_| anyhow::anyhow!("RPC_URL is not set"))?;
+    let ws = std::env::var("RPC_WS_URL")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| feed::ws_from_http(&url));
+    let secs: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(60);
     let rpc = Rpc::new(&url);
+    println!("endpoint {}", redact(&ws));
     let state = feed::new_state();
-    feed::spawn(Some(feed::ws_from_http(&url)), rpc, state.clone());
+    feed::spawn(Some(ws), rpc.clone(), state.clone());
     tokio::time::sleep(Duration::from_secs(secs)).await;
+    let u = rpc.meter().usage();
+    println!(
+        "estimated credits: {:.2} (ws {} bytes, http calls {})",
+        u.credits,
+        u.ws_bytes,
+        u.by_method.values().map(|m| m.calls).sum::<u64>()
+    );
     let s = state.lock().map_err(|_| anyhow::anyhow!("poisoned"))?;
     let obs: Vec<(u64, i128)> = s.first_seen.iter().map(|(k, v)| (*k, *v)).collect();
-    if let Some(out) = args.get(3) {
+    if let Some(out) = args.get(2) {
         let lines: Vec<String> = obs
             .iter()
             .map(|(k, v)| format!("{{\"slot\":{k},\"t_ns\":{v}}}"))

@@ -10,14 +10,19 @@ use slwlab_common::guard;
 use slwlab_common::limits::{HARD_CEILING_LAMPORTS, PLANNED_SPEND_BUDGET_LAMPORTS};
 use slwlab_sender::arms::{Arm, ArmConfig};
 use slwlab_sender::burst::unix_ns;
+use slwlab_sender::clock::{self, ClockParams};
 use slwlab_sender::cluster::Cluster;
 use slwlab_sender::collect::{self, Collector, Pending, SentTx};
+use slwlab_sender::credits::{self, CreditMeter};
 use slwlab_sender::funding::{self, Role};
 use slwlab_sender::keys::{self, NamedKeypair};
 use slwlab_sender::ledger::{Entry, Ledger, Purpose};
 use slwlab_sender::live::{self, LiveAuth};
 use slwlab_sender::planner::{self, PlanConfig, PlanState, Target};
+use slwlab_sender::ratelimit::{MAX_RPC_PER_SEC, MAX_SEND_TX_PER_SEC};
+use slwlab_sender::redact::{RedactingWriter, redact};
 use slwlab_sender::rpc::Rpc;
+use slwlab_sender::rpc::RpcLimits;
 use slwlab_sender::runner::{self, Mode, PayerPool, RunConfig, Runner, RunnerInit};
 use slwlab_sender::select;
 use slwlab_sender::{feed, rpc};
@@ -40,18 +45,64 @@ struct Cli {
     cmd: Cmd,
 }
 
+/// Endpoints come only from the environment (or a local `.env`), never from flags or
+/// code: the URL carries the provider API key, and flags end up in shell history.
+#[derive(Clone)]
+struct Endpoints {
+    /// `RPC_URL`, HTTP JSON-RPC.
+    rpc: String,
+    /// `RPC_WS_URL`, slot feed (Helius: the LaserStream WebSocket). Default: derived
+    /// from `RPC_URL` (https -> wss).
+    ws: Option<String>,
+}
+
+impl Endpoints {
+    /// The environment wins over `.env` (read by [`read_dotenv`] for runs outside compose).
+    fn from_env(dotenv: &HashMap<String, String>) -> Result<Self> {
+        let get = |k: &str| {
+            std::env::var(k)
+                .ok()
+                .or_else(|| dotenv.get(k).cloned())
+                .filter(|v| !v.trim().is_empty())
+        };
+        let rpc =
+            get("RPC_URL").context("RPC_URL is not set (environment or .env; see .env.example)")?;
+        Ok(Self {
+            rpc,
+            ws: get("RPC_WS_URL"),
+        })
+    }
+}
+
+/// Minimal `.env` reader: KEY=VALUE lines, `#` comments. Values are never printed.
+fn read_dotenv(path: &Path) -> HashMap<String, String> {
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.starts_with('#'))
+        .filter_map(|l| l.split_once('='))
+        .map(|(k, v)| (k.trim().to_string(), v.trim().trim_matches('"').to_string()))
+        .filter(|(k, _)| !k.is_empty())
+        .collect()
+}
+
 #[derive(Args, Clone)]
 struct Global {
-    #[arg(
-        long,
-        env = "RPC_URL",
-        default_value = "https://api.mainnet-beta.solana.com",
-        global = true
-    )]
-    rpc_url: String,
-    /// Slot feed WebSocket (default: derived from --rpc-url).
-    #[arg(long, env = "WS_URL", global = true)]
-    ws_url: Option<String>,
+    /// Sustained RPC request rate (token bucket); can only be lowered from 8.
+    #[arg(long, env = "RPC_MAX_RPS", default_value_t = MAX_RPC_PER_SEC, global = true)]
+    rpc_rps: f64,
+    /// sendTransaction rate (Helius free plan: 1/s); can only be lowered.
+    #[arg(long, env = "RPC_SEND_TX_RPS", default_value_t = MAX_SEND_TX_PER_SEC, global = true)]
+    send_tx_rps: f64,
+    /// Slot clock: observations in the slope window (clock.rs).
+    #[arg(long, default_value_t = clock::WINDOW, global = true)]
+    clock_window: usize,
+    /// Slot clock: recent observations that anchor the intercept (clock.rs).
+    #[arg(long, default_value_t = clock::ANCHOR_K, global = true)]
+    clock_anchor_k: usize,
+    /// Monthly provider credit quota for the 50% warning (Helius free: 1,000,000).
+    #[arg(long, env = "RPC_MONTHLY_CREDITS", default_value_t = credits::FREE_PLAN_MONTHLY_CREDITS, global = true)]
+    monthly_credits: u64,
     #[arg(long, default_value = "data", global = true)]
     data_dir: PathBuf,
     #[arg(long, default_value = "secrets", global = true)]
@@ -211,12 +262,19 @@ enum Cmd {
 
 struct Ctx {
     g: Global,
+    ep: Endpoints,
     rpc: Rpc,
     cluster: Cluster,
     data_root: PathBuf,
 }
 
 impl Ctx {
+    fn clock_params(&self) -> ClockParams {
+        ClockParams {
+            window: self.g.clock_window,
+            anchor_k: self.g.clock_anchor_k,
+        }
+    }
     fn ledger_path(&self) -> PathBuf {
         self.data_root.join("ledger.jsonl")
     }
@@ -237,11 +295,24 @@ fn stamp() -> String {
     chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string()
 }
 
+/// Append-mode file shared by the tracing writer; each event is one `write_all`.
+struct SharedFile(std::sync::Arc<std::fs::File>);
+
+impl std::io::Write for SharedFile {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        (&*self.0).write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        (&*self.0).flush()
+    }
+}
+
 fn init_tracing(log_file: Option<&Path>) -> Result<()> {
     use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
     let filter = || EnvFilter::try_from_env("RUST_LOG").unwrap_or_else(|_| EnvFilter::new("info"));
+    // Both writers redact api-key parameters (redact.rs), whatever ends up in a message.
     let stderr = fmt::layer()
-        .with_writer(std::io::stderr)
+        .with_writer(|| RedactingWriter::new(std::io::stderr()))
         .compact()
         .with_filter(filter());
     let file = match log_file {
@@ -256,7 +327,10 @@ fn init_tracing(log_file: Option<&Path>) -> Result<()> {
             Some(
                 fmt::layer()
                     .json()
-                    .with_writer(std::sync::Mutex::new(f))
+                    .with_writer({
+                        let f = std::sync::Arc::new(f);
+                        move || RedactingWriter::new(SharedFile(f.clone()))
+                    })
                     .with_filter(filter()),
             )
         }
@@ -274,21 +348,44 @@ fn init_tracing(log_file: Option<&Path>) -> Result<()> {
 async fn main() {
     let cli = Cli::parse();
     if let Err(e) = real_main(cli).await {
+        let e = redact(&format!("{e:#}")).into_owned();
         // Also into the run log, so refused live attempts are auditable.
-        tracing::error!(error = %format!("{e:#}"), "exiting with error");
-        eprintln!("error: {e:#}");
+        tracing::error!(error = %e, "exiting with error");
+        eprintln!("error: {e}");
         std::process::exit(1);
     }
 }
 
 async fn real_main(cli: Cli) -> Result<()> {
     rpc::init_crypto();
-    let rpc = Rpc::new(&cli.g.rpc_url);
+    let ep = Endpoints::from_env(&read_dotenv(Path::new(".env")))?;
+    ensure!(
+        cli.g.rpc_rps > 0.0 && cli.g.rpc_rps <= MAX_RPC_PER_SEC,
+        "--rpc-rps must be in (0, {MAX_RPC_PER_SEC}]"
+    );
+    ensure!(
+        cli.g.send_tx_rps > 0.0 && cli.g.send_tx_rps <= MAX_SEND_TX_PER_SEC,
+        "--send-tx-rps must be in (0, {MAX_SEND_TX_PER_SEC}]"
+    );
+    let credits_path = credits::ledger_path(&cli.g.data_dir);
+    let meter = CreditMeter::new(
+        credits::month_to_date(&credits_path, &credits::month_key()),
+        cli.g.monthly_credits,
+    );
+    let rpc = Rpc::with_limits(
+        &ep.rpc,
+        RpcLimits {
+            per_sec: cli.g.rpc_rps,
+            send_tx_per_sec: cli.g.send_tx_rps,
+        },
+        meter.clone(),
+    );
     let genesis = rpc.genesis_hash().await.context("getGenesisHash")?;
     let cluster = Cluster::from_genesis(&genesis);
     let ctx = Ctx {
         data_root: cluster.data_root(&cli.g.data_dir),
         g: cli.g,
+        ep,
         rpc,
         cluster,
     };
@@ -308,15 +405,42 @@ async fn real_main(cli: Cli) -> Result<()> {
             .join("run.log.jsonl")
     });
     init_tracing(log_file.as_deref())?;
-    tracing::info!(cluster = %ctx.cluster.name(), data_root = %ctx.data_root.display(), "connected");
+    tracing::info!(
+        cluster = %ctx.cluster.name(),
+        data_root = %ctx.data_root.display(),
+        endpoint = %ctx.rpc.endpoint(),
+        rpc_rps = ctx.g.rpc_rps,
+        send_tx_rps = ctx.g.send_tx_rps,
+        month_to_date_credits = meter.month_to_date(),
+        "connected"
+    );
+    let res = dispatch(&ctx, cmd, &run_id).await;
+    // Credits are recorded whatever the outcome: a failed run still spent them.
+    let usage = meter.usage();
+    tracing::info!(
+        run_id,
+        credits = usage.credits,
+        ws_bytes = usage.ws_bytes,
+        rate_limited = usage.rate_limited,
+        month_to_date_credits = meter.month_to_date(),
+        quota = ctx.g.monthly_credits,
+        "estimated provider credits"
+    );
+    if let Err(e) = meter.record(&credits_path, &run_id, &ctx.rpc.endpoint()) {
+        tracing::warn!(error = %format!("{e:#}"), "could not write the credits ledger");
+    }
+    res
+}
+
+async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
     match cmd {
-        Cmd::SelectValidators { min_windows } => select_validators(&ctx, min_windows).await,
-        Cmd::Plan { plan, slots } => plan_only(&ctx, &plan, slots).await,
+        Cmd::SelectValidators { min_windows } => select_validators(ctx, min_windows).await,
+        Cmd::Plan { plan, slots } => plan_only(ctx, &plan, slots).await,
         Cmd::DryRun { run, probe_connect } => {
             campaign(
-                &ctx,
+                ctx,
                 &run,
-                &run_id,
+                run_id,
                 None,
                 Mode::DryRun { probe_connect },
                 None,
@@ -350,12 +474,12 @@ async fn real_main(cli: Cli) -> Result<()> {
                     "--purpose measure requires --prereg <commit of the prereg-v1 tag>"
                 );
             }
-            let mut ledger = Ledger::open(&ctx.ledger_path(), &run_id, auth.cap())?;
+            let mut ledger = Ledger::open(&ctx.ledger_path(), run_id, auth.cap())?;
             report_open_reservations(&ledger);
             campaign(
-                &ctx,
+                ctx,
                 &run,
-                &run_id,
+                run_id,
                 rpc_every,
                 Mode::Live {
                     auth: &auth,
@@ -367,7 +491,7 @@ async fn real_main(cli: Cli) -> Result<()> {
             )
             .await
         }
-        Cmd::Collect => collect_all(&ctx).await,
+        Cmd::Collect => collect_all(ctx).await,
         Cmd::InitPayers { count } => {
             let pks = keys::init_payers(&ctx.payers_dir(), count)?;
             for (i, p) in pks.iter().enumerate() {
@@ -378,7 +502,7 @@ async fn real_main(cli: Cli) -> Result<()> {
             Ok(())
         }
         Cmd::Balances => {
-            let s = funding::snapshot(&ctx.rpc, &ctx.cluster.name(), &wallets(&ctx)?).await?;
+            let s = funding::snapshot(&ctx.rpc, &ctx.cluster.name(), &wallets(ctx)?).await?;
             let p = funding::save_snapshot(&ctx.data_root, &s)?;
             println!(
                 "{} total {} lamports, locked in payers+sink {} (slot {})",
@@ -393,27 +517,18 @@ async fn real_main(cli: Cli) -> Result<()> {
             payer_target_lamports,
             live,
             max_spend_lamports,
-        } => {
-            fund(
-                &ctx,
-                payer_target_lamports,
-                live,
-                max_spend_lamports,
-                &run_id,
-            )
-            .await
-        }
+        } => fund(ctx, payer_target_lamports, live, max_spend_lamports, run_id).await,
         Cmd::Sweep {
             live,
             max_spend_lamports,
-        } => sweep(&ctx, live, max_spend_lamports, &run_id).await,
+        } => sweep(ctx, live, max_spend_lamports, run_id).await,
         Cmd::Reconcile { since, until } => {
             let before = funding::load_snapshot(&since)?;
             let after = match until {
                 Some(p) => funding::load_snapshot(&p)?,
                 None => {
                     let s =
-                        funding::snapshot(&ctx.rpc, &ctx.cluster.name(), &wallets(&ctx)?).await?;
+                        funding::snapshot(&ctx.rpc, &ctx.cluster.name(), &wallets(ctx)?).await?;
                     funding::save_snapshot(&ctx.data_root, &s)?;
                     s
                 }
@@ -658,12 +773,12 @@ fn ledger_commitment(path: &Path) -> Result<u64> {
 }
 
 async fn warm_clock(ctx: &Ctx) -> Result<feed::Shared> {
-    let state = feed::new_state();
+    let state = feed::new_state_with(ctx.clock_params());
     let ws = ctx
-        .g
-        .ws_url
+        .ep
+        .ws
         .clone()
-        .unwrap_or_else(|| feed::ws_from_http(&ctx.g.rpc_url));
+        .unwrap_or_else(|| feed::ws_from_http(&ctx.ep.rpc));
     feed::spawn(Some(ws), ctx.rpc.clone(), state.clone());
     Ok(state)
 }
@@ -853,6 +968,9 @@ async fn campaign(
         simulate_every: run.simulate_every,
         selection_ref: Some(sel.display().to_string()),
         prereg,
+        rpc_path_label: runner::rpc_path_label(&ctx.ep.rpc),
+        endpoint: ctx.rpc.endpoint(),
+        clock: ctx.clock_params(),
         ..RunConfig::default()
     };
     tracing::info!(

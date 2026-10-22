@@ -10,7 +10,7 @@ services:
     image: slwlab-sender:local
     command: ["plan"]
     env_file: [{ path: .env, required: false }]
-    environment: [RPC_URL, WS_URL]
+    environment: [RPC_URL, RPC_WS_URL, RPC_MAX_RPS, RPC_SEND_TX_RPS, RPC_MONTHLY_CREDITS]
     volumes:
       - ./data:/lab/data
       - ./secrets:/lab/secrets:ro
@@ -20,7 +20,7 @@ services:
     build: { context: ., target: sender }
     profiles: ["manual"]
     env_file: [{ path: .env, required: false }]
-    environment: [RPC_URL, WS_URL, CONFIRM_LIVE]
+    environment: [RPC_URL, RPC_WS_URL, RPC_MAX_RPS, RPC_SEND_TX_RPS, RPC_MONTHLY_CREDITS, CONFIRM_LIVE]
     volumes:
       - ./data:/lab/data
       - ./secrets:/lab/secrets:ro

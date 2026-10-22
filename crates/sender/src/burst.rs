@@ -111,21 +111,25 @@ impl Sink for QuicSink<'_> {
     }
 }
 
-/// Comparison path: the same burst through a standard RPC `sendTransaction`.
+/// Comparison path: the same burst through a standard RPC `sendTransaction`. `label` names
+/// the path in the manifest (`rpc-helius-staked` for Helius, see `runner::rpc_path_label`).
+/// The client's sendTransaction bucket (1/s on the Helius free plan) spaces the sends, so
+/// the actual send times, not the planned offsets, describe this path.
 pub struct RpcSink<'a> {
     rpc: &'a Rpc,
     auth: &'a LiveAuth,
+    label: &'static str,
 }
 
 impl<'a> RpcSink<'a> {
-    pub fn new(rpc: &'a Rpc, auth: &'a LiveAuth) -> Self {
-        Self { rpc, auth }
+    pub fn new(rpc: &'a Rpc, auth: &'a LiveAuth, label: &'static str) -> Self {
+        Self { rpc, auth, label }
     }
 }
 
 impl Sink for RpcSink<'_> {
     fn path(&self) -> &'static str {
-        "rpc"
+        self.label
     }
     async fn prepare(&mut self, _n: usize) -> Result<()> {
         Ok(())

@@ -12,12 +12,36 @@
 //! window, the intercept from the median of the last [`ANCHOR_K`] observations. On 90 s of
 //! public-RPC notifications this cut the 1.5 s-ahead prediction error from 148 to 94 ms
 //! (median) and from 531 to 356 ms (p90) versus the plain fit (LOGBOOK 2026-10-22).
+//!
+//! Both parameters ([`ClockParams`]) are CLI options and are recorded in every run.json,
+//! because the best values depend on the feed: they were tuned on the public RPC and are
+//! re-chosen for the Helius slotSubscribe feed with `examples/clock_eval.rs` (exploratory)
+//! before the prereg freeze.
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 /// Observations used for the intercept (re-anchoring), see module docs.
 pub const ANCHOR_K: usize = 5;
+/// Default sliding window for the slope (~65 s of slots).
+pub const WINDOW: usize = 300;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClockParams {
+    /// Observations in the sliding window (slope).
+    pub window: usize,
+    /// Most recent observations whose median residual sets the intercept.
+    pub anchor_k: usize,
+}
+
+impl Default for ClockParams {
+    fn default() -> Self {
+        Self {
+            window: WINDOW,
+            anchor_k: ANCHOR_K,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Fit {
@@ -39,6 +63,7 @@ impl Fit {
 
 pub struct SlotClock {
     window: usize,
+    anchor_k: usize,
     obs: VecDeque<(u64, i128)>,
 }
 
@@ -70,8 +95,17 @@ fn median(mut v: Vec<f64>) -> f64 {
 
 impl SlotClock {
     pub fn new(window: usize) -> Self {
+        Self::with_params(ClockParams {
+            window,
+            ..ClockParams::default()
+        })
+    }
+
+    pub fn with_params(p: ClockParams) -> Self {
+        let window = p.window.max(3);
         Self {
             window,
+            anchor_k: p.anchor_k.max(1),
             obs: VecDeque::with_capacity(window + 1),
         }
     }
@@ -112,7 +146,7 @@ impl SlotClock {
             .map(|(p, _)| *p)
             .collect();
         let (_, b) = ols(&keep).unwrap_or((a, b));
-        let tail = &pts[pts.len().saturating_sub(ANCHOR_K)..];
+        let tail = &pts[pts.len().saturating_sub(self.anchor_k)..];
         let a = median(tail.iter().map(|p| p.1 - b * p.0).collect());
         Some(Fit {
             t0_ns: t_first as f64 + a,

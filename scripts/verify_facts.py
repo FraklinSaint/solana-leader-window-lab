@@ -3,7 +3,11 @@
 
 Read-only: never signs or sends a transaction. Stdlib only, so it runs anywhere.
 
-    RPC_URL=https://api.mainnet-beta.solana.com python scripts/verify_facts.py
+    RPC_URL=<endpoint from your provider> python scripts/verify_facts.py
+
+The endpoint comes only from the environment. Its API key is never printed or stored:
+the snapshot records the URL with `api-key=REDACTED`. Requests are paced to <= 8/s, and
+429s are retried with exponential backoff (same policy as crates/sender/src/rpc.rs).
 
 Writes data/snapshots/facts_<UTC timestamp>.json (+ gzipped raw cluster/vote/Kobe
 snapshots) and prints a short summary. Exits non-zero if a checked fact no longer holds.
@@ -19,13 +23,20 @@ import itertools
 import json
 import os
 import pathlib
+import re
 import struct
 import sys
 import time
 import urllib.error
 import urllib.request
 
-RPC_URL = os.environ.get("RPC_URL", "https://api.mainnet-beta.solana.com")
+RPC_URL = os.environ.get("RPC_URL", "")
+MIN_INTERVAL_S = 1 / 8
+_last_call = 0.0
+
+
+def redact(s: str) -> str:
+    return re.sub(r"(?i)((?:x-)?api[-_]?key=)[^&\s\"'<>#),;\\]+", r"\1REDACTED", s)
 KOBE_URL = os.environ.get("KOBE_URL", "https://kobe.mainnet.jito.network/api/v1/validators")
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "data" / "snapshots"
@@ -45,19 +56,26 @@ def b58decode(s: str) -> bytes:
 
 def rpc(method: str, params: list | None = None, retries: int = 6):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or []}).encode()
+    global _last_call
     for attempt in range(retries):
+        wait = _last_call + MIN_INTERVAL_S - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _last_call = time.monotonic()
         req = urllib.request.Request(RPC_URL, body, {"content-type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 resp = json.load(r)
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                time.sleep(2 * (attempt + 1))
+                time.sleep(min(0.25 * 2**attempt, 8))
                 continue
-            raise
+            raise RuntimeError(f"{method}: HTTP {e.code}") from None
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"{method}: {redact(str(e.reason))}") from None
         err = resp.get("error")
         if err and "Too many requests" in err.get("message", ""):
-            time.sleep(2 * (attempt + 1))
+            time.sleep(min(0.25 * 2**attempt, 8))
             continue
         return resp
     raise RuntimeError(f"{method}: rate-limited after {retries} retries")
@@ -123,7 +141,10 @@ def main() -> int:
     now = dt.datetime.now(dt.timezone.utc)
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    facts: dict = {"generated_at_utc": now.isoformat(), "rpc_url": RPC_URL}
+    if not RPC_URL:
+        print("RPC_URL is not set (environment only; see .env.example)", file=sys.stderr)
+        return 2
+    facts: dict = {"generated_at_utc": now.isoformat(), "rpc_url": redact(RPC_URL)}
     failures: list[str] = []
 
     facts["getVersion"] = result("getVersion")
