@@ -1,0 +1,9 @@
+{"timestamp":"2026-10-22T16:51:55.523242Z","level":"INFO","fields":{"message":"connected","cluster":"mainnet","data_root":"data"},"target":"sender"}
+{"timestamp":"2026-10-22T16:51:56.346792Z","level":"INFO","fields":{"message":"starting campaign","run_id":"dryrun-20261022T165155Z","targets":10,"payers":32,"lps":5000,"rent_min":650240,"budget":35000000,"hard_ceiling":50000000},"target":"sender"}
+{"timestamp":"2026-10-22T16:51:56.516933Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:52:51.513464Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:52:52.238717Z","level":"INFO","fields":{"message":"window skipped","window":"460110112-DRpbCBMx","reason":"late after re-prediction: -4402 ms left"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-22T16:52:56.707051Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:53:31.519520Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:53:32.476906Z","level":"INFO","fields":{"message":"window skipped","window":"460110300-9eGrDohd","reason":"late after re-prediction: -3526 ms left"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-22T16:53:38.312284Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}

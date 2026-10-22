@@ -1,0 +1,21 @@
+{"timestamp":"2026-10-22T16:43:05.587058Z","level":"INFO","fields":{"message":"connected","cluster":"mainnet","data_root":"data"},"target":"sender"}
+{"timestamp":"2026-10-22T16:43:06.418037Z","level":"INFO","fields":{"message":"starting campaign","run_id":"dryrun-20261022T164305Z","targets":10,"payers":32,"lps":5000,"rent_min":650240,"budget":35000000,"hard_ceiling":50000000},"target":"sender"}
+{"timestamp":"2026-10-22T16:43:06.584711Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:43:33.035492Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:43:38.256751Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:43:47.176797Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:43:52.489251Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:43:58.718710Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:44:05.269889Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:44:12.893795Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:44:18.799874Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:44:36.720197Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:44:42.699258Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:44:48.088378Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:44:53.490600Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:45:15.220424Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:45:21.142867Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:45:30.466196Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:45:36.087856Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:46:06.348919Z","level":"WARN","fields":{"message":"slot websocket failed; polling for 5 s, then reconnecting","error":"websocket closed"},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-22T16:46:12.191628Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://api.mainnet-beta.solana.com"},"target":"slwlab_sender::feed"}

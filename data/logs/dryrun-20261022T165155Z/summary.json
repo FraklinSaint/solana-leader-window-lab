@@ -1,0 +1,29 @@
+{
+  "run_id": "dryrun-20261022T165155Z",
+  "mode": "dry_run",
+  "cluster": "mainnet",
+  "started": "2026-10-22T16:51:56.347060Z",
+  "finished": "2026-10-22T16:54:10.737763Z",
+  "windows_planned": 13,
+  "windows_executed": 11,
+  "skips": {
+    "late after re-prediction: -# ms left": 2,
+    "too close to previous planned window": 19
+  },
+  "txs_sent": 0,
+  "send_errors": 0,
+  "landed": 0,
+  "expired": 0,
+  "unresolved": 0,
+  "spent_run_lamports": null,
+  "reserved_run_lamports": null,
+  "spent_total_lamports": null,
+  "clock_prep": {
+    "windows": 13,
+    "observed": 10,
+    "median_abs_err_ms": 316.619224,
+    "p95_abs_err_ms": 1229.048944,
+    "max_abs_err_ms": 1229.048944
+  },
+  "stopped_early": null
+}
