@@ -53,8 +53,8 @@ def test_source_never_formats_local_time():
     assert hits == [], hits
 
 
-# Rows stamped in local time (UTC+3) before the 2026-10-22 21:30 correction entry.
-CORRECTED_ROWS = {"2026-10-23 00:30", "2026-10-23 00:35"}
+# Rows stamped in local time (UTC+3) before the 2026-10-22 21:30 correction entry (slwlab.utc).
+CORRECTED_ROWS = utc.CORRECTED_LOGBOOK_ROWS
 ROW = re.compile(r"^\| (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) \|")
 
 

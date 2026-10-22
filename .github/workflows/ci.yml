@@ -22,6 +22,8 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install --require-hashes --no-deps -r analysis/requirements.lock
       - run: cd analysis && python -m pytest
+      - run: cd analysis && python -m slwlab.report --check   # docs/REPORT.md is regenerated, never hand-edited
+      - run: python scripts/verify_manifest.py --out /tmp/verify.json
 
   docker:
     runs-on: ubuntu-24.04

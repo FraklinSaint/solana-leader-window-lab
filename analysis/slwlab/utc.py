@@ -74,3 +74,8 @@ def scan_tree(root: pathlib.Path) -> list[tuple[str, str]]:
         if p.name.endswith((".json", ".jsonl", ".json.gz", ".jsonl.gz")):
             out += [(rel + ": " + w, tok) for w, tok in scan_file(p)]
     return out
+
+# LOGBOOK rows stamped in local time (UTC+3) before the 2026-10-22 21:30 correction entry. They
+# stay as written (append-only); readers convert them with this offset.
+CORRECTED_LOGBOOK_ROWS = frozenset({"2026-10-23 00:30", "2026-10-23 00:35"})
+LOCAL_OFFSET_OF_CORRECTED_ROWS_H = 3

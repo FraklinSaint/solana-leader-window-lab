@@ -118,6 +118,25 @@ problem. Tested on synthetic tampering (moved position, changed price, swapped s
 dropped tx, hidden landing, wrong exclusion, extra writable account) and, for R/S/G, against
 one live mainnet block.
 
+## Report (generated, never hand-edited)
+
+`docker compose run --rm analyze` (or `make report`) writes `docs/REPORT.md` from committed files
+only: `data/manifest.jsonl` (MEASUREMENT), `data/exploratory/calibration_manifest.jsonl`
+(EXPLORATORY), `analysis/sim/results/` (SIMULATION) and `docs/LOGBOOK.md` ("What went wrong").
+- **Deterministic.** There are no wall-clock times, the analysis seed is fixed (20261022), and
+  tables are sorted. Inputs are listed with the SHA-256 of their LF-normalized content, so
+  Windows and Linux checkouts give the same bytes. The last line is the SHA-256 of the report
+  body. `make report-check` (run in CI) regenerates the report and fails if the committed file
+  differs.
+- **Labels never mix.** Measured verdicts and the SIMULATION reference (ceilings, allocation,
+  power) are separate sections. Calibration is EXPLORATORY and never yields a verdict.
+- **Scope.** `data/nonmainnet/` is never opened. Lines from another cluster or before slot
+  459,653,000 are dropped, and the drops are counted in the report.
+- **Dates.** Every window is listed with its slot and its block time in UTC. Windows that
+  never landed show their run's UTC start. Each validator × arm row lists the UTC dates of its
+  usable windows.
+- With no measurements, every measured section says **NO DATA YET**.
+
 ## Safety invariants
 
 - **Dry-run by default.** Live mode requires `live`, `CONFIRM_LIVE=yes` and an explicit

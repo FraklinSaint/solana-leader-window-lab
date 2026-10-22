@@ -1,5 +1,5 @@
 PY ?= python
-.PHONY: test rust-test py-test lint facts verify verify-online secrets-check sim history-scan
+.PHONY: test rust-test py-test lint facts verify verify-online report report-check secrets-check sim history-scan
 
 test: rust-test py-test secrets-check
 rust-test:
@@ -13,6 +13,10 @@ facts:
 	$(PY) scripts/verify_facts.py
 verify:            # offline: manifest vs saved blocks, tx contents, exclusions, ledger, hidden data
 	$(PY) scripts/verify_manifest.py
+report:            # docs/REPORT.md from committed files (MEASUREMENT / EXPLORATORY / SIMULATION)
+	cd analysis && $(PY) -m slwlab.report
+report-check:      # exit 1 if docs/REPORT.md is stale or was edited by hand
+	cd analysis && $(PY) -m slwlab.report --check
 verify-online:     # also re-fetch every saved block, leaders and sig statuses from RPC_URL (read-only)
 	$(PY) scripts/verify_manifest.py --online
 secrets-check:

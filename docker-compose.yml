@@ -1,5 +1,5 @@
 # `docker compose up`                      -> dry-run plan on mainnet (never sends)
-# `docker compose run --rm analyze`        -> regenerate docs/REPORT.md from data/
+# `docker compose run --rm analyze`        -> regenerate docs/REPORT.md from committed data/ (deterministic)
 # `docker compose run --rm verify`         -> re-check data/ offline, then re-fetch every block (read-only)
 # `docker compose run --rm sender dry-run --duration-secs 86400`   (Phase 4, never sends)
 # `docker compose run --rm keys init-payers --count 32`             (writes ./secrets)
@@ -39,7 +39,8 @@ services:
     build: { context: ., target: analysis }
     image: slwlab-analysis:local
     profiles: ["manual"]
-    command: ["python", "-m", "pytest", "analysis"]   # replaced by report generation in Phase 1
+    working_dir: /lab/analysis
+    command: ["python", "-m", "slwlab.report"]         # docs/REPORT.md (deterministic, --check to compare)
     volumes:
       - ./data:/lab/data:ro
       - ./docs:/lab/docs
