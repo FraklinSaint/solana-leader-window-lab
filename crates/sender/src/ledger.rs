@@ -120,6 +120,8 @@ pub enum LedgerError {
     },
     #[error("cap {0} exceeds the hard ceiling")]
     CapAboveCeiling(u64),
+    #[error("another process holds the spend ledger ({0}); only one sender may write it at a time")]
+    Locked(String),
 }
 
 /// Proof that a signature is not on chain and can never land.
@@ -145,11 +147,46 @@ impl ExpiryProof {
 pub struct Ledger {
     path: PathBuf,
     file: File,
+    /// Exclusive OS lock on `<ledger>.lock`, held for the Ledger's lifetime: two senders
+    /// (two `live`, or `live` + `fund`/`sweep`/`collect`) can never write the ledger at once.
+    /// Released by the OS when the process exits, even on a crash.
+    _lock: File,
     run_id: String,
     cap: u64,
     open: BTreeMap<String, Reservation>,
     settled: BTreeMap<String, u64>,
     totals: Totals,
+}
+
+/// Lock file next to the ledger (`ledger.jsonl` -> `ledger.jsonl.lock`).
+pub fn lock_path(ledger: &Path) -> PathBuf {
+    let mut name = ledger.file_name().unwrap_or_default().to_os_string();
+    name.push(".lock");
+    ledger.with_file_name(name)
+}
+
+fn acquire_lock(ledger: &Path) -> Result<File, LedgerError> {
+    if let Some(dir) = ledger.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::create_dir_all(dir)?;
+    }
+    let lp = lock_path(ledger);
+    let mut f = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(&lp)?;
+    match f.try_lock() {
+        Ok(()) => {}
+        Err(std::fs::TryLockError::WouldBlock) => {
+            return Err(LedgerError::Locked(lp.display().to_string()));
+        }
+        Err(std::fs::TryLockError::Error(e)) => return Err(e.into()),
+    }
+    // Holder's pid, for humans (the lock itself is what counts).
+    f.set_len(0)?;
+    writeln!(f, "pid {} since {}", std::process::id(), now())?;
+    Ok(f)
 }
 
 fn now() -> String {
@@ -162,6 +199,7 @@ impl Ledger {
         if cap > HARD_CEILING_LAMPORTS {
             return Err(LedgerError::CapAboveCeiling(cap));
         }
+        let lock = acquire_lock(path)?;
         // Replay (and repair a torn tail) through a read/write handle; Windows refuses
         // set_len on append-only handles. Appends then go through a separate append handle.
         let mut rw = OpenOptions::new()
@@ -173,6 +211,7 @@ impl Ledger {
         let mut ledger = Self {
             path: path.to_path_buf(),
             file: OpenOptions::new().append(true).open(path)?,
+            _lock: lock,
             run_id: run_id.to_string(),
             cap,
             open: BTreeMap::new(),
@@ -571,6 +610,50 @@ mod tests {
         ));
         l.settle_expired("a", expired(101)).unwrap();
         assert_eq!(l.totals().reserved_total, 0);
+    }
+
+    #[test]
+    fn second_writer_is_refused_until_the_first_is_dropped() {
+        let d = tempfile::tempdir().unwrap();
+        let path = d.path().join("ledger.jsonl");
+        let first = Ledger::open(&path, "live-1", 20_000).unwrap();
+        // A separate open = a separate lock handle, exactly as a second process gets.
+        match Ledger::open(&path, "live-2", 20_000) {
+            Err(LedgerError::Locked(p)) => assert!(p.ends_with("ledger.jsonl.lock"), "{p}"),
+            Err(e) => panic!("unexpected error {e}"),
+            Ok(_) => panic!("second writer was allowed"),
+        }
+        // From another thread too (no in-process shortcut).
+        let p2 = path.clone();
+        let other = std::thread::spawn(move || Ledger::open(&p2, "live-3", 20_000).is_err());
+        assert!(other.join().unwrap());
+        drop(first);
+        Ledger::open(&path, "live-4", 20_000).unwrap();
+    }
+
+    #[test]
+    fn second_writer_in_another_process_is_refused() {
+        // Re-run this test binary as a child that tries to open the locked ledger.
+        if let Ok(p) = std::env::var("SLWLAB_LEDGER_LOCK_CHILD") {
+            let r = Ledger::open(Path::new(&p), "child", 20_000);
+            std::process::exit(if matches!(r, Err(LedgerError::Locked(_))) {
+                0
+            } else {
+                3
+            });
+        }
+        let d = tempfile::tempdir().unwrap();
+        let path = d.path().join("ledger.jsonl");
+        let _held = Ledger::open(&path, "parent", 20_000).unwrap();
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "ledger::tests::second_writer_in_another_process_is_refused",
+            ])
+            .env("SLWLAB_LEDGER_LOCK_CHILD", &path)
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(0), "child process was not refused");
     }
 
     #[test]
