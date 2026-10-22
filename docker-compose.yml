@@ -1,6 +1,6 @@
 # `docker compose up`                      -> dry-run plan on mainnet (never sends)
 # `docker compose run --rm analyze`        -> regenerate docs/REPORT.md from data/
-# `docker compose run --rm verify`         -> re-check every block against data/manifest.jsonl
+# `docker compose run --rm verify`         -> re-check data/ offline, then re-fetch every block (read-only)
 # `docker compose run --rm sender dry-run --duration-secs 86400`   (Phase 4, never sends)
 # `docker compose run --rm keys init-payers --count 32`             (writes ./secrets)
 # `docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose calibrate --max-spend-lamports N`
@@ -50,6 +50,6 @@ services:
     profiles: ["manual"]
     env_file: [{ path: .env, required: false }]
     environment: [RPC_URL]
-    command: ["python", "scripts/verify_facts.py"]     # replaced by manifest verification in Phase 1
+    command: ["python", "scripts/verify_manifest.py", "--online"]
     volumes:
       - ./data:/lab/data

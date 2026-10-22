@@ -89,7 +89,33 @@ control interval, then **freeze and tag `prereg-v1`** → 6 (confirmatory live c
 *procedure* (docs/PREREGISTRATION.md §0). Its numbers are filled in after calibration and
 before the first confirmatory window. Phase 1 (parser, rules, stats, simulator) is built.
 
-Without Docker: `make test`, `make facts`, `make verify`.
+Without Docker: `make test`, `make facts`, `make verify`, `make verify-online`.
+
+## Verify (no trust in our collector)
+
+`scripts/verify_manifest.py` (stdlib only, read-only) re-checks every claim the analysis uses.
+Offline, from the committed `data/` alone:
+
+| Check | What must hold |
+|---|---|
+| M | unique signatures, `cluster = mainnet`, every slot ≥ 459,653,000 |
+| B | each landed tx sits at its claimed `block_index` of the saved block; tx count, fee, error and producer (single Fee reward) match |
+| T | the on-chain tx matches the manifest: fee payer, recent blockhash, signature count, CU limit, CU price and loaded-data limit decoded from its ComputeBudget instructions; only the payer is writable (plus the shared account in Arm C) |
+| P | each window is in its run's `plan.jsonl`, written before sending, with the same leader, slots, arm, and per-tx limit, price and send rank |
+| X | `exclusion_reason` re-derived from the block (producer, window bounds) |
+| H | no tx marked "not landed" appears in any saved block, and no tx paid by one of our payers appears without a manifest line (no hidden or dropped data) |
+| L | `data/ledger.jsonl`: every measure/calibrate reservation (= every tx sent) has a manifest line and vice versa; landed slot and fee agree |
+
+Online (`--online`, any mainnet `RPC_URL`): **R** each saved block is re-fetched and must have
+the same blockhash, parent and signature order (`--sample K` for a seeded subset); **S** the
+scheduled leader (`getSlotLeaders`) is the block's producer; **G** landed signatures are
+finalized in the claimed slot, and "not landed" signatures are unknown to the cluster. RPC
+nodes serve leader schedules only for about the last 10 epochs (≈ 10 days; epoch 1053 was
+already unavailable on 2026-10-22). Later, S is reported as unavailable, and P and B carry the
+leader evidence. The report goes to `data/verify/verify_<UTC>.json`, and the exit code is 1 on any
+problem. Tested on synthetic tampering (moved position, changed price, swapped send order,
+dropped tx, hidden landing, wrong exclusion, extra writable account) and, for R/S/G, against
+one live mainnet block.
 
 ## Safety invariants
 
@@ -217,7 +243,8 @@ a simulated reference (`analysis/slwlab/sim.py`, labeled SIMULATION everywhere):
 crates/common    fee math, Alpenglow guard, spend ceiling (Rust)
 crates/sender    planner, clock, tx builder, QUIC sender, spend ledger, CLI (Rust)
 analysis/        parser, candidate rules, stats, simulator, report (Python, pytest)
-scripts/         verify_facts.py (re-derives docs/VERIFIED_FACTS.md from RPC), check_no_keys.py
+scripts/         verify_facts.py (re-derives docs/VERIFIED_FACTS.md from RPC), verify_manifest.py
+                 (independent check of data/), check_no_keys.py, scan_history.py, dryrun24h.ps1
 data/            manifest, raw blocks, snapshots, ledger, logs (committed)
 docs/            BOUNTY, VERIFIED_FACTS, PREREGISTRATION, LOGBOOK, REPORT
 secrets/         payer keypairs (gitignored, never committed)

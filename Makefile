@@ -1,5 +1,5 @@
 PY ?= python
-.PHONY: test rust-test py-test lint facts verify secrets-check sim history-scan
+.PHONY: test rust-test py-test lint facts verify verify-online secrets-check sim history-scan
 
 test: rust-test py-test secrets-check
 rust-test:
@@ -11,8 +11,10 @@ lint:
 	cargo clippy --workspace --all-targets --locked -- -D warnings
 facts:
 	$(PY) scripts/verify_facts.py
-verify:            # Phase 1: replaced by manifest/block verification
-	$(PY) scripts/verify_facts.py
+verify:            # offline: manifest vs saved blocks, tx contents, exclusions, ledger, hidden data
+	$(PY) scripts/verify_manifest.py
+verify-online:     # also re-fetch every saved block, leaders and sig statuses from RPC_URL (read-only)
+	$(PY) scripts/verify_manifest.py --online
 secrets-check:
 	$(PY) scripts/check_no_keys.py
 sim:               # SIMULATION: ceilings, power, thresholds -> analysis/sim/results + docs/SIMULATION.md
