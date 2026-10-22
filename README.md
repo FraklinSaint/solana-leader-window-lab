@@ -8,7 +8,8 @@ mainnet validators. From the produced blocks we then decide which candidate orde
 validator follows, how strictly it follows it, or whether it follows any rule at all.
 
 > **Status: Phase 2 built; Phase 1 (rules, statistics, simulator, power analysis, analysis
-> pipeline) built; pre-registration drafted with SIMULATION numbers, not yet frozen.** No
+> pipeline) built; the pre-registered *procedure* is drafted. Its numbers are provisional
+> (pre-calibration SIMULATION) and are re-derived after calibration, then frozen.** No
 > transaction has been sent to mainnet. No measurement exists yet. All dry-run data is exploratory.
 
 ## Quick start
@@ -26,7 +27,7 @@ docker compose run --rm keys init-payers --count 32
 docker compose run --rm sender fund --payer-target-lamports 700000            # prints the plan
 docker compose run --rm -e CONFIRM_LIVE=yes sender fund --payer-target-lamports 700000 --live --max-spend-lamports 200000
 docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose calibrate --offsets -300,-100,0,100 --max-spend-lamports N
-docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose measure --prereg <commit> --max-spend-lamports N
+docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose measure --prereg <commit> --allocation analysis/sim/results/alloc_v2.json --max-spend-lamports N
 docker compose run --rm sender collect        # resolve anything left open (crash recovery)
 docker compose run --rm -e CONFIRM_LIVE=yes sender sweep --live --max-spend-lamports 200000
 docker compose run --rm sender reconcile --since data/snapshots/balances_<first>.json
@@ -78,11 +79,15 @@ for it, and no provider region or key anywhere in the code.
 
 ## Phases
 
-Order agreed at the Phase 0 gate: **2** (sender, ledger, dry-run, clock) → 3 (devnet end-to-end,
-operator) → 4 (24 h mainnet dry-run, selection snapshot, clock error report, prereg frozen and
-tagged `prereg-v1`) → 5 (calibration, ≤ 5,000,000 lamports, operator) → 6 (live campaigns on
-≥ 3 dates) → 7 (report). Phase 1 (parser, rules, stats, simulator) runs in parallel and must be
-complete before the prereg freeze.
+Order (Phase 0 gate, corrected at the Phase 1 gate): **2** (sender, ledger, dry-run, clock) →
+3 (devnet end-to-end, operator) → 4 (24 h mainnet dry-run, selection snapshot, clock error
+report) → 5 (calibration, ≤ 5,000,000 lamports, operator, **exploratory**) → **re-run the
+simulator with nuisance parameters estimated from calibration** (`slwlab.calibrate`,
+order-agnostic statistics only), re-derive ceilings, thresholds, allocation and the positive
+control interval, then **freeze and tag `prereg-v1`** → 6 (confirmatory live campaigns on
+≥ 3 dates, ≤ 38,000,000 lamports) → 7 (report). The pre-registered object is the
+*procedure* (docs/PREREGISTRATION.md §0). Its numbers are filled in after calibration and
+before the first confirmatory window. Phase 1 (parser, rules, stats, simulator) is built.
 
 Without Docker: `make test`, `make facts`, `make verify`.
 
@@ -102,6 +107,10 @@ Without Docker: `make test`, `make facts`, `make verify`.
   the OS releases the lock if the holder crashes.
 - **Keys** come only from `./secrets` (gitignored, mounted read-only except in the `keys`
   service) or env. Secret bytes are never logged. CI runs gitleaks and a keypair-pattern check.
+- **Budgets by purpose** (`crates/common/src/limits.rs`): calibration ≤ 5M, confirmatory ≤ 38M,
+  funding/sweep/retry reserve ≤ 5M, total ≤ 48M lamports, under the 50M compile-time hard
+  ceiling. The planner plans only within its purpose's remaining budget, and fund/sweep refuse
+  to run past the reserve.
 - **No Jito bundles, tips or block-engine endpoints.** Plain transactions only.
 - **Provider API key** only in env / `.env` (git-ignored). It is redacted everywhere, and a
   test fails on any leak (see "RPC provider").
@@ -183,7 +192,20 @@ a simulated reference (`analysis/slwlab/sim.py`, labeled SIMULATION everywhere):
   across rules (`analysis/slwlab/stats.py`).
 
 ## What this does NOT separate
-_TODO._ Known now:
+- **NO_RULE is structurally unreachable for Agave-family validators in the lock-free arms P
+  and R** at an affordable sample size. Agave's 4 worker threads interleave our txs (simulated
+  ceiling ≈ 0.43). So a half-strength rule needs ≈ 40 usable windows for 90% power, and the
+  false-STRICT rate stays above 10% at W = 20. In these arms an absent effect is reported as
+  INCONCLUSIVE, never as "no rule", and STRICT carries a low-separability label. The Agave
+  positive control and the strictness test are therefore **Arm C** (shared write lock, one
+  thread, ceiling ≈ 0.87), where both are cleanly separable in simulation.
+- An internal Agave tie-break index (Slab key) cannot be told apart from random from outside
+  (Arm F, TIE_NONE).
+- Simulator nuisance parameters that cannot be estimated without looking at our txs' order
+  (arrival jitter, execution-time noise, worker busy time) stay at preset levels. Results are
+  reported across those levels.
+- Window-start "prediction error" is relative to slot-notification arrival at our machine, not
+  the leader's real block start.
 - RPC exposes final position only, not entry or microblock boundaries.
 - Arrival time at the leader is not observed directly.
 - Self-reported `clientId`.

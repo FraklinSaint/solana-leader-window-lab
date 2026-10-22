@@ -1,16 +1,30 @@
 # Pre-registration (DRAFT, not yet frozen)
 
-This document is frozen, committed and tagged `prereg-v1` **before the first confirmatory live
-window**. The sender enforces this: `live --purpose measure` refuses to run without
-`--prereg <commit>`. After the tag, thresholds do not change. Any deviation appears in REPORT.md as
-a labeled deviation.
+## 0. What is pre-registered, and when it is frozen
 
-Every number below that was `TBD(sim)` now comes from the simulator: `analysis/slwlab/sim.py`
-and `power.py`, seed 20261022, 200 replications per cell. The results are in
-`analysis/sim/results/sim_v1.json`, rendered as `docs/SIMULATION.md` (`make sim` reproduces
-both). They are labeled **SIMULATION**. No measurement influenced them: no live window exists.
-The frozen copy of `sim_v1.json` at the `prereg-v1` commit is the reference. If the code
-changes later, these values do not.
+The pre-registered object is the **procedure**: rules, arms, statistics, verdict logic, how
+thresholds, allocation and controls are derived from the simulator, and how the simulator's
+nuisance parameters are estimated from calibration. The **numbers** in this document are
+**provisional**: pre-calibration SIMULATION at preset nuisance levels (`sim_v1.json`,
+`alloc_v1.json`, seed 20261022, 200 replications).
+
+Timeline (enforced where code can enforce it):
+1. Calibration (≤ 5,000,000 lamports) runs with `--purpose calibrate`. All its data is
+   **exploratory** (`data/exploratory/`) and never enters a confirmatory table.
+2. `python -m slwlab.calibrate` estimates p_land, clock_sd_ms, offset_ms and bg_between from
+   calibration. It uses **order-agnostic statistics only**: landing counts, clock logs, the
+   block span of our txs, never their order (tested: shuffling block positions changes no
+   estimate). Jitter, execution noise and worker busy time cannot be estimated that way and
+   stay at the preset levels.
+3. The simulator is re-run with the calibrated values as the new primary level, keeping the
+   preset low/high as sensitivity levels. This gives `sim_v2.json` and `alloc_v2.json` (same
+   code, same seed). The numbers in §4–§9 are replaced by those results.
+4. Any calibrated parameter outside the preset low–high range is flagged by `calibrate.py`
+   (`deviation: true`) and appears in REPORT.md as a **labeled deviation**.
+5. This document, with the re-derived numbers, is committed and tagged `prereg-v1` **after
+   calibration and before the first confirmatory window**. `live --purpose measure` refuses to
+   run without `--prereg <commit>` and `--allocation <file>`. After the tag nothing changes.
+   Any later deviation is labeled in REPORT.md.
 
 ## 1. Data classes
 
@@ -109,7 +123,9 @@ Simulated signatures (N = 8, mean tau R_PRICE at gap 0/10/25/60/120 ms): Agave
 ## 7. Verdicts (per cell, thresholds from SIMULATION)
 
 Thresholds are looked up for the cell at N = 6 and the largest simulated W ≤ the achieved
-number of usable windows (W grid 10/20/30/50). Each threshold is the 5th percentile of the
+number of usable windows (W grid 10/20/30/50). The values quoted here are provisional (§0).
+**Strictness on Agave is judged in Arm C.** In Agave arms P and R, STRICT is reported only as
+STRICT_RULE_LOW_SEPARATION. Each threshold is the 5th percentile of the
 statistic under the cell's exact model. Example: Agave, Arm P, R_RATIO_AGAVE, W = 20:
 mean tau_norm ≥ 0.80, CI lower ≥ 0.33, share ≥ 0.55. All cells: SIMULATION.md.
 
@@ -127,25 +143,40 @@ SIMULATION at N = 6, W = 20 (medium nuisance):
   Agave P and R. NO_RULE is therefore not reachable for Agave lock-free arms at W = 20.
 - Null false-positive rate (any rule, Holm), exact test: 0.02–0.06 by arm.
 
-**Positive control (vanilla Agave, R_RATIO_AGAVE, Arm P):** passes if the observed mean raw tau
-lies in the simulator's 95% predictive interval, taken as the union over the nuisance levels.
-At N = 6, W = 20 that interval is **[0.19, 0.67]**. Other W: `positive_control` in `sim_v1.json`.
-A failed positive control is reported prominently, and it weakens every Agave-family verdict.
+**Positive control and strictness test for Agave = Arm C** (vanilla Agave, R_RATIO_AGAVE). The
+shared write lock puts the chain on one thread, so interleaving is gone (ceiling ≈ 0.87). The
+control passes if the observed mean raw tau lies in the simulator's 95% predictive interval,
+taken as the union over the nuisance levels. Provisional, at W = 15: **[0.65, 1.00]**
+(`alloc_v1.json`, `positive_control_agave_C`). Re-derived after calibration. A failed positive
+control is reported prominently, and it weakens every Agave-family verdict.
+**Agave arms P and R are secondary.** Their verdicts carry the low-separability label (§7), and
+NO_RULE is structurally unreachable there (README, "What this does NOT separate"). For
+reference, the old Arm P interval at W = 20 is [0.19, 0.67].
 **Negative control:** label shuffling within windows must give no significant rule (checked by
 the same pipeline). Simulated null false-positive rate: see above.
 
-## 8. Sample size and spend
+## 8. Sample size, allocation and spend
 
-- **N = 6 txs per window.** The SIMULATION design rule picks, among N ∈ {6, 8, 10}, the N whose
-  budget-affordable W gives the highest worst-case power for a half-strength rule over the
-  main cells, provided the exact rule has ≥ 95% power. N = 6: 0.66, N = 8: 0.47, N = 10: 0.48.
-- **Target W = 20 usable windows per validator × arm.** Layout: 40 cells = 3 required strata ×
-  2 validators × 5 arms, plus 5 upside validators × arms P and C.
+- **N = 6 txs per window** (kept at the Phase 1 gate). The SIMULATION design rule chose it among
+  N ∈ {6, 8, 10}: it gives the best worst-case power for a half-strength rule under the budget.
+- **Power-balanced allocation** (`analysis/slwlab/allocate.py`, table in SIMULATION.md):
+  - W per (validator group × arm) is the smallest W on the grid 10…80 at which a half-strength
+    rule is detected with ≥ 90% power. Arm X W is rounded up to a multiple of 5 (equal counts
+    per gap).
+  - Required groups (Agave, JitoAgave, Firedancer; 2 validators each) get arms P, X, R, C, F.
+    Bonus groups (HarmonicAgave, HarmonicFiredancer, BamAgave, BamFiredancer, Rakurai; 1 each)
+    get P, X, C. F is added for bonus groups only if the budget allows.
+  - If the total is over budget, bonus cells are trimmed one grid step at a time, most
+    expensive first. Required cells are never trimmed.
+  - Provisional result: Agave-family P and R need W = 40, C W = 15, X W = 20, F W = 30.
+    Firedancer-family cells need W = 15. One bonus cell is trimmed (HarmonicAgave P: W = 30,
+    power 0.85). Bonus F does not fit. Confirmatory total ≈ 37.7M lamports.
+  - The sender plans by these quotas (`--allocation`, `plan_quota` = attempted windows per
+    validator, i.e. W / P(≥ 5 of 6 land)).
 - Minimum per validator: ≥ 30 usable windows over ≥ 3 UTC dates.
-- Planned spend ≤ 35,000,000 lamports (`PLANNED_SPEND_BUDGET_LAMPORTS`). At N = 6 a window costs
-  31,895 lamports on average when every tx lands, so 90% of the budget buys about 987 windows.
-  The remaining 15,000,000 up to the 50,000,000 hard ceiling is reserve. Funding and sweep fees
-  count as spend. Locked rent does not.
+- **Budgets** (`limits.rs`): calibration ≤ 5,000,000; confirmatory ≤ 38,000,000;
+  funding/sweep/retry reserve ≤ 5,000,000; total ≤ 48,000,000 lamports, under the
+  50,000,000 hard ceiling. Funding and sweep fees count as spend. Locked rent does not.
 
 ## 9. Inclusion and exclusion
 
