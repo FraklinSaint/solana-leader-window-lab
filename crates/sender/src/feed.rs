@@ -74,10 +74,10 @@ async fn poll_loop(rpc: &Rpc, state: &Shared, for_dur: Duration) {
 pub fn spawn(ws_url: Option<String>, rpc: Rpc, state: Shared) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         loop {
-            if let Some(url) = &ws_url {
-                if let Err(e) = ws_loop(url, &state).await {
-                    tracing::warn!(error = %e, "slot websocket failed; falling back to polling for 60s");
-                }
+            if let Some(url) = &ws_url
+                && let Err(e) = ws_loop(url, &state).await
+            {
+                tracing::warn!(error = %e, "slot websocket failed; falling back to polling for 60s");
             }
             poll_loop(&rpc, &state, Duration::from_secs(60)).await;
         }
@@ -89,10 +89,10 @@ pub fn ws_from_http(http: &str) -> String {
     let ws = http
         .replacen("https://", "wss://", 1)
         .replacen("http://", "ws://", 1);
-    if let Some(rest) = ws.strip_prefix("ws://127.0.0.1:") {
-        if let Ok(port) = rest.trim_end_matches('/').parse::<u16>() {
-            return format!("ws://127.0.0.1:{}", port + 1);
-        }
+    if let Some(rest) = ws.strip_prefix("ws://127.0.0.1:")
+        && let Ok(port) = rest.trim_end_matches('/').parse::<u16>()
+    {
+        return format!("ws://127.0.0.1:{}", port + 1);
     }
     ws
 }

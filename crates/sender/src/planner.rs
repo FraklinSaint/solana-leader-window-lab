@@ -110,6 +110,7 @@ pub fn windows_from_leaders(start_slot: u64, leaders: &[String]) -> Vec<(u64, u6
     out
 }
 
+#[allow(clippy::too_many_arguments)] // pure function of its inputs, by design
 pub fn plan_windows(
     start_slot: u64,
     leaders: &[String],
