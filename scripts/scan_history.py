@@ -7,6 +7,7 @@ fragments), any `api-key=` with a value, 64-byte keypair arrays, 87/88-char base
 outside data/, raw bytes of local secret keypairs, and forbidden paths ever committed
 (.env*, secrets/*, id.json, *.keypair.json). Also checks the assistant memory directory.
 Prints counts and paths only. Never prints a secret value. Exit code 1 on any finding.
+"""
 import gzip
 import json
 import pathlib
