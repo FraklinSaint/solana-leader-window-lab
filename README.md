@@ -7,8 +7,9 @@ We send small, controlled bursts of our own transactions into the leader windows
 mainnet validators. From the produced blocks we then decide which candidate ordering rule each
 validator follows, how strictly it follows it, or whether it follows any rule at all.
 
-> **Status: Phase 2 (sender, ledger, dry-run, clock) built; awaiting gate review.** No transaction
-> has been sent to mainnet or devnet. No measurement exists yet. All dry-run data is exploratory.
+> **Status: Phase 2 built; Phase 1 (rules, statistics, simulator, power analysis, analysis
+> pipeline) built; pre-registration drafted with SIMULATION numbers, not yet frozen.** No
+> transaction has been sent to mainnet. No measurement exists yet. All dry-run data is exploratory.
 
 ## Quick start
 
@@ -167,7 +168,19 @@ reverse of price order in X, with the gap swept over {0, 10, 25, 60, 120} ms. Th
 planned offset and every actual send time are recorded.
 
 ### Noise vs rule
-_TODO._ Known noise source from Agave source: parallel worker threads (VERIFIED_FACTS F6).
+A single window cannot say "rule" or "noise". So every verdict is about many windows, against
+a simulated reference (`analysis/slwlab/sim.py`, labeled SIMULATION everywhere):
+- **Ceiling.** Even a validator that follows rule R exactly does not reach tau = 1. Agave's 4
+  worker threads (F6c) record batches in completion order, so our lock-free txs interleave
+  (simulated ceiling ≈ 0.43 for Arm P). Firedancer's microblocks of ≤ 5 txs on 2 exec tiles give
+  ≈ 0.81–0.86. tau is normalized by the ceiling of its cell (family × arm × rule).
+- **Arm C as the clean test.** The shared write lock removes interleaving (ceiling ≈ 0.86–0.90),
+  so Arm C separates a strict rule from a half-strength rule (simulated false-STRICT 0.00).
+- **Thresholds and power** per cell come from the simulator (`docs/SIMULATION.md`). A rule
+  that its arm cannot reveal (e.g. FIFO in arms without send gaps) can never be STRICT, and a
+  cell without ≥ 90% power cannot be called NO_RULE.
+- **Tests** are exact randomization tests over all orderings of each window, Holm-corrected
+  across rules (`analysis/slwlab/stats.py`).
 
 ## What this does NOT separate
 _TODO._ Known now:
