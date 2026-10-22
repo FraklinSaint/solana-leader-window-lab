@@ -15,3 +15,4 @@ This file feeds the "What went wrong" section of docs/REPORT.md.
 | 2026-10-22 15:40 | 0 | surprise | `getClusterNodes` exposes a `clientId` field (AgaveBam, HarmonicAgave, JitoLabs, Firedancer, HarmonicFiredancer, FireBAM, Rakurai, Agave). Vanilla Agave holds only ~1.0% of stake. |
 | 2026-10-22 15:42 | 0 | surprise | Rent-exempt minimum for 0 bytes is 650,240 lamports (not 890,880). |
 | 2026-10-22 15:50 | 0 | env | Docker and gitleaks are not installed on the dev machine (Windows). Container builds and gitleaks run only in CI until they are installed locally. |
+| 2026-10-22 16:08 | 2 | failure | Burst timing test failed once on Windows: a send fired 9 ms late. `tokio::time::sleep` can overshoot by one OS timer tick (~15.6 ms on Windows), and the burst loop only spun for the last 2 ms. Fix: sleep until 20 ms before the target, then spin. Any host running live bursts needs this margin. |

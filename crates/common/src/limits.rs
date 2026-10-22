@@ -3,6 +3,11 @@
 /// Absolute maximum the whole project may spend on fees: 0.05 SOL (bounty requirement).
 pub const HARD_CEILING_LAMPORTS: u64 = 50_000_000;
 
+/// Planning budget for the whole project (fees only). The remaining
+/// `HARD_CEILING_LAMPORTS - PLANNED_SPEND_BUDGET_LAMPORTS` = 15M lamports is reserve for
+/// retries, funding/sweep fees and surprises; the planner never plans into it.
+pub const PLANNED_SPEND_BUDGET_LAMPORTS: u64 = 35_000_000;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CapError {
     /// `--max-spend-lamports` was not given; live mode requires an explicit cap.
