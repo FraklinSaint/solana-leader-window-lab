@@ -39,3 +39,32 @@ jobs:
       - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
       - run: python3 scripts/check_no_keys.py
+
+  # End-to-end against solana-test-validator (crates/sender/src/localnet_tests.rs).
+  # Agave pinned to the mainnet version by release-asset digest.
+  localnet:
+    runs-on: ubuntu-24.04
+    env:
+      AGAVE_URL: https://github.com/anza-xyz/agave/releases/download/v4.3.2/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+      AGAVE_SHA256: 5c9599d7fa397375df69d58e8d4f550ee45463dd6d1ecad9e5a1f053ce8e0933
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with: { toolchain: 1.97.1 }
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - name: Install Agave v4.3.2 (verified)
+        run: |
+          curl -sSfL -o agave.tar.bz2 "$AGAVE_URL"
+          echo "$AGAVE_SHA256  agave.tar.bz2" | sha256sum -c -
+          tar -xjf agave.tar.bz2
+          echo "$PWD/solana-release/bin" >> "$GITHUB_PATH"
+      - name: Start solana-test-validator
+        run: |
+          solana-test-validator --reset --quiet --ledger /tmp/ledger &
+          for i in $(seq 1 60); do
+            curl -sf -H 'content-type: application/json' \
+              -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' http://127.0.0.1:8899 && break
+            sleep 1
+          done
+      - run: cargo test -p slwlab-sender --locked -- --ignored localnet --nocapture
+        env: { SLWLAB_LOCALNET_RPC: "http://127.0.0.1:8899" }

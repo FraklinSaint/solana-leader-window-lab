@@ -1,7 +1,9 @@
 # `docker compose up`                      -> dry-run plan on mainnet (never sends)
 # `docker compose run --rm analyze`        -> regenerate docs/REPORT.md from data/
 # `docker compose run --rm verify`         -> re-check every block against data/manifest.jsonl
-# `docker compose run --rm -e CONFIRM_LIVE=yes sender live --max-spend-lamports N`
+# `docker compose run --rm sender dry-run --duration-secs 86400`   (Phase 4, never sends)
+# `docker compose run --rm keys init-payers --count 32`             (writes ./secrets)
+# `docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose calibrate --max-spend-lamports N`
 services:
   plan:
     build: { context: ., target: sender }
@@ -22,6 +24,16 @@ services:
     volumes:
       - ./data:/lab/data
       - ./secrets:/lab/secrets:ro
+
+  # The only service that may write ./secrets (payer and sink keypairs).
+  keys:
+    image: slwlab-sender:local
+    build: { context: ., target: sender }
+    profiles: ["manual"]
+    env_file: [{ path: .env, required: false }]
+    environment: [RPC_URL]
+    volumes:
+      - ./secrets:/lab/secrets
 
   analyze:
     build: { context: ., target: analysis }

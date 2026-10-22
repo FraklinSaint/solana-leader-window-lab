@@ -667,7 +667,16 @@ async fn warm_clock(ctx: &Ctx) -> Result<feed::Shared> {
 }
 
 async fn plan_only(ctx: &Ctx, a: &PlanArgs, slots: u64) -> Result<()> {
-    let sel = latest_selection(ctx, a.selection.as_ref())?;
+    // A fresh clone (or `docker compose up`) has no selection yet: make one first.
+    let sel = match latest_selection(ctx, a.selection.as_ref()) {
+        Ok(p) => p,
+        Err(_) if a.selection.is_none() => {
+            tracing::info!("no selection snapshot yet: running select-validators first");
+            select_validators(ctx, 40).await?;
+            latest_selection(ctx, None)?
+        }
+        Err(e) => return Err(e),
+    };
     let targets = load_targets(ctx, &sel).await?;
     let lps = lamports_per_signature(&ctx.rpc).await?;
     let committed = ledger_commitment(&ctx.ledger_path())?;

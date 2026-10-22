@@ -460,7 +460,7 @@ impl<'a> Runner<'a> {
         }
     }
 
-    pub async fn run(mut self) -> Result<RunSummary> {
+    fn write_run_json(&self) -> Result<()> {
         self.log(
             "run.json",
             &serde_json::json!({
@@ -470,7 +470,26 @@ impl<'a> Runner<'a> {
                 "payers": self.pool.len(), "shared_sink": self.shared_sink.map(|p| p.to_string()),
                 "started": self.summary.started,
             }),
-        )?;
+        )
+    }
+
+    /// Execute pre-built windows in order (localnet tests, where one validator leads every
+    /// slot and the planner finds no window boundaries). Same execution path as `run`.
+    pub async fn run_fixed(mut self, windows: Vec<PlannedWindow>) -> Result<RunSummary> {
+        self.write_run_json()?;
+        self.wait_for_clock().await?;
+        self.summary.windows_planned = windows.len();
+        for w in windows {
+            if self.stop.is_some() {
+                break;
+            }
+            self.execute(w).await?;
+        }
+        self.finish().await
+    }
+
+    pub async fn run(mut self) -> Result<RunSummary> {
+        self.write_run_json()?;
         self.wait_for_clock().await?;
         let deadline = unix_ns() + i128::from(self.cfg.duration_secs) * 1_000_000_000;
         let mut state = PlanState::default();
@@ -530,6 +549,11 @@ impl<'a> Runner<'a> {
                 }
             }
         }
+        self.finish().await
+    }
+
+    /// Drain the collector (live), let the last clock watches resolve, write summary.json.
+    async fn finish(mut self) -> Result<RunSummary> {
         if self.mode.is_live() {
             let end = Instant::now() + Duration::from_secs(240);
             while self.collector.pending_len() > 0 && Instant::now() < end {

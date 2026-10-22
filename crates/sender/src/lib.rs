@@ -9,6 +9,8 @@ pub mod funding;
 pub mod keys;
 pub mod ledger;
 pub mod live;
+#[cfg(test)]
+mod localnet_tests;
 pub mod planner;
 pub mod quic;
 pub mod rpc;
