@@ -396,6 +396,7 @@ pub struct RunnerInit<'a> {
 pub struct Runner<'a> {
     rpc: Rpc,
     cluster: Cluster,
+    data_root: PathBuf,
     run_dir: PathBuf,
     cfg: RunConfig,
     plan_cfg: PlanConfig,
@@ -416,6 +417,9 @@ pub struct Runner<'a> {
     watchdog: Option<tokio::task::JoinHandle<()>>,
     last_hourly: Instant,
     slots_dumped_through: u64,
+    epoch_map: Option<crate::leaders::EpochMap>,
+    /// Epochs whose leader schedule is known to be in data/snapshots (leaders.rs).
+    schedules_saved: std::collections::BTreeSet<u64>,
 }
 
 /// Where a run's measurement outcomes go. Dry-runs write none; calibration is exploratory.
@@ -473,6 +477,9 @@ impl<'a> Runner<'a> {
             watchdog: None,
             last_hourly: Instant::now(),
             slots_dumped_through: 0,
+            epoch_map: None,
+            schedules_saved: std::collections::BTreeSet::new(),
+            data_root: init.data_root,
         })
     }
 
@@ -582,6 +589,11 @@ impl<'a> Runner<'a> {
                         break;
                     }
                 };
+                self.snapshot_schedules(
+                    next_start,
+                    next_start + self.cfg.chunk_slots.saturating_sub(1),
+                )
+                .await;
                 let (planned, skips) = planner::plan_windows(
                     next_start,
                     &leaders,
@@ -647,6 +659,51 @@ impl<'a> Runner<'a> {
                 Err(e) if unix_ns() < deadline => self.rpc_gap("getSlot", &e).await,
                 Err(e) => return Err(e),
             }
+        }
+    }
+
+    /// Save the leader schedule of every epoch touched by [from, to] once (leaders.rs). A
+    /// failure is logged as an `rpc_error` gap and retried with the next planning chunk.
+    async fn snapshot_schedules(&mut self, from: u64, to: u64) {
+        let start = unix_ns();
+        let res: Result<()> = async {
+            if self.epoch_map.is_none() {
+                self.epoch_map = Some(crate::leaders::EpochMap::from_info(
+                    &self.rpc.epoch_info().await?,
+                ));
+            }
+            let m = self.epoch_map.expect("set above");
+            for slot in [from, to] {
+                let (epoch, _) = m.epoch_of(slot);
+                if self.schedules_saved.contains(&epoch) {
+                    continue;
+                }
+                let (epoch, written) = crate::leaders::ensure(
+                    &self.rpc,
+                    &self.data_root,
+                    &self.cluster.name(),
+                    &m,
+                    slot,
+                )
+                .await?;
+                if written {
+                    tracing::info!(epoch, "leader schedule snapshot saved");
+                }
+                self.schedules_saved.insert(epoch);
+            }
+            Ok(())
+        }
+        .await;
+        if let Err(e) = res {
+            crate::gaps::log_gap(
+                &self.run_dir,
+                &crate::gaps::Gap::new(
+                    "rpc_error",
+                    start,
+                    unix_ns(),
+                    Some(format!("leader schedule snapshot: {e:#}")),
+                ),
+            );
         }
     }
 

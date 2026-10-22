@@ -710,6 +710,24 @@ async fn select_validators(ctx: &Ctx, min_windows: usize) -> Result<()> {
         .unwrap_or_default();
     // Horizon: rest of this epoch + the next one (when its schedule is already known).
     let epoch_start = epoch.absolute_slot - epoch.slot_index;
+    let emap = slwlab_sender::leaders::EpochMap::from_info(&epoch);
+    for s in [epoch_start, epoch_start + epoch.slots_in_epoch] {
+        match slwlab_sender::leaders::ensure(
+            &ctx.rpc,
+            &ctx.data_root,
+            &ctx.cluster.name(),
+            &emap,
+            s,
+        )
+        .await
+        {
+            Ok((e, true)) => println!("leader schedule snapshot: epoch {e}"),
+            Ok(_) => {}
+            Err(e) => {
+                tracing::warn!(error = %format!("{e:#}"), "leader schedule snapshot not saved")
+            }
+        }
+    }
     let mut windows = select::count_windows(
         &ctx.rpc.leader_schedule(epoch.absolute_slot).await?,
         epoch_start,

@@ -102,6 +102,7 @@ Offline, from the committed `data/` alone:
 | B | each landed tx sits at its claimed `block_index` of the saved block; tx count, fee, error and producer (single Fee reward) match |
 | T | the on-chain tx matches the manifest: fee payer, recent blockhash, signature count, CU limit, CU price and loaded-data limit decoded from its ComputeBudget instructions; only the payer is writable (plus the shared account in Arm C) |
 | P | each window is in its run's `plan.jsonl`, written before sending, with the same leader, slots, arm, and per-tx limit, price and send rank |
+| E | the leader-schedule snapshot of the window's epoch (`data/snapshots/leader_schedule_epoch<E>.json.gz`, the raw `getLeaderSchedule` result saved by `select-validators` and by the runner the first time it plans in an epoch, ≈ 1.1 MB per epoch) names the window's validator for all its slots and the landed slot |
 | X | `exclusion_reason` re-derived from the block (producer, window bounds) |
 | H | no tx marked "not landed" appears in any saved block, and no tx paid by one of our payers appears without a manifest line (no hidden or dropped data) |
 | L | `data/ledger.jsonl`: every measure/calibrate reservation (= every tx sent) has a manifest line and vice versa; landed slot and fee agree |
@@ -111,8 +112,8 @@ the same blockhash, parent and signature order (`--sample K` for a seeded subset
 scheduled leader (`getSlotLeaders`) is the block's producer; **G** landed signatures are
 finalized in the claimed slot, and "not landed" signatures are unknown to the cluster. RPC
 nodes serve leader schedules only for about the last 10 epochs (≈ 10 days; epoch 1053 was
-already unavailable on 2026-10-22). Later, S is reported as unavailable, and P and B carry the
-leader evidence. The report goes to `data/verify/verify_<UTC>.json`, and the exit code is 1 on any
+already unavailable on 2026-10-22). Later, S is reported as unavailable, and the offline
+snapshot check E carries the leader evidence. The report goes to `data/verify/verify_<UTC>.json`, and the exit code is 1 on any
 problem. Tested on synthetic tampering (moved position, changed price, swapped send order,
 dropped tx, hidden landing, wrong exclusion, extra writable account) and, for R/S/G, against
 one live mainnet block.

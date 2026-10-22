@@ -9,6 +9,7 @@ pub mod feed;
 pub mod funding;
 pub mod gaps;
 pub mod keys;
+pub mod leaders;
 pub mod ledger;
 pub mod live;
 #[cfg(test)]

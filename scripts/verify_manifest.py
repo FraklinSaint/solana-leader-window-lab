@@ -17,6 +17,10 @@ Offline, from `data/` alone (no trust in the collector):
   P  every window was planned before sending: `logs/<run>/plan.jsonl` holds it with the same
      leader (from getSlotLeaders at plan time), slots, arm, and per-tx CU limit, price and
      send rank.
+  E  the leader-schedule snapshot of each window's epoch
+     (`snapshots/leader_schedule_epoch<E>.json.gz`, raw getLeaderSchedule saved when the epoch
+     was first planned) names the window's validator for all its slots and for the landed slot.
+     Providers keep schedules for only ~10 epochs, so this is the durable leader evidence.
   X  `exclusion_reason` is re-derived from the block (producer, window bounds), not trusted.
   H  hidden data: no manifest tx marked "not landed" appears in any saved block, and no tx
      paid by one of our payers appears in a saved block without a manifest line.
@@ -157,6 +161,44 @@ def expected_exclusion(t: dict, slot: int, producer: str | None) -> str | None:
 
 
 # ---------- offline checks ----------
+
+def load_schedules(data_root: pathlib.Path) -> list[dict]:
+    out = []
+    for p in sorted((data_root / "snapshots").glob("leader_schedule_epoch*.json.gz")):
+        with gzip.open(p, "rt", encoding="utf-8") as f:
+            d = json.load(f)
+        # identity -> set of absolute slots
+        d["by_slot"] = {d["first_slot"] + i: k for k, idx in d["schedule"].items() for i in idx}
+        out.append(d)
+    return out
+
+
+def check_schedules(lines: list[dict], data_root: pathlib.Path, rep: Report) -> None:
+    scheds = load_schedules(data_root)
+
+    def leader(slot: int) -> tuple[bool, str | None]:
+        for d in scheds:
+            if d["first_slot"] <= slot < d["first_slot"] + d["slots_in_epoch"]:
+                return True, d["by_slot"].get(slot)
+        return False, None
+
+    windows: dict[str, list[dict]] = defaultdict(list)
+    for l in lines:
+        windows[l["tx"]["window_id"]].append(l)
+    for wid, ls in sorted(windows.items()):
+        t = ls[0]["tx"]
+        slots = set(range(t["first_slot"], t["first_slot"] + t["n_slots"]))
+        slots |= {l["outcome"]["slot"] for l in ls if l["outcome"]["status"] == "landed"
+                  and not l["outcome"].get("exclusion_reason")}
+        bad = []
+        for s in sorted(slots):
+            have, who = leader(s)
+            if not have:
+                bad.append(f"{s}:no_snapshot")
+            elif who != t["identity"]:
+                bad.append(f"{s}:{who}")
+        rep.fail("E", "not the scheduled leader: " + ",".join(bad), window_id=wid) if bad else rep.ok("E")
+
 
 def check_plans(lines: list[dict], data_root: pathlib.Path, rep: Report) -> None:
     plans: dict[str, dict | None] = {}
@@ -415,6 +457,7 @@ def main(argv: list[str] | None = None) -> int:
     rep = Report()
     summary = {"offline": check_offline(lines, data_root, ledger, rep)}
     check_plans(lines, data_root, rep)
+    check_schedules(lines, data_root, rep)
     url = os.environ.get("RPC_URL", "")
     if a.online:
         if not url:

@@ -99,6 +99,13 @@ def build(tmp, windows=4, n=6, arm="P", seed=0):
         with gzip.open(d / f"{slot}.json.gz", "wt", encoding="utf-8") as f:
             json.dump({"blockhash": key(rng), "parentSlot": slot - 1, "transactions": block,
                        "rewards": [{"rewardType": "Fee", "pubkey": IDENT, "lamports": 1}]}, f)
+    first = 460_080_000  # epoch 1065
+    sched = {IDENT: [s - first + j for s in range(460_200_000, 460_200_000 + 8 * windows, 8) for j in range(4)],
+             "OtherLeader1111111111111111111111111111111": [s - first + j for s in range(460_200_004, 460_200_000 + 8 * windows, 8) for j in range(4)]}
+    (tmp / "snapshots").mkdir(parents=True, exist_ok=True)
+    with gzip.open(tmp / "snapshots" / "leader_schedule_epoch1065.json.gz", "wt", encoding="utf-8") as f:
+        json.dump({"label": "SNAPSHOT", "epoch": 1065, "first_slot": first, "slots_in_epoch": 432_000,
+                   "schedule": sched}, f)
     logs = tmp / "logs" / "live-20261101T000000Z"
     logs.mkdir(parents=True, exist_ok=True)
     (logs / "plan.jsonl").write_text("".join(json.dumps(p) + "\n" for p in plan))
@@ -109,6 +116,7 @@ def run(tmp, lines, ledger):
     rep = vm.Report()
     vm.check_offline(lines, tmp, ledger, rep)
     vm.check_plans(lines, tmp, rep)
+    vm.check_schedules(lines, tmp, rep)
     return rep
 
 
@@ -117,7 +125,7 @@ def test_clean_data_passes(tmp_path):
         lines, ledger = build(tmp_path / arm, arm=arm)
         rep = run(tmp_path / arm, lines, ledger)
         assert rep.problems == [], rep.problems
-        assert {"M", "B", "T", "P", "X", "H", "L"} <= set(rep.checked)
+        assert {"M", "B", "T", "P", "E", "X", "H", "L"} <= set(rep.checked)
 
 
 def test_main_writes_report_and_exit_code(tmp_path):
@@ -168,6 +176,17 @@ def test_dropped_tx_and_wrong_exclusion_are_caught(tmp_path):
     lines, ledger = build(tmp_path, seed=2)
     first_landed(lines)["tx"]["first_slot"] -= 100  # landed outside its window, claimed clean
     assert "X" in checks_failed(run(tmp_path, lines, ledger))
+
+
+def test_window_of_a_non_scheduled_leader_is_caught(tmp_path):
+    lines, ledger = build(tmp_path)
+    for l in lines:
+        if l["tx"]["window_id"] == lines[0]["tx"]["window_id"]:
+            l["tx"]["first_slot"] += 4  # the 4 slots that belong to OtherLeader
+    rep = run(tmp_path, lines, ledger)
+    assert any(p["check"] == "E" and "OtherLeader" in p["problem"] for p in rep.problems)
+    (tmp_path / "snapshots" / "leader_schedule_epoch1065.json.gz").unlink()
+    assert any("no_snapshot" in p["problem"] for p in run(tmp_path, lines, ledger).problems)
 
 
 def test_pre_alpenglow_and_non_mainnet_are_rejected(tmp_path):

@@ -376,11 +376,15 @@ impl Rpc {
             .await
     }
     /// Leader schedule of the epoch containing `slot`: identity -> slot indices in the epoch.
+    /// Raw `getLeaderSchedule` result for the epoch of `slot` (null if unknown).
+    pub async fn leader_schedule_raw(&self, slot: u64) -> Result<Value> {
+        self.call("getLeaderSchedule", json!([slot])).await
+    }
     pub async fn leader_schedule(
         &self,
         slot: u64,
     ) -> Result<std::collections::HashMap<String, Vec<u64>>> {
-        let v = self.call("getLeaderSchedule", json!([slot])).await?;
+        let v = self.leader_schedule_raw(slot).await?;
         if v.is_null() {
             bail!("getLeaderSchedule: no schedule for the epoch of slot {slot}");
         }
