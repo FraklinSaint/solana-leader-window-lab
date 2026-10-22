@@ -84,6 +84,8 @@ pub struct RunConfig {
     pub simulate_every: usize,
     pub selection_ref: Option<String>,
     pub min_clock_obs: usize,
+    /// Commit of the frozen pre-registration (`prereg-v1`). Required for confirmatory runs.
+    pub prereg: Option<String>,
 }
 
 impl Default for RunConfig {
@@ -98,7 +100,9 @@ impl Default for RunConfig {
             rpc_every: None,
             simulate_every: 25,
             selection_ref: None,
-            min_clock_obs: 30,
+            // a stable slope needs ~100 notifications (~20 s); see clock.rs
+            min_clock_obs: 100,
+            prereg: None,
         }
     }
 }

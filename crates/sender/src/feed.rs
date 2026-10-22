@@ -23,7 +23,8 @@ pub type Shared = Arc<Mutex<SlotState>>;
 
 pub fn new_state() -> Shared {
     Arc::new(Mutex::new(SlotState {
-        clock: SlotClock::new(3000),
+        // ~65 s of slots for the slope; see clock.rs for why not more.
+        clock: SlotClock::new(300),
         first_seen: BTreeMap::new(),
         source: "none",
     }))

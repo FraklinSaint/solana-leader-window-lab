@@ -6,9 +6,18 @@
 //! rejecting residuals beyond 4 MADs (skipped/late notifications). It predicts when we will
 //! *observe* a slot, which differs from when the leader starts building it by a constant
 //! offset; the calibration offset sweep absorbs that constant.
+//!
+//! Slot timing wanders (residuals of a straight line over minutes are autocorrelated, lag-1
+//! ~0.8 on mainnet, 2026-10-22), so the line is *re-anchored*: the slope comes from the whole
+//! window, the intercept from the median of the last [`ANCHOR_K`] observations. On 90 s of
+//! public-RPC notifications this cut the 1.5 s-ahead prediction error from 148 to 94 ms
+//! (median) and from 531 to 356 ms (p90) versus the plain fit (LOGBOOK 2026-10-22).
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+
+/// Observations used for the intercept (re-anchoring), see module docs.
+pub const ANCHOR_K: usize = 5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Fit {
@@ -102,7 +111,9 @@ impl SlotClock {
             .filter(|(_, r)| mad == 0.0 || r.abs() <= 4.0 * mad)
             .map(|(p, _)| *p)
             .collect();
-        let (a, b) = ols(&keep).unwrap_or((a, b));
+        let (_, b) = ols(&keep).unwrap_or((a, b));
+        let tail = &pts[pts.len().saturating_sub(ANCHOR_K)..];
+        let a = median(tail.iter().map(|p| p.1 - b * p.0).collect());
         Some(Fit {
             t0_ns: t_first as f64 + a,
             slot0,
@@ -147,6 +158,30 @@ mod tests {
             (pred - truth).abs() < 5e6,
             "err ms {}",
             (pred - truth) / 1e6
+        );
+    }
+
+    #[test]
+    fn re_anchoring_tracks_wander() {
+        // 300 slots at 212 ms, then the chain falls 300 ms behind over 20 slots and keeps
+        // the new phase. A plain line would split the difference; the anchored fit follows.
+        let mut c = SlotClock::new(300);
+        let mut t: i128 = 0;
+        for i in 0..340u64 {
+            t += 212_000_000
+                + if (300..320).contains(&i) {
+                    15_000_000
+                } else {
+                    0
+                };
+            c.observe(i, t);
+        }
+        let f = c.fit().unwrap();
+        let truth = (t + 7 * 212_000_000) as f64;
+        assert!(
+            (f.predict_ns(346) - truth).abs() < 20e6,
+            "{}",
+            (f.predict_ns(346) - truth) / 1e6
         );
     }
 

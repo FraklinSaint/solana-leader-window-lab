@@ -170,6 +170,15 @@ contains only `greedy_scheduler.rs`; `prio_graph_scheduler.rs` no longer exists.
     validators.app software client).
   - **medium**: `clientId` only.
   - **low**: version string only.
+- Kobe `running_jito=true` does **not** contradict `clientId=Firedancer`. Firedancer ships its own
+  Jito block-engine client: `src/disco/bundle/fd_bundle_tile.c:172` (publishes block engine `"jito"`),
+  `src/disco/bundle/fd_bundle_client.c:188,210` (`BlockEngineValidator` RPCs), and pack schedules
+  bundles next to ordinary transactions (`src/disco/pack/fd_pack.h:190-198,474-487`;
+  `src/disco/pack/fd_pack_tile.c:681` tags them `FD_TXN_M_TPU_SOURCE_BUNDLE`), all at `b14bff44`.
+  Ordinary (non-bundle) transactions are still ordered by fd_pack. On 2026-10-22, 17 of 19
+  Firedancer-labelled voting validators had `running_jito=true`. The confidence rule therefore
+  checks only `running_bam` for Firedancer. A Kobe entry whose deciding field is `null` (e.g.
+  `running_bam: null` for 248 AgaveBam nodes) is *unknown*, so confidence is **medium**, not low.
 - Jito Kobe API `https://kobe.mainnet.jito.network/api/v1/validators` works without a key. Per
   validator it returns `running_jito`, `running_bam`, `bam_connection_rate`, `active_stake`,
   `identity_account` and `vote_account`. `bam_connection_rate < 1` means BAM is only intermittent:
