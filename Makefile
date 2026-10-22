@@ -1,5 +1,5 @@
 PY ?= python
-.PHONY: test rust-test py-test lint facts verify secrets-check sim
+.PHONY: test rust-test py-test lint facts verify secrets-check sim history-scan
 
 test: rust-test py-test secrets-check
 rust-test:
@@ -19,3 +19,5 @@ sim:               # SIMULATION: ceilings, power, thresholds -> analysis/sim/res
 	cd analysis && $(PY) -m slwlab.power --reps 200 --out sim/results/sim_v1.json
 	cd analysis && $(PY) -m slwlab.allocate --reps 200 --out sim/results/alloc_v1.json --md sim/results/alloc_v1.md
 	cd analysis && $(PY) -m slwlab.simreport --sim sim/results/sim_v1.json --out ../docs/SIMULATION.md
+history-scan:      # before every push: whole git history + memory dir, never prints secrets
+	$(PY) scripts/scan_history.py . $(MEMDIR)
