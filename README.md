@@ -13,7 +13,7 @@ validator follows, how strictly it follows it, or whether it follows any rule at
 ## Quick start
 
 ```bash
-cp .env.example .env              # set RPC_URL (a private RPC is strongly recommended)
+cp .env.example .env              # set RPC_URL and RPC_WS_URL (env only; see "RPC provider")
 docker compose up                 # select validators (if needed) + print the window plan. Never sends.
 docker compose run --rm sender dry-run --duration-secs 86400   # real-time loop, nothing sent
 docker compose run --rm analyze   # regenerate docs/REPORT.md from committed data/
@@ -33,6 +33,39 @@ docker compose run --rm sender reconcile --since data/snapshots/balances_<first>
 `init-payers`, `balances`, `fund`, `sweep`, `reconcile`. Run `sender <cmd> --help` for options.
 Data from any cluster other than mainnet (decided by genesis hash) goes to
 `data/nonmainnet/<cluster>/` and is never analyzed.
+
+## RPC provider
+
+Provider: **Helius, free plan** (1M credits/month, 10 req/s, `sendTransaction` 1/s, 5 WebSocket
+connections; docs checked 2026-10-22). Endpoints come **only** from the environment
+(`RPC_URL`, `RPC_WS_URL`, or a git-ignored `.env`). There is no default endpoint, no CLI flag
+for it, and no provider region or key anywhere in the code.
+
+- **Rate limit.** One token bucket is shared by every RPC call of the process: 8 req/s sustained,
+  burst 2, so at most 10 in any second. Retries count too. `sendTransaction` additionally
+  waits for its own 1/s bucket. A 429 is retried with exponential backoff (250 ms doubling,
+  8 s cap, `Retry-After` honoured) and logged. `--rpc-rps` / `--send-tx-rps` can only lower
+  the limits.
+- **WebSockets.** At most 4 per process. Only standard `slotSubscribe` is used:
+  `slotsUpdatesSubscribe` is not offered on Helius LaserStream WSS.
+- **Standard methods only.** `rpc.rs::ALLOWED_METHODS` refuses anything else before a request
+  is made. There is no transactionSubscribe, no blockSubscribe and no paid-only extension.
+  Outcomes come from `getBlock` and `getSignatureStatuses`.
+- **Credits.** Every call and every received WebSocket byte is metered (1 credit per call;
+  2 credits per 0.1 MB streamed). Each run's `summary.json` has the per-method totals, and every
+  command appends to `data/credits/credits.jsonl`. A warning fires when the month-to-date
+  estimate reaches 50% of the quota. The Helius dashboard is the authority; this is an
+  estimate.
+- **API-key redaction.** `api-key=` values are replaced by `REDACTED` in every log writer,
+  error message and stored endpoint (`redact.rs`). `cargo test --test no_api_keys` and
+  `make secrets-check` fail if a key pattern appears in any tracked file or anywhere under
+  `data/`.
+- **RPC comparison path = `rpc-helius-staked`.** Helius documents `sendTransaction` as routed
+  through staked connections by default ("Staked Connections (default)", 1 credit), but states
+  this explicitly only for paid plans. The free plan also caps it at 1/s, so an 8-tx RPC window
+  is spread over ≈ 7 s, beyond a 4-slot leader window. Calibration therefore treats this path
+  as a landing test. If the free plan rejects or does not land these txs, that is reported as a
+  landing result and the arm is dropped. Helius Sender is not used: it requires tips.
 
 ## Phases
 
@@ -58,6 +91,8 @@ Without Docker: `make test`, `make facts`, `make verify`.
 - **Keys** come only from `./secrets` (gitignored, mounted read-only except in the `keys`
   service) or env. Secret bytes are never logged. CI runs gitleaks and a keypair-pattern check.
 - **No Jito bundles, tips or block-engine endpoints.** Plain transactions only.
+- **Provider API key** only in env / `.env` (git-ignored). It is redacted everywhere, and a
+  test fails on any leak (see "RPC provider").
 
 ## Why this design
 
@@ -85,13 +120,18 @@ Primary path: direct QUIC to the leader's gossip `tpuQuic` (ALPN `solana-tpu`, o
 unidirectional stream per tx). The connection is opened about 1.5 s before the burst; all txs are
 signed in advance, and the burst loop only writes bytes, each within 2 ms of its planned
 offset. Comparison path: `live --rpc-every k` sends every k-th window through RPC
-`sendTransaction`. Each tx records monotonic and wall-clock send times, connection and stream
+`sendTransaction`, recorded as path `rpc-helius-staked` (see "RPC provider"; sends are
+spaced ≥ 1 s by the free plan's limit, and the actual send times are recorded).
+`summary.json` reports sent/errors/landed/expired per path. Each tx records monotonic and wall-clock send times, connection and stream
 id, handshake time and RTT. Send time comes from a slot clock fitted to `slotSubscribe`
-notifications. Its slope uses ~300 observations, its intercept is re-anchored on the last 5, and
-it is re-predicted continuously while waiting. Every window logs predicted vs observed start
+notifications. Its slope uses ~300 observations, its intercept is re-anchored on the last 5
+(`--clock-window`, `--clock-anchor-k`, recorded in run.json), and it is re-predicted
+continuously while waiting. `examples/clock_eval.rs` replays a recorded feed to compare
+parameters (exploratory). Every window logs predicted vs observed start
 (`clock.jsonl`). Caveats: we are an unstaked client (QoS limits, F9). For BAM validators the TPU
 address may route to a BAM node (F7). Harmonic FIFO timestamps arrival "at the builder". The
-public RPC slot feed is too noisy for sub-window timing (LOGBOOK), so a private RPC is required.
+public RPC slot feed is too noisy for sub-window timing (LOGBOOK). The Helius feed is re-measured
+before the prereg freeze.
 
 ### Interaction of our own transactions with each other
 In arms P, F, X and R, each tx has its own fee payer and no other writable account (tested), so
