@@ -13,7 +13,10 @@
 //!   stripped of their URL and redacted.
 
 use crate::credits::CreditMeter;
-use crate::ratelimit::{MAX_RPC_PER_SEC, MAX_SEND_TX_PER_SEC, RPC_BURST, TokenBucket};
+use crate::ratelimit::{
+    FileBucket, Limiter, MAX_RPC_PER_SEC, MAX_SEND_TX_PER_SEC, RPC_BURST, SHARED_RPC,
+    SHARED_SEND_TX, TokenBucket,
+};
 use crate::redact::redact;
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
@@ -50,10 +53,12 @@ pub const ALLOWED_METHODS: &[&str] = &[
     "simulateTransaction",
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RpcLimits {
     pub per_sec: f64,
     pub send_tx_per_sec: f64,
+    /// Some(dir): buckets shared with every other process using `dir` (ratelimit.rs).
+    pub shared_dir: Option<std::path::PathBuf>,
 }
 
 impl Default for RpcLimits {
@@ -61,6 +66,7 @@ impl Default for RpcLimits {
         Self {
             per_sec: MAX_RPC_PER_SEC,
             send_tx_per_sec: MAX_SEND_TX_PER_SEC,
+            shared_dir: None,
         }
     }
 }
@@ -70,8 +76,8 @@ pub struct Rpc {
     url: String,
     http: reqwest::Client,
     max_retries: u32,
-    bucket: TokenBucket,
-    send_bucket: TokenBucket,
+    bucket: Limiter,
+    send_bucket: Limiter,
     meter: CreditMeter,
 }
 
@@ -149,8 +155,21 @@ impl Rpc {
                 .build()
                 .expect("http client"),
             max_retries: 8,
-            bucket: TokenBucket::new(limits.per_sec, RPC_BURST),
-            send_bucket: TokenBucket::new(limits.send_tx_per_sec, 1.0),
+            bucket: match &limits.shared_dir {
+                Some(d) => {
+                    Limiter::Shared(FileBucket::new(d, SHARED_RPC, limits.per_sec, RPC_BURST))
+                }
+                None => Limiter::Local(TokenBucket::new(limits.per_sec, RPC_BURST)),
+            },
+            send_bucket: match &limits.shared_dir {
+                Some(d) => Limiter::Shared(FileBucket::new(
+                    d,
+                    SHARED_SEND_TX,
+                    limits.send_tx_per_sec,
+                    1.0,
+                )),
+                None => Limiter::Local(TokenBucket::new(limits.send_tx_per_sec, 1.0)),
+            },
             meter,
         }
     }
@@ -164,11 +183,13 @@ impl Rpc {
         &self.meter
     }
 
-    pub fn limits(&self) -> RpcLimits {
-        RpcLimits {
-            per_sec: self.bucket.rate(),
-            send_tx_per_sec: self.send_bucket.rate(),
-        }
+    /// (general req/s, sendTransaction/s, shared across processes?)
+    pub fn limits(&self) -> (f64, f64, bool) {
+        (
+            self.bucket.rate(),
+            self.send_bucket.rate(),
+            matches!(self.bucket, Limiter::Shared(_)),
+        )
     }
 
     pub async fn call(&self, method: &str, params: Value) -> Result<Value> {
@@ -462,6 +483,7 @@ mod tests {
             RpcLimits {
                 per_sec: 20.0,
                 send_tx_per_sec: 1.0,
+                shared_dir: None,
             },
             CreditMeter::default(),
         );

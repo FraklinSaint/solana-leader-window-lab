@@ -6,8 +6,9 @@ Read-only: never signs or sends a transaction. Stdlib only, so it runs anywhere.
     RPC_URL=<endpoint from your provider> python scripts/verify_facts.py
 
 The endpoint comes only from the environment. Its API key is never printed or stored:
-the snapshot records the URL with `api-key=REDACTED`. Requests are paced to <= 8/s, and
-429s are retried with exponential backoff (same policy as crates/sender/src/rpc.rs).
+the snapshot records the URL with `api-key=REDACTED`. Requests go through the cross-process
+rate limiter shared with every `sender` process (scripts/ratelimit.py, <= 8 req/s in total),
+and 429s are retried with exponential backoff (same policy as crates/sender/src/rpc.rs).
 
 Writes data/snapshots/facts_<UTC timestamp>.json (+ gzipped raw cluster/vote/Kobe
 snapshots) and prints a short summary. Exits non-zero if a checked fact no longer holds.
@@ -30,9 +31,11 @@ import time
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from ratelimit import FileBucket  # noqa: E402
+
 RPC_URL = os.environ.get("RPC_URL", "")
-MIN_INTERVAL_S = 1 / 8
-_last_call = 0.0
+LIMITER = FileBucket()
 
 
 def redact(s: str) -> str:
@@ -56,12 +59,8 @@ def b58decode(s: str) -> bytes:
 
 def rpc(method: str, params: list | None = None, retries: int = 6):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or []}).encode()
-    global _last_call
     for attempt in range(retries):
-        wait = _last_call + MIN_INTERVAL_S - time.monotonic()
-        if wait > 0:
-            time.sleep(wait)
-        _last_call = time.monotonic()
+        LIMITER.acquire()
         req = urllib.request.Request(RPC_URL, body, {"content-type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
