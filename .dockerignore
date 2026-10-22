@@ -1,0 +1,7 @@
+target
+.venv
+.git
+secrets
+.env
+**/__pycache__
+data/raw

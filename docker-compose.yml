@@ -1,0 +1,43 @@
+# `docker compose up`                      -> dry-run plan on mainnet (never sends)
+# `docker compose run --rm analyze`        -> regenerate docs/REPORT.md from data/
+# `docker compose run --rm verify`         -> re-check every block against data/manifest.jsonl
+# `docker compose run --rm -e CONFIRM_LIVE=yes sender live --max-spend-lamports N`
+services:
+  plan:
+    build: { context: ., target: sender }
+    image: slwlab-sender:local
+    command: ["plan"]
+    env_file: [{ path: .env, required: false }]
+    environment: [RPC_URL, WS_URL]
+    volumes:
+      - ./data:/lab/data
+      - ./secrets:/lab/secrets:ro
+
+  sender:
+    image: slwlab-sender:local
+    build: { context: ., target: sender }
+    profiles: ["manual"]
+    env_file: [{ path: .env, required: false }]
+    environment: [RPC_URL, WS_URL, CONFIRM_LIVE]
+    volumes:
+      - ./data:/lab/data
+      - ./secrets:/lab/secrets:ro
+
+  analyze:
+    build: { context: ., target: analysis }
+    image: slwlab-analysis:local
+    profiles: ["manual"]
+    command: ["python", "-m", "pytest", "analysis"]   # replaced by report generation in Phase 1
+    volumes:
+      - ./data:/lab/data:ro
+      - ./docs:/lab/docs
+
+  verify:
+    image: slwlab-analysis:local
+    build: { context: ., target: analysis }
+    profiles: ["manual"]
+    env_file: [{ path: .env, required: false }]
+    environment: [RPC_URL]
+    command: ["python", "scripts/verify_facts.py"]     # replaced by manifest verification in Phase 1
+    volumes:
+      - ./data:/lab/data

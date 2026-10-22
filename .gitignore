@@ -1,0 +1,13 @@
+/target/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.hypothesis/
+.env
+# keys never leave secrets/; only the placeholder is tracked
+/secrets/*
+!/secrets/.gitkeep
+!/secrets/README.md
+*.keypair.json
+id.json
