@@ -1,0 +1,18 @@
+[package]
+name = "slwlab-sender"
+description = "Planner, clock model, tx builder, QUIC sender and spend ledger (dry-run by default)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "sender"
+path = "src/main.rs"
+
+[dependencies]
+slwlab-common = { path = "../common" }
+
+[lints]
+workspace = true

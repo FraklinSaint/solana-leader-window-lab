@@ -1,0 +1,11 @@
+[package]
+name = "slwlab-common"
+description = "Shared types, fee math and safety guards for solana-leader-window-lab"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
