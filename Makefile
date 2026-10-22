@@ -17,4 +17,5 @@ secrets-check:
 	$(PY) scripts/check_no_keys.py
 sim:               # SIMULATION: ceilings, power, thresholds -> analysis/sim/results + docs/SIMULATION.md
 	cd analysis && $(PY) -m slwlab.power --reps 200 --out sim/results/sim_v1.json
+	cd analysis && $(PY) -m slwlab.allocate --reps 200 --out sim/results/alloc_v1.json --md sim/results/alloc_v1.md
 	cd analysis && $(PY) -m slwlab.simreport --sim sim/results/sim_v1.json --out ../docs/SIMULATION.md

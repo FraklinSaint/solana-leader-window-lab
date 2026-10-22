@@ -21,7 +21,7 @@ from . import parse, rules, stats
 
 FAMILY_OF_STRATUM = {
     "Agave": "agave", "JitoAgave": "agave", "HarmonicAgave": "agave", "BamAgave": "agave",
-    "Rakurai": "agave", "Firedancer": "fd2", "HarmonicFiredancer": "fd2", "FireBam": "fd2",
+    "Rakurai": "agave", "Firedancer": "fd2", "HarmonicFiredancer": "fd2", "BamFiredancer": "fd2",
 }
 
 

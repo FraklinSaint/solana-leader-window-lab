@@ -103,7 +103,7 @@ def _priority(t: Tx, kind: str) -> float:
 
 
 def _threaded(d: Design, arr: np.ndarray, sch: Scheduler, nz: Nuisance,
-              rng: np.random.Generator) -> list[int]:
+              rng: np.random.Generator, out: dict | None = None) -> list[int]:
     """Block order (list of idx) under the agave / fd thread model.
 
     Each pop (ours or background) goes to the worker that becomes free first and adds a
@@ -144,6 +144,7 @@ def _threaded(d: Design, arr: np.ndarray, sch: Scheduler, nz: Nuisance,
 
     chain_thread = None
     chain_end = 0.0
+    bg: list[tuple[int, int]] = []
     for i in pop:
         t_pass = float(passes[i])
         if conflict and sch.kind == "fd":
@@ -157,7 +158,7 @@ def _threaded(d: Design, arr: np.ndarray, sch: Scheduler, nz: Nuisance,
             continue
         if not conflict:
             for _ in range(rng.poisson(nz.bg_between)):  # background pops before ours
-                run_on(int(np.argmin(free)), t_pass)
+                bg.append(run_on(int(np.argmin(free)), t_pass))
         if conflict:  # Agave: the chain follows the thread that holds the write lock
             th = chain_thread if chain_thread is not None else int(np.argmin(free))
             chain_thread = th
@@ -165,10 +166,19 @@ def _threaded(d: Design, arr: np.ndarray, sch: Scheduler, nz: Nuisance,
             th = int(np.argmin(free))
         member[i] = run_on(th, t_pass)
     rank = {i: k for k, i in enumerate(pop)}
-    return sorted(range(n), key=lambda i: (batch_end[member[i]], rank[i]))
+    order = sorted(range(n), key=lambda i: (batch_end[member[i]], rank[i]))
+    if out is not None:
+        # Block positions of our txs among ours + background pops (order-agnostic span
+        # statistic, used to estimate background load from calibration blocks).
+        keys = [(batch_end[member[i]], 2 * rank[i], ("ours", i)) for i in range(n)]
+        keys += [(batch_end[b], 2 * k + 1, ("bg", k)) for k, b in enumerate(bg)]
+        keys.sort(key=lambda x: (x[0], x[1]))
+        out["pos"] = {tag[1]: p for p, (_, _, tag) in enumerate(keys) if tag[0] == "ours"}
+    return order
 
 
-def block_order(d: Design, sch: Scheduler, nz: Nuisance, rng: np.random.Generator) -> list[int]:
+def block_order(d: Design, sch: Scheduler, nz: Nuisance, rng: np.random.Generator,
+                out: dict | None = None) -> list[int]:
     """Order (list of idx) in which our txs appear in the block, before landing losses."""
     n = len(d.txs)
     if sch.kind == "mix":
@@ -185,7 +195,7 @@ def block_order(d: Design, sch: Scheduler, nz: Nuisance, rng: np.random.Generato
         buf = np.floor((arr + phase) / sch.fba_ms)
         tie = rng.random(n)  # "deterministic", rule unpublished
         return sorted(range(n), key=lambda i: (buf[i], -d.txs[i].priority_fee, tie[i]))
-    return _threaded(d, arr, sch, nz, rng)
+    return _threaded(d, arr, sch, nz, rng, out)
 
 
 @dataclass
@@ -193,6 +203,7 @@ class SimWindow:
     design: Design
     landed: list[int]  # idx of landed txs, in block order
     arrival_us: list[float]  # per idx, for arrival-based rules
+    span: int | None = None  # block positions spanned by landed txs incl. background (thread models)
 
 
 def simulate_window(arm: str, sch: Scheduler, nz: Nuisance, rng: np.random.Generator,
@@ -200,12 +211,17 @@ def simulate_window(arm: str, sch: Scheduler, nz: Nuisance, rng: np.random.Gener
     if x_gap_ms is None:
         x_gap_ms = int(rng.choice(cfg.x_gaps_ms))
     d = design(cfg, arm, rng, x_gap_ms=x_gap_ms)
-    order = block_order(d, sch, nz, rng)
+    extra: dict = {}
+    order = block_order(d, sch, nz, rng, extra)
     keep = rng.random(len(order)) < nz.p_land
     landed = [i for i in order if keep[i]]
     # the sender records actual send times; planned offsets + jitter stand in for them
     arrival_us = [t.send_offset_us + rng.normal(0, 50.0) for t in d.txs]
-    return SimWindow(design=d, landed=landed, arrival_us=arrival_us)
+    span = None
+    if "pos" in extra and landed:
+        ps = [extra["pos"][i] for i in landed]
+        span = max(ps) - min(ps) + 1
+    return SimWindow(design=d, landed=landed, arrival_us=arrival_us, span=span)
 
 
 def with_nuisance(nz: Nuisance, **kw) -> Nuisance:

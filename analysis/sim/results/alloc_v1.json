@@ -1,0 +1,1042 @@
+{
+ "allocation": {
+  "bonus_arm_f_included": false,
+  "calibration_budget_lamports": 5000000,
+  "confirmatory_budget_lamports": 38000000,
+  "confirmatory_total_lamports": 37743052,
+  "grand_total_cap_lamports": 48000000,
+  "n": 6,
+  "plan_quota": {
+   "Agave": {
+    "C": 17,
+    "F": 34,
+    "P": 46,
+    "R": 46,
+    "X": 23
+   },
+   "BamAgave": {
+    "C": 17,
+    "P": 46,
+    "X": 23
+   },
+   "BamFiredancer": {
+    "C": 17,
+    "P": 17,
+    "X": 17
+   },
+   "Firedancer": {
+    "C": 17,
+    "F": 17,
+    "P": 17,
+    "R": 17,
+    "X": 17
+   },
+   "HarmonicAgave": {
+    "C": 17,
+    "P": 34,
+    "X": 23
+   },
+   "HarmonicFiredancer": {
+    "C": 17,
+    "P": 17,
+    "X": 17
+   },
+   "JitoAgave": {
+    "C": 17,
+    "F": 34,
+    "P": 46,
+    "R": 46,
+    "X": 23
+   },
+   "Rakurai": {
+    "C": 17,
+    "P": 46,
+    "X": 23
+   }
+  },
+  "reserve_budget_lamports": 5000000,
+  "rows": [
+   {
+    "W_usable_per_validator": 40,
+    "arm": "P",
+    "attempted_per_validator": 46,
+    "attempted_total": 92,
+    "cost_lamports": 2912536,
+    "expected_usable_total": 80,
+    "family": "agave",
+    "group": "Agave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.955,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 20,
+    "arm": "X",
+    "attempted_per_validator": 23,
+    "attempted_total": 46,
+    "cost_lamports": 1456268,
+    "expected_usable_total": 40,
+    "family": "agave",
+    "group": "Agave",
+    "key_rule": "R_FIFO",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 40,
+    "arm": "R",
+    "attempted_per_validator": 46,
+    "attempted_total": 92,
+    "cost_lamports": 3146400,
+    "expected_usable_total": 80,
+    "family": "agave",
+    "group": "Agave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.92,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "C",
+    "attempted_per_validator": 17,
+    "attempted_total": 34,
+    "cost_lamports": 1076372,
+    "expected_usable_total": 30,
+    "family": "agave",
+    "group": "Agave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.92,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 30,
+    "arm": "F",
+    "attempted_per_validator": 34,
+    "attempted_total": 68,
+    "cost_lamports": 2060400,
+    "expected_usable_total": 60,
+    "family": "agave",
+    "group": "Agave",
+    "key_rule": "TIE_ARRIVAL_LIFO",
+    "power_exact": 1.0,
+    "power_half": 0.95,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 40,
+    "arm": "P",
+    "attempted_per_validator": 46,
+    "attempted_total": 92,
+    "cost_lamports": 2912536,
+    "expected_usable_total": 80,
+    "family": "agave",
+    "group": "JitoAgave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.955,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 20,
+    "arm": "X",
+    "attempted_per_validator": 23,
+    "attempted_total": 46,
+    "cost_lamports": 1456268,
+    "expected_usable_total": 40,
+    "family": "agave",
+    "group": "JitoAgave",
+    "key_rule": "R_FIFO",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 40,
+    "arm": "R",
+    "attempted_per_validator": 46,
+    "attempted_total": 92,
+    "cost_lamports": 3146400,
+    "expected_usable_total": 80,
+    "family": "agave",
+    "group": "JitoAgave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.92,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "C",
+    "attempted_per_validator": 17,
+    "attempted_total": 34,
+    "cost_lamports": 1076372,
+    "expected_usable_total": 30,
+    "family": "agave",
+    "group": "JitoAgave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.92,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 30,
+    "arm": "F",
+    "attempted_per_validator": 34,
+    "attempted_total": 68,
+    "cost_lamports": 2060400,
+    "expected_usable_total": 60,
+    "family": "agave",
+    "group": "JitoAgave",
+    "key_rule": "TIE_ARRIVAL_LIFO",
+    "power_exact": 1.0,
+    "power_half": 0.95,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "P",
+    "attempted_per_validator": 17,
+    "attempted_total": 34,
+    "cost_lamports": 1076372,
+    "expected_usable_total": 30,
+    "family": "fd2",
+    "group": "Firedancer",
+    "key_rule": "R_RATIO_FD",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "X",
+    "attempted_per_validator": 17,
+    "attempted_total": 34,
+    "cost_lamports": 1076372,
+    "expected_usable_total": 30,
+    "family": "fd2",
+    "group": "Firedancer",
+    "key_rule": "R_FIFO",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "R",
+    "attempted_per_validator": 17,
+    "attempted_total": 34,
+    "cost_lamports": 1162800,
+    "expected_usable_total": 30,
+    "family": "fd2",
+    "group": "Firedancer",
+    "key_rule": "R_RATIO_FD",
+    "power_exact": 1.0,
+    "power_half": 0.925,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "C",
+    "attempted_per_validator": 17,
+    "attempted_total": 34,
+    "cost_lamports": 1076372,
+    "expected_usable_total": 30,
+    "family": "fd2",
+    "group": "Firedancer",
+    "key_rule": "R_RATIO_FD",
+    "power_exact": 1.0,
+    "power_half": 0.925,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "F",
+    "attempted_per_validator": 17,
+    "attempted_total": 34,
+    "cost_lamports": 1030200,
+    "expected_usable_total": 30,
+    "family": "fd2",
+    "group": "Firedancer",
+    "key_rule": "TIE_ARRIVAL_LIFO",
+    "power_exact": 1.0,
+    "power_half": 0.96,
+    "power_target_reached": true,
+    "tier": "required",
+    "trimmed": false,
+    "validators": 2
+   },
+   {
+    "W_usable_per_validator": 30,
+    "arm": "P",
+    "attempted_per_validator": 34,
+    "attempted_total": 34,
+    "cost_lamports": 1076372,
+    "expected_usable_total": 30,
+    "family": "agave",
+    "group": "HarmonicAgave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.855,
+    "power_target_reached": false,
+    "tier": "bonus",
+    "trimmed": true,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 20,
+    "arm": "X",
+    "attempted_per_validator": 23,
+    "attempted_total": 23,
+    "cost_lamports": 728134,
+    "expected_usable_total": 20,
+    "family": "agave",
+    "group": "HarmonicAgave",
+    "key_rule": "R_FIFO",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "C",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "agave",
+    "group": "HarmonicAgave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.92,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "P",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "fd2",
+    "group": "HarmonicFiredancer",
+    "key_rule": "R_RATIO_FD",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "X",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "fd2",
+    "group": "HarmonicFiredancer",
+    "key_rule": "R_FIFO",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "C",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "fd2",
+    "group": "HarmonicFiredancer",
+    "key_rule": "R_RATIO_FD",
+    "power_exact": 1.0,
+    "power_half": 0.925,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 40,
+    "arm": "P",
+    "attempted_per_validator": 46,
+    "attempted_total": 46,
+    "cost_lamports": 1456268,
+    "expected_usable_total": 40,
+    "family": "agave",
+    "group": "BamAgave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.955,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 20,
+    "arm": "X",
+    "attempted_per_validator": 23,
+    "attempted_total": 23,
+    "cost_lamports": 728134,
+    "expected_usable_total": 20,
+    "family": "agave",
+    "group": "BamAgave",
+    "key_rule": "R_FIFO",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "C",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "agave",
+    "group": "BamAgave",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.92,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "P",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "fd2",
+    "group": "BamFiredancer",
+    "key_rule": "R_RATIO_FD",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "X",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "fd2",
+    "group": "BamFiredancer",
+    "key_rule": "R_FIFO",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "C",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "fd2",
+    "group": "BamFiredancer",
+    "key_rule": "R_RATIO_FD",
+    "power_exact": 1.0,
+    "power_half": 0.925,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 40,
+    "arm": "P",
+    "attempted_per_validator": 46,
+    "attempted_total": 46,
+    "cost_lamports": 1456268,
+    "expected_usable_total": 40,
+    "family": "agave",
+    "group": "Rakurai",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.955,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 20,
+    "arm": "X",
+    "attempted_per_validator": 23,
+    "attempted_total": 23,
+    "cost_lamports": 728134,
+    "expected_usable_total": 20,
+    "family": "agave",
+    "group": "Rakurai",
+    "key_rule": "R_FIFO",
+    "power_exact": 1.0,
+    "power_half": 0.91,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   },
+   {
+    "W_usable_per_validator": 15,
+    "arm": "C",
+    "attempted_per_validator": 17,
+    "attempted_total": 17,
+    "cost_lamports": 538186,
+    "expected_usable_total": 15,
+    "family": "agave",
+    "group": "Rakurai",
+    "key_rule": "R_RATIO_AGAVE",
+    "power_exact": 1.0,
+    "power_half": 0.92,
+    "power_target_reached": true,
+    "tier": "bonus",
+    "trimmed": false,
+    "validators": 1
+   }
+  ],
+  "spend_per_window_lamports": {
+   "C": 31658.0,
+   "F": 30300.0,
+   "P": 31658.0,
+   "R": 34200.0,
+   "X": 31658.0,
+   "mean": 31894.8
+  },
+  "usable_rate": 0.885735,
+  "within_budget": true
+ },
+ "curves": {
+  "agave/C": {
+   "power": {
+    "10": {
+     "exact": 1.0,
+     "half": 0.775
+    },
+    "15": {
+     "exact": 1.0,
+     "half": 0.92
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.955
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.985
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.98
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 0.995
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "R_RATIO_AGAVE"
+  },
+  "agave/F": {
+   "power": {
+    "10": {
+     "exact": 0.98,
+     "half": 0.58
+    },
+    "15": {
+     "exact": 1.0,
+     "half": 0.715
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.87
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.895
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.95
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 0.985
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "TIE_ARRIVAL_LIFO"
+  },
+  "agave/P": {
+   "power": {
+    "10": {
+     "exact": 0.955,
+     "half": 0.43
+    },
+    "15": {
+     "exact": 0.99,
+     "half": 0.595
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.67
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.795
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.855
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 0.955
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 0.99
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 0.99
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "R_RATIO_AGAVE"
+  },
+  "agave/R": {
+   "power": {
+    "10": {
+     "exact": 0.945,
+     "half": 0.49
+    },
+    "15": {
+     "exact": 0.99,
+     "half": 0.56
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.72
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.785
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.86
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 0.92
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 0.985
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 0.995
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "R_RATIO_AGAVE"
+  },
+  "agave/X": {
+   "power": {
+    "10": {
+     "exact": 0.99,
+     "half": 0.72
+    },
+    "15": {
+     "exact": 1.0,
+     "half": 0.855
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.91
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.955
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.98
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 0.995
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "R_FIFO"
+  },
+  "fd2/C": {
+   "power": {
+    "10": {
+     "exact": 1.0,
+     "half": 0.855
+    },
+    "15": {
+     "exact": 1.0,
+     "half": 0.925
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.965
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.99
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.995
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "R_RATIO_FD"
+  },
+  "fd2/F": {
+   "power": {
+    "10": {
+     "exact": 1.0,
+     "half": 0.865
+    },
+    "15": {
+     "exact": 1.0,
+     "half": 0.96
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.98
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.995
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "TIE_ARRIVAL_LIFO"
+  },
+  "fd2/P": {
+   "power": {
+    "10": {
+     "exact": 1.0,
+     "half": 0.765
+    },
+    "15": {
+     "exact": 1.0,
+     "half": 0.91
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.96
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.985
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.99
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "R_RATIO_FD"
+  },
+  "fd2/R": {
+   "power": {
+    "10": {
+     "exact": 1.0,
+     "half": 0.835
+    },
+    "15": {
+     "exact": 1.0,
+     "half": 0.925
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.975
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.995
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.995
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "R_RATIO_FD"
+  },
+  "fd2/X": {
+   "power": {
+    "10": {
+     "exact": 1.0,
+     "half": 0.79
+    },
+    "15": {
+     "exact": 1.0,
+     "half": 0.91
+    },
+    "20": {
+     "exact": 1.0,
+     "half": 0.945
+    },
+    "25": {
+     "exact": 1.0,
+     "half": 0.975
+    },
+    "30": {
+     "exact": 1.0,
+     "half": 0.99
+    },
+    "40": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "50": {
+     "exact": 1.0,
+     "half": 0.995
+    },
+    "60": {
+     "exact": 1.0,
+     "half": 1.0
+    },
+    "80": {
+     "exact": 1.0,
+     "half": 1.0
+    }
+   },
+   "rule": "R_FIFO"
+  }
+ },
+ "elapsed_s": 139.6,
+ "label": "SIMULATION",
+ "nuisance": {
+  "bg_between": 3.0,
+  "busy_max_ms": 2.0,
+  "clock_sd_ms": 100.0,
+  "exec_ms_per_tx": 0.05,
+  "exec_sigma": 0.5,
+  "f_extra_lead_ms": 200.0,
+  "jitter_ms": 1.0,
+  "offset_ms": -100.0,
+  "p_land": 0.9,
+  "pass_ms": 1.0
+ },
+ "positive_control_agave_C": {
+  "W": 15,
+  "interval": {
+   "high": [
+    0.6532222222222224,
+    1.0
+   ],
+   "low": [
+    0.8487777777777777,
+    1.0
+   ],
+   "medium": [
+    0.7236666666666668,
+    1.0
+   ],
+   "union": [
+    0.6532222222222224,
+    1.0
+   ]
+  }
+ },
+ "reps": 200,
+ "seed": 20261022,
+ "target_half_power": 0.9,
+ "w_grid": [
+  10,
+  15,
+  20,
+  25,
+  30,
+  40,
+  50,
+  60,
+  80
+ ]
+}
