@@ -467,7 +467,7 @@ def main(argv: list[str] | None = None) -> int:
         summary["online"]["endpoint"] = redact(url)
 
     now = dt.datetime.now(dt.timezone.utc)
-    out = {"label": "VERIFICATION", "generated_utc": now.isoformat(timespec="seconds"),
+    out = {"label": "VERIFICATION", "generated_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
            "manifests": [str(m.relative_to(data_root)) if m.is_relative_to(data_root) else str(m) for m in manifests if m.exists()],
            "summary": summary, "checks_run": dict(sorted(rep.checked.items())),
            "problems": rep.problems, "ok": not rep.problems}

@@ -134,7 +134,7 @@ fn quantile(sorted: &[f64], q: f64) -> f64 {
 
 fn hour_of(unix_ns: i128) -> String {
     chrono::DateTime::from_timestamp((unix_ns / 1_000_000_000) as i64, 0)
-        .map(|t| t.format("%Y-%m-%dT%H:00Z").to_string())
+        .map(|t| t.format("%Y-%m-%dT%H:00:00Z").to_string())
         .unwrap_or_else(|| "invalid".into())
 }
 
@@ -236,6 +236,21 @@ pub fn hourly(run_dirs: &[PathBuf]) -> anyhow::Result<Value> {
 
 #[cfg(test)]
 mod tests {
+    /// RFC 3339 with `Z`, never an offset (analysis/tests/test_utc.py checks the data side).
+    fn assert_utc_z(s: &str) {
+        assert!(s.ends_with('Z'), "{s}");
+        let t = chrono::DateTime::parse_from_rfc3339(s).unwrap();
+        assert_eq!(t.offset().local_minus_utc(), 0, "{s}");
+    }
+
+    #[test]
+    fn hour_buckets_are_utc_z() {
+        // 2026-10-25 00:30 UTC: the night Europe/Kyiv moves from UTC+3 to UTC+2
+        let h = hour_of(1_792_888_200i128 * 1_000_000_000);
+        assert_eq!(h, "2026-10-25T00:00:00Z");
+        assert_utc_z(&h);
+    }
+
     use super::*;
 
     const S: i128 = 1_000_000_000;

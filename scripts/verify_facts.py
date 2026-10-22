@@ -143,7 +143,7 @@ def main() -> int:
     if not RPC_URL:
         print("RPC_URL is not set (environment only; see .env.example)", file=sys.stderr)
         return 2
-    facts: dict = {"generated_at_utc": now.isoformat(), "rpc_url": redact(RPC_URL)}
+    facts: dict = {"generated_at_utc": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"), "rpc_url": redact(RPC_URL)}
     failures: list[str] = []
 
     facts["getVersion"] = result("getVersion")

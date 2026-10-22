@@ -1000,7 +1000,7 @@ async fn plan_only(ctx: &Ctx, a: &PlanArgs, slots: u64) -> Result<()> {
             w.design.gap_us / 1000,
             w.first_slot,
             w.n_slots,
-            t.format("%Y-%m-%d %H:%M:%S%.3f").to_string(),
+            t.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
             w.lead_ms as f64 / 1000.0,
             w.expected_cost_lamports
         );

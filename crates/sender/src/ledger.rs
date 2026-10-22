@@ -503,6 +503,18 @@ impl Ledger {
 
 #[cfg(test)]
 mod tests {
+    /// RFC 3339 with `Z`, never an offset (analysis/tests/test_utc.py checks the data side).
+    fn assert_utc_z(s: &str) {
+        assert!(s.ends_with('Z'), "{s}");
+        let t = chrono::DateTime::parse_from_rfc3339(s).unwrap();
+        assert_eq!(t.offset().local_minus_utc(), 0, "{s}");
+    }
+
+    #[test]
+    fn timestamps_are_utc_z() {
+        assert_utc_z(&now());
+    }
+
     use super::*;
     use proptest::prelude::*;
 
