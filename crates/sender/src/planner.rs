@@ -29,6 +29,12 @@ pub struct PlanConfig {
     /// Apply the Alpenglow/stabilization slot guard. Always true on mainnet; the runner sets
     /// it from the cluster's genesis hash (`cluster::Cluster`), never from a user flag.
     pub mainnet_guard: bool,
+    /// Power-balanced allocation (analysis/slwlab/allocate.py, `plan_quota`): stratum ->
+    /// arm -> attempted windows per validator. When set, each window gets the arm with the
+    /// largest remaining share of its quota, and a validator whose quotas are all met is no
+    /// longer planned. When unset, arms rotate in balanced blocks (dry-runs, calibration).
+    #[serde(default)]
+    pub quotas: Option<BTreeMap<String, BTreeMap<Arm, usize>>>,
 }
 
 impl Default for PlanConfig {
@@ -45,6 +51,7 @@ impl Default for PlanConfig {
             arms: Arm::ALL.to_vec(),
             arm_cfg: ArmConfig::default(),
             mainnet_guard: true,
+            quotas: None,
         }
     }
 }
@@ -88,6 +95,9 @@ pub struct Skip {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PlanState {
     pub per_validator: BTreeMap<String, usize>,
+    /// Quota mode: windows planned per validator and arm.
+    #[serde(default)]
+    pub arm_counts: BTreeMap<String, BTreeMap<Arm, usize>>,
     pub last_send: Option<i128>,
     pub spent: u64,
     pub planned: usize,
@@ -108,6 +118,33 @@ pub fn windows_from_leaders(start_slot: u64, leaders: &[String]) -> Vec<(u64, u6
         }
     }
     out
+}
+
+/// Quota mode: the arm with the largest remaining share of its quota (remaining / quota);
+/// ties are broken by a shuffle seeded with (validator seed, window count). None once every
+/// quota is met.
+pub fn pick_quota_arm(
+    quota: &BTreeMap<Arm, usize>,
+    done: &BTreeMap<Arm, usize>,
+    vseed: u64,
+    k: usize,
+) -> Option<Arm> {
+    use rand::{SeedableRng, seq::SliceRandom};
+    let mut cand: Vec<(Arm, f64)> = quota
+        .iter()
+        .filter(|(_, q)| **q > 0)
+        .map(|(a, q)| {
+            let d = done.get(a).copied().unwrap_or(0);
+            (*a, (*q as f64 - d as f64) / *q as f64)
+        })
+        .filter(|(_, r)| *r > 0.0)
+        .collect();
+    let mut rng =
+        rand_chacha::ChaCha20Rng::seed_from_u64(vseed ^ (k as u64).wrapping_mul(0x9E37_79B9));
+    cand.shuffle(&mut rng);
+    cand.into_iter()
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(a, _)| a)
 }
 
 #[allow(clippy::too_many_arguments)] // pure function of its inputs, by design
@@ -172,10 +209,31 @@ pub fn plan_windows(
         }
         let k = *state.per_validator.get(&leader).unwrap_or(&0);
         let vseed = arms::window_seed(cfg.campaign_seed, &leader);
-        // Balanced per validator: blocks of all arms, shuffled per validator.
-        let arm_seq = arms::assign_arms(vseed, k + 1, &cfg.arms);
-        let arm = arm_seq[k];
-        let n_x = arm_seq.iter().filter(|&&a| a == Arm::X).count();
+        let (arm, n_x) = match &cfg.quotas {
+            None => {
+                // Balanced per validator: blocks of all arms, shuffled per validator.
+                let arm_seq = arms::assign_arms(vseed, k + 1, &cfg.arms);
+                let n_x = arm_seq.iter().filter(|&&a| a == Arm::X).count();
+                (arm_seq[k], n_x)
+            }
+            Some(q) => {
+                let Some(quota) = q.get(&t.stratum) else {
+                    skips.push(skip(format!("no allocation for stratum {}", t.stratum)));
+                    continue;
+                };
+                let done = state.arm_counts.get(&leader).cloned().unwrap_or_default();
+                match pick_quota_arm(quota, &done, vseed, k) {
+                    Some(a) => (
+                        a,
+                        done.get(&Arm::X).copied().unwrap_or(0) + usize::from(a == Arm::X),
+                    ),
+                    None => {
+                        skips.push(skip("allocation quota met".into()));
+                        continue;
+                    }
+                }
+            }
+        };
         let x_gap = cfg.arm_cfg.x_gaps_ms[(n_x.max(1) - 1) % cfg.arm_cfg.x_gaps_ms.len()];
         let window_id = format!("{first_slot}-{}", &leader[..8.min(leader.len())]);
         let seed = arms::window_seed(cfg.campaign_seed, &window_id);
@@ -201,6 +259,12 @@ pub fn plan_windows(
         }
         state.spent += cost;
         state.per_validator.insert(leader.clone(), k + 1);
+        *state
+            .arm_counts
+            .entry(leader.clone())
+            .or_default()
+            .entry(arm)
+            .or_default() += 1;
         state.last_send = Some(send_at);
         state.planned += 1;
         planned.push(PlannedWindow {
@@ -340,6 +404,38 @@ mod tests {
         );
         assert!(p2.iter().map(|w| w.expected_cost_lamports).sum::<u64>() <= 100_000);
         assert!(s2.iter().any(|s| s.reason.contains("planning budget")));
+    }
+
+    #[test]
+    fn quotas_are_met_exactly_and_interleaved() {
+        let quota: BTreeMap<Arm, usize> = [
+            (Arm::P, 46),
+            (Arm::X, 23),
+            (Arm::R, 46),
+            (Arm::C, 17),
+            (Arm::F, 34),
+        ]
+        .into();
+        let mut done: BTreeMap<Arm, usize> = BTreeMap::new();
+        let mut seq = vec![];
+        for k in 0.. {
+            match pick_quota_arm(&quota, &done, 7, k) {
+                Some(a) => {
+                    *done.entry(a).or_default() += 1;
+                    seq.push(a);
+                }
+                None => break,
+            }
+        }
+        assert_eq!(done, quota);
+        // proportional interleaving: after any prefix, each arm is within 2 of its share
+        for n in 1..=seq.len() {
+            for (a, q) in &quota {
+                let got = seq[..n].iter().filter(|x| *x == a).count() as f64;
+                let want = *q as f64 * n as f64 / seq.len() as f64;
+                assert!((got - want).abs() <= 2.0, "{a:?} at {n}: {got} vs {want}");
+            }
+        }
     }
 
     #[test]

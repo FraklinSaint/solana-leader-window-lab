@@ -17,7 +17,7 @@ use slwlab_common::cost::{TxShape, agave_priority, cost_units};
 use solana_pubkey::Pubkey;
 use std::cmp::Reverse;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Arm {
     P,
     F,
@@ -28,6 +28,17 @@ pub enum Arm {
 
 impl Arm {
     pub const ALL: [Arm; 5] = [Arm::P, Arm::F, Arm::X, Arm::R, Arm::C];
+
+    pub fn parse(s: &str) -> Option<Arm> {
+        match s {
+            "P" => Some(Arm::P),
+            "F" => Some(Arm::F),
+            "X" => Some(Arm::X),
+            "R" => Some(Arm::R),
+            "C" => Some(Arm::C),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

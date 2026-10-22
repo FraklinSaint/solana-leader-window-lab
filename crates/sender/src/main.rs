@@ -7,7 +7,10 @@
 use anyhow::{Context, Result, bail, ensure};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use slwlab_common::guard;
-use slwlab_common::limits::{HARD_CEILING_LAMPORTS, PLANNED_SPEND_BUDGET_LAMPORTS};
+use slwlab_common::limits::{
+    CALIBRATION_BUDGET_LAMPORTS, CONFIRMATORY_BUDGET_LAMPORTS, HARD_CEILING_LAMPORTS,
+    PLANNED_SPEND_BUDGET_LAMPORTS, RESERVE_BUDGET_LAMPORTS,
+};
 use slwlab_sender::arms::{Arm, ArmConfig};
 use slwlab_sender::burst::unix_ns;
 use slwlab_sender::clock::{self, ClockParams};
@@ -150,6 +153,10 @@ struct PlanArgs {
     min_spacing_ms: u64,
     #[arg(long)]
     max_windows: Option<usize>,
+    /// Power-balanced allocation (analysis/sim/results/alloc_v1.json): per-stratum arm quotas.
+    /// Required for `live --purpose measure`.
+    #[arg(long)]
+    allocation: Option<PathBuf>,
     /// Payer pool size for dry-runs without ./secrets/payers.
     #[arg(long, default_value_t = 32)]
     ephemeral_payers: usize,
@@ -787,15 +794,20 @@ async fn lamports_per_signature(rpc: &Rpc) -> Result<u64> {
     funding::transfer_fee(rpc, &probe[0], &Pubkey::new_unique()).await
 }
 
-fn plan_config(ctx: &Ctx, a: &PlanArgs, lps: u64, spent_reserved: u64) -> PlanConfig {
-    PlanConfig {
+fn plan_config(ctx: &Ctx, a: &PlanArgs, lps: u64, budget: u64) -> Result<PlanConfig> {
+    let quotas = match &a.allocation {
+        Some(p) => Some(load_quotas(p)?),
+        None => None,
+    };
+    Ok(PlanConfig {
         campaign_seed: a.seed,
         offset_ms: a.offset_ms,
         min_spacing_ms: a.min_spacing_ms,
         min_live_epoch: a.min_live_epoch,
         max_windows: a.max_windows.unwrap_or(usize::MAX),
         lamports_per_signature: lps,
-        budget_lamports: PLANNED_SPEND_BUDGET_LAMPORTS.saturating_sub(spent_reserved),
+        budget_lamports: budget,
+        quotas,
         arms: a.arms.iter().map(|&x| x.into()).collect(),
         arm_cfg: ArmConfig {
             n: a.n,
@@ -803,24 +815,55 @@ fn plan_config(ctx: &Ctx, a: &PlanArgs, lps: u64, spent_reserved: u64) -> PlanCo
         },
         mainnet_guard: ctx.cluster.is_mainnet(),
         ..PlanConfig::default()
-    }
+    })
 }
 
-/// spent + reserved over the whole project, read-only (dry-runs must not write the ledger).
-fn ledger_commitment(path: &Path) -> Result<u64> {
-    if !path.exists() {
-        return Ok(0);
+/// `plan_quota` of analysis/slwlab/allocate.py output: stratum -> arm -> attempted windows.
+fn load_quotas(path: &Path) -> Result<BTreeMap<String, BTreeMap<Arm, usize>>> {
+    let v: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(path).with_context(|| path.display().to_string())?)?;
+    let q = v
+        .get("allocation")
+        .and_then(|a| a.get("plan_quota"))
+        .or_else(|| v.get("plan_quota"))
+        .context("allocation file has no plan_quota")?;
+    let mut out = BTreeMap::new();
+    for (stratum, arms) in q.as_object().context("plan_quota must be an object")? {
+        let mut m = BTreeMap::new();
+        for (arm, n) in arms
+            .as_object()
+            .context("plan_quota entries must be objects")?
+        {
+            let a = Arm::parse(arm).with_context(|| format!("unknown arm {arm}"))?;
+            m.insert(a, n.as_u64().context("quota must be an integer")? as usize);
+        }
+        out.insert(stratum.clone(), m);
     }
-    let mut open: BTreeMap<String, u64> = BTreeMap::new();
-    let mut spent = 0u64;
+    Ok(out)
+}
+
+/// spent + reserved per purpose over the whole project, read-only (dry-runs must not write
+/// the ledger, and the live ledger's lock is on a separate file).
+fn ledger_commitment(path: &Path) -> Result<BTreeMap<Purpose, u64>> {
+    let mut out: BTreeMap<Purpose, u64> = BTreeMap::new();
+    if !path.exists() {
+        return Ok(out);
+    }
+    let mut open: BTreeMap<String, (Purpose, u64)> = BTreeMap::new();
     for e in Ledger::read_entries(path)? {
         match e {
-            Entry::Reserve { sig, amount, .. } => {
-                open.insert(sig, amount);
+            Entry::Reserve {
+                sig,
+                amount,
+                purpose,
+                ..
+            } => {
+                open.insert(sig, (purpose, amount));
             }
             Entry::Landed { sig, fee, .. } => {
-                open.remove(&sig);
-                spent += fee;
+                if let Some((p, _)) = open.remove(&sig) {
+                    *out.entry(p).or_default() += fee;
+                }
             }
             Entry::Expired { sig, .. } => {
                 open.remove(&sig);
@@ -828,7 +871,35 @@ fn ledger_commitment(path: &Path) -> Result<u64> {
             _ => {}
         }
     }
-    Ok(spent + open.values().sum::<u64>())
+    for (p, a) in open.into_values() {
+        *out.entry(p).or_default() += a;
+    }
+    Ok(out)
+}
+
+/// Remaining planning budget for `purpose`: its own budget minus what it has committed, and
+/// never more than what is left of the project total.
+fn purpose_budget(committed: &BTreeMap<Purpose, u64>, purpose: Purpose) -> u64 {
+    let total: u64 = committed.values().sum();
+    let used = |p: Purpose| committed.get(&p).copied().unwrap_or(0);
+    let own = match purpose {
+        Purpose::Measure => CONFIRMATORY_BUDGET_LAMPORTS.saturating_sub(used(Purpose::Measure)),
+        Purpose::Calibrate => CALIBRATION_BUDGET_LAMPORTS.saturating_sub(used(Purpose::Calibrate)),
+        Purpose::Fund | Purpose::Sweep => {
+            RESERVE_BUDGET_LAMPORTS.saturating_sub(used(Purpose::Fund) + used(Purpose::Sweep))
+        }
+    };
+    own.min(PLANNED_SPEND_BUDGET_LAMPORTS.saturating_sub(total))
+}
+
+/// Funding/sweep fees must fit in the reserve budget.
+fn check_reserve(ctx: &Ctx, fees: u64) -> Result<()> {
+    let left = purpose_budget(&ledger_commitment(&ctx.ledger_path())?, Purpose::Fund);
+    ensure!(
+        fees <= left,
+        "funding/sweep fees {fees} exceed the remaining reserve budget {left} (RESERVE_BUDGET_LAMPORTS)"
+    );
+    Ok(())
 }
 
 async fn warm_clock(ctx: &Ctx) -> Result<feed::Shared> {
@@ -856,7 +927,7 @@ async fn plan_only(ctx: &Ctx, a: &PlanArgs, slots: u64) -> Result<()> {
     let targets = load_targets(ctx, &sel).await?;
     let lps = lamports_per_signature(&ctx.rpc).await?;
     let committed = ledger_commitment(&ctx.ledger_path())?;
-    let cfg = plan_config(ctx, a, lps, committed);
+    let cfg = plan_config(ctx, a, lps, purpose_budget(&committed, Purpose::Measure))?;
     let state = warm_clock(ctx).await?;
     let fit = loop {
         if let Some(f) = state
@@ -949,14 +1020,19 @@ async fn campaign(
     );
     let lps = lamports_per_signature(&ctx.rpc).await?;
     let rent_min = ctx.rpc.min_rent(0).await?;
-    let committed = match &mode {
-        Mode::Live { ledger, .. } => {
-            let t = ledger.totals();
-            t.spent_total + t.reserved_total
-        }
-        Mode::DryRun { .. } => ledger_commitment(&ctx.ledger_path())?,
+    // Dry-runs plan as if confirmatory; live plans against its own purpose's budget.
+    let purpose = match &mode {
+        Mode::Live { purpose, .. } => *purpose,
+        Mode::DryRun { .. } => Purpose::Measure,
     };
-    let mut plan_cfg = plan_config(ctx, a, lps, committed);
+    let committed = ledger_commitment(&ctx.ledger_path())?;
+    let mut plan_cfg = plan_config(ctx, a, lps, purpose_budget(&committed, purpose))?;
+    if purpose == Purpose::Measure && mode_is_live(&mode) {
+        ensure!(
+            plan_cfg.quotas.is_some(),
+            "--purpose measure requires --allocation (the pre-registered power-balanced allocation)"
+        );
+    }
     let arms_has_c = plan_cfg.arms.contains(&Arm::C);
 
     let (pool, sink) = match &mode {
@@ -1190,6 +1266,7 @@ async fn fund(
         std::env::var(live::CONFIRM_ENV).ok().as_deref(),
         max_spend,
     )?;
+    check_reserve(ctx, plan.iter().map(|t| t.fee).sum())?;
     let p = funding::save_snapshot(&ctx.data_root, &before)?;
     println!("opening snapshot: {}", p.display());
     let mut ledger = Ledger::open(&ctx.ledger_path(), run_id, auth.cap())?;
@@ -1255,6 +1332,7 @@ async fn sweep(ctx: &Ctx, live_flag: bool, max_spend: Option<u64>, run_id: &str)
         std::env::var(live::CONFIRM_ENV).ok().as_deref(),
         max_spend,
     )?;
+    check_reserve(ctx, plan.iter().map(|t| t.fee).sum())?;
     funding::save_snapshot(&ctx.data_root, &before)?;
     let mut ledger = Ledger::open(&ctx.ledger_path(), run_id, auth.cap())?;
     let mut signers: BTreeMap<String, &NamedKeypair> =

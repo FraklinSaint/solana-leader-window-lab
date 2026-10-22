@@ -3,10 +3,18 @@
 /// Absolute maximum the whole project may spend on fees: 0.05 SOL (bounty requirement).
 pub const HARD_CEILING_LAMPORTS: u64 = 50_000_000;
 
-/// Planning budget for the whole project (fees only). The remaining
-/// `HARD_CEILING_LAMPORTS - PLANNED_SPEND_BUDGET_LAMPORTS` = 15M lamports is reserve for
-/// retries, funding/sweep fees and surprises; the planner never plans into it.
-pub const PLANNED_SPEND_BUDGET_LAMPORTS: u64 = 35_000_000;
+/// Budgets by purpose (fees only; locked rent is not spend). Decided at the Phase 1 gate:
+/// calibration <= 5M, confirmatory <= 38M, funding/sweep/retry reserve <= 5M, total <= 48M.
+/// The planner never plans past its purpose's budget, and the 2M between the total and the
+/// hard ceiling is never planned at all.
+pub const CALIBRATION_BUDGET_LAMPORTS: u64 = 5_000_000;
+pub const CONFIRMATORY_BUDGET_LAMPORTS: u64 = 38_000_000;
+pub const RESERVE_BUDGET_LAMPORTS: u64 = 5_000_000;
+/// Planning budget for the whole project = the sum of the three purpose budgets.
+pub const PLANNED_SPEND_BUDGET_LAMPORTS: u64 =
+    CALIBRATION_BUDGET_LAMPORTS + CONFIRMATORY_BUDGET_LAMPORTS + RESERVE_BUDGET_LAMPORTS;
+
+const _: () = assert!(PLANNED_SPEND_BUDGET_LAMPORTS <= HARD_CEILING_LAMPORTS);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CapError {
@@ -71,6 +79,12 @@ mod tests {
             Ok(HARD_CEILING_LAMPORTS)
         );
         assert_eq!(effective_cap(Some(5_000_000)), Ok(5_000_000));
+    }
+
+    #[test]
+    fn purpose_budgets_add_up_below_the_ceiling() {
+        assert_eq!(PLANNED_SPEND_BUDGET_LAMPORTS, 48_000_000);
+        const { assert!(PLANNED_SPEND_BUDGET_LAMPORTS < HARD_CEILING_LAMPORTS) };
     }
 
     #[test]
