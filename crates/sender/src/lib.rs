@@ -7,6 +7,7 @@ pub mod collect;
 pub mod credits;
 pub mod feed;
 pub mod funding;
+pub mod gaps;
 pub mod keys;
 pub mod ledger;
 pub mod live;

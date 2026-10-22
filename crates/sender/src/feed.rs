@@ -40,6 +40,8 @@ pub fn ws_open() -> usize {
     MAX_WS_CONNECTIONS - WS_PERMITS.available_permits()
 }
 
+const WS_READ_TIMEOUT: Duration = Duration::from_secs(10);
+
 /// getSlot polling interval of the fallback: 2 req/s, a quarter of the RPC budget.
 const POLL_EVERY: Duration = Duration::from_millis(500);
 
@@ -79,7 +81,14 @@ async fn ws_loop(ws_url: &str, rpc: &Rpc, state: &Shared) -> anyhow::Result<()> 
     ))
     .await?;
     tracing::info!(ws_url = %redact(ws_url), open = ws_open(), "slotSubscribe connected");
-    while let Some(msg) = ws.next().await {
+    // A socket can die silently (host sleep, NAT timeout): with ~5 notifications/s, 10 s of
+    // silence means it is gone. Bail out so the caller reconnects.
+    loop {
+        let msg = match tokio::time::timeout(WS_READ_TIMEOUT, ws.next()).await {
+            Err(_) => anyhow::bail!("no message for {} s", WS_READ_TIMEOUT.as_secs()),
+            Ok(None) => break,
+            Ok(Some(m)) => m,
+        };
         let t = unix_ns();
         let msg = msg?;
         rpc.meter().ws_bytes(msg.len());

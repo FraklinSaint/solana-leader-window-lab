@@ -413,6 +413,9 @@ pub struct Runner<'a> {
     n_windows: usize,
     last_poll: Instant,
     stop: Option<String>,
+    watchdog: Option<tokio::task::JoinHandle<()>>,
+    last_hourly: Instant,
+    slots_dumped_through: u64,
 }
 
 /// Where a run's measurement outcomes go. Dry-runs write none; calibration is exploratory.
@@ -467,6 +470,9 @@ impl<'a> Runner<'a> {
             n_windows: 0,
             last_poll: Instant::now(),
             stop: None,
+            watchdog: None,
+            last_hourly: Instant::now(),
+            slots_dumped_through: 0,
         })
     }
 
@@ -531,15 +537,32 @@ impl<'a> Runner<'a> {
 
     pub async fn run(mut self) -> Result<RunSummary> {
         self.write_run_json()?;
+        self.watchdog = Some(crate::gaps::spawn_watchdog(
+            self.run_dir.clone(),
+            self.feed.clone(),
+            self.cfg.clock,
+        ));
         self.wait_for_clock().await?;
         let deadline = unix_ns() + i128::from(self.cfg.duration_secs) * 1_000_000_000;
         let mut state = PlanState::default();
-        let mut next_start = self.rpc.slot().await? + 10;
+        let mut next_start = self.slot_resilient(deadline).await? + 10;
         let mut queue: VecDeque<PlannedWindow> = VecDeque::new();
         let mut planning_done = false;
         while self.stop.is_none() {
+            if unix_ns() > deadline + 60_000_000_000 {
+                break; // a host stall can carry us far past the end
+            }
+            self.hourly_checkpoint();
             while !planning_done {
-                let fit = self.fit().context("slot clock lost")?;
+                let Some(fit) = self.fit() else {
+                    // Cleared after a host stall (gaps.rs): re-warm before planning.
+                    tracing::info!("slot clock re-warming");
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    if unix_ns() > deadline {
+                        planning_done = true;
+                    }
+                    break;
+                };
                 let t = fit.predict_ns(next_start) as i128;
                 if t > deadline {
                     planning_done = true;
@@ -548,10 +571,17 @@ impl<'a> Runner<'a> {
                 if t > unix_ns() + i128::from(self.cfg.plan_ahead_secs) * 1_000_000_000 {
                     break;
                 }
-                let leaders = self
+                let leaders = match self
                     .rpc
                     .slot_leaders(next_start, self.cfg.chunk_slots)
-                    .await?;
+                    .await
+                {
+                    Ok(l) => l,
+                    Err(e) => {
+                        self.rpc_gap("getSlotLeaders", &e).await;
+                        break;
+                    }
+                };
                 let (planned, skips) = planner::plan_windows(
                     next_start,
                     &leaders,
@@ -575,12 +605,27 @@ impl<'a> Runner<'a> {
                     queue.push_back(w);
                 }
                 next_start += self.cfg.chunk_slots.saturating_sub(16).max(1);
-                // Fell behind (slow RPC)? Never plan into the past.
-                let now_slot = self.rpc.slot().await?;
+                // Fell behind (slow RPC, host stall)? Never plan into the past.
+                let now_slot = self.slot_resilient(deadline).await?;
                 next_start = next_start.max(now_slot + 10);
             }
             match queue.pop_front() {
-                Some(w) => self.execute(w).await?,
+                Some(w) => {
+                    let id = w.window_id.clone();
+                    if let Err(e) = self.execute(w).await {
+                        // Live: anything that escapes execute (ledger, disk) is fatal.
+                        // Dry-run: log it and keep going (24 h unattended runs).
+                        if self.mode.is_live() {
+                            return Err(e);
+                        }
+                        tracing::warn!(window = %id, error = %format!("{e:#}"), "window failed");
+                        *self
+                            .summary
+                            .skips
+                            .entry("execute error".into())
+                            .or_default() += 1;
+                    }
+                }
                 None if planning_done => break,
                 None => {
                     // nothing scheduled: a collector pass may use up to ~8 s
@@ -593,8 +638,63 @@ impl<'a> Runner<'a> {
         self.finish().await
     }
 
+    /// getSlot that survives outages: retries every 10 s (each failure logged as an
+    /// `rpc_error` gap) until it succeeds or the run is over.
+    async fn slot_resilient(&mut self, deadline: i128) -> Result<u64> {
+        loop {
+            match self.rpc.slot().await {
+                Ok(s) => return Ok(s),
+                Err(e) if unix_ns() < deadline => self.rpc_gap("getSlot", &e).await,
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    async fn rpc_gap(&mut self, method: &str, e: &anyhow::Error) {
+        let start = unix_ns();
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        crate::gaps::log_gap(
+            &self.run_dir,
+            &crate::gaps::Gap::new(
+                "rpc_error",
+                start,
+                unix_ns(),
+                Some(format!("{method}: {e:#}")),
+            ),
+        );
+    }
+
+    /// Every 30 min: append new raw slot notifications (the in-memory feed keeps ~70 min)
+    /// and rewrite clock_hourly.json, so a run killed mid-way still leaves both behind.
+    fn hourly_checkpoint(&mut self) {
+        if self.last_hourly.elapsed() < Duration::from_secs(1_800) {
+            return;
+        }
+        self.last_hourly = Instant::now();
+        if let Err(e) = self.check_clock().and_then(|_| self.dump_slot_feed()) {
+            tracing::warn!(error = %format!("{e:#}"), "hourly checkpoint failed");
+        }
+        self.write_hourly();
+    }
+
+    fn write_hourly(&self) {
+        let r = crate::gaps::hourly(std::slice::from_ref(&self.run_dir)).and_then(|v| {
+            std::fs::write(
+                self.run_dir.join("clock_hourly.json"),
+                serde_json::to_vec_pretty(&v)?,
+            )
+            .map_err(Into::into)
+        });
+        if let Err(e) = r {
+            tracing::warn!(error = %format!("{e:#}"), "could not write clock_hourly.json");
+        }
+    }
+
     /// Drain the collector (live), let the last clock watches resolve, write summary.json.
     async fn finish(mut self) -> Result<RunSummary> {
+        if let Some(w) = self.watchdog.take() {
+            w.abort();
+        }
         if self.mode.is_live() {
             let end = Instant::now() + Duration::from_secs(240);
             while self.collector.pending_len() > 0 && Instant::now() < end {
@@ -630,6 +730,7 @@ impl<'a> Runner<'a> {
             self.run_dir.join("summary.json"),
             serde_json::to_vec_pretty(&self.summary)?,
         )?;
+        self.write_hourly();
         Ok(self.summary)
     }
 
@@ -743,16 +844,21 @@ impl<'a> Runner<'a> {
     }
 
     /// Raw slot notifications (slot, first-seen UNIX ns) for the clock-model error report.
-    fn dump_slot_feed(&self) -> Result<()> {
+    fn dump_slot_feed(&mut self) -> Result<()> {
         let s = self
             .feed
             .lock()
             .map_err(|_| anyhow::anyhow!("slot state poisoned"))?;
         let rows: Vec<serde_json::Value> = s
             .first_seen
-            .iter()
+            .range(self.slots_dumped_through + 1..)
             .map(|(k, v)| serde_json::json!({"slot": k, "t_ns": v}))
             .collect();
+        let last = s.first_seen.last_key_value().map(|(k, _)| *k);
+        drop(s);
+        if let Some(l) = last {
+            self.slots_dumped_through = self.slots_dumped_through.max(l);
+        }
         collect::append_jsonl(&self.run_dir.join("slots.jsonl"), &rows)
     }
 
@@ -772,9 +878,30 @@ impl<'a> Runner<'a> {
             .context("QUIC handshake timed out (1 s)")?
     }
 
-    async fn execute(&mut self, w: PlannedWindow) -> Result<()> {
+    async fn execute(&mut self, mut w: PlannedWindow) -> Result<()> {
         let k = self.n_windows;
         self.n_windows += 1;
+        let path = match &self.mode {
+            Mode::Live { .. } => Some(match self.cfg.rpc_every {
+                Some(e) if e > 0 && k % e == e - 1 => PathKind::Rpc,
+                _ => PathKind::Quic,
+            }),
+            Mode::DryRun { .. } => None,
+        };
+        if path == Some(PathKind::Rpc) {
+            // Delivery check, never a burst arm: exactly one tx (the first in send order).
+            // The provider allows 1 sendTransaction/s, so a burst would spread over seconds.
+            // Its txs are marked `ordering_eligible: false` in the manifest.
+            w.design.txs.retain(|t| t.send_rank == 0);
+            w.design.txs.truncate(1);
+            let lps = self.plan_cfg.lamports_per_signature;
+            w.expected_cost_lamports = w
+                .design
+                .txs
+                .iter()
+                .map(|t| total_fee(lps, 1, t.cu_price_micro_lamports, t.cu_limit))
+                .sum();
+        }
         let offset_ms = if self.cfg.offsets_ms.is_empty() {
             self.plan_cfg.offset_ms
         } else {
@@ -918,13 +1045,6 @@ impl<'a> Runner<'a> {
             }
         }
 
-        let path = match &self.mode {
-            Mode::Live { .. } => Some(match self.cfg.rpc_every {
-                Some(e) if e > 0 && k % e == e - 1 => PathKind::Rpc,
-                _ => PathKind::Quic,
-            }),
-            Mode::DryRun { .. } => None,
-        };
         log.path = path;
         let wants_conn = match &self.mode {
             Mode::Live { .. } => path == Some(PathKind::Quic),
@@ -1057,6 +1177,7 @@ impl<'a> Runner<'a> {
                         cu_price_micro_lamports: t.cu_price_micro_lamports,
                         n_signatures: 1,
                         conflict_account: d.shared_sink.map(|p| p.to_string()),
+                        ordering_eligible: path == Some(PathKind::Quic),
                         reserved_lamports: costs[i],
                         blockhash: bh.blockhash.clone(),
                         last_valid_block_height: bh.last_valid_block_height,

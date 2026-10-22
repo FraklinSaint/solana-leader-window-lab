@@ -74,6 +74,14 @@ impl Endpoints {
     }
 }
 
+/// Shared rate-limit state: `SLWLAB_RATELIMIT_DIR`, else `<data_dir>/.ratelimit`
+/// (the same default as `scripts/ratelimit.py`).
+fn ratelimit_dir(data_dir: &Path) -> PathBuf {
+    std::env::var_os("SLWLAB_RATELIMIT_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| data_dir.join(".ratelimit"))
+}
+
 /// Minimal `.env` reader: KEY=VALUE lines, `#` comments. Values are never printed.
 fn read_dotenv(path: &Path) -> HashMap<String, String> {
     let text = std::fs::read_to_string(path).unwrap_or_default();
@@ -227,7 +235,13 @@ enum Cmd {
     },
     /// Resolve every open reservation and every sent tx missing from the manifests.
     Collect,
-    /// Create payer keypairs (and the Arm C sink) under ./secrets. Prints pubkeys only.
+    /// Devnet/localnet only: request an airdrop to the master wallet.
+    Airdrop {
+        #[arg(long, default_value_t = 1_000_000_000)]
+        lamports: u64,
+    },
+    /// Create payer keypairs, the Arm C sink and (if missing) the master wallet under the
+    /// secrets dir. Prints pubkeys only.
     InitPayers {
         #[arg(long, default_value_t = 32)]
         count: usize,
@@ -249,6 +263,17 @@ enum Cmd {
         live: bool,
         #[arg(long)]
         max_spend_lamports: Option<u64>,
+    },
+    /// Merge dry-run directories into a per-UTC-hour clock-error report (EXPLORATORY).
+    ClockReport {
+        /// Include `logs/dryrun-<stamp>` directories with stamp >= this (e.g. 20261022T200000Z).
+        #[arg(long)]
+        since: String,
+        /// Exclude directories with stamp >= this.
+        #[arg(long)]
+        until: Option<String>,
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Compare wallet balances, ledger and on-chain fees between two snapshots.
     Reconcile {
@@ -358,7 +383,9 @@ async fn main() {
 
 async fn real_main(cli: Cli) -> Result<()> {
     rpc::init_crypto();
-    let ep = Endpoints::from_env(&read_dotenv(Path::new(".env")))?;
+    // SLWLAB_ENV_FILE selects another git-ignored file, e.g. `.env.devnet`.
+    let env_file = std::env::var("SLWLAB_ENV_FILE").unwrap_or_else(|_| ".env".into());
+    let ep = Endpoints::from_env(&read_dotenv(Path::new(&env_file)))?;
     ensure!(
         cli.g.rpc_rps > 0.0 && cli.g.rpc_rps <= MAX_RPC_PER_SEC,
         "--rpc-rps must be in (0, {MAX_RPC_PER_SEC}]"
@@ -377,6 +404,8 @@ async fn real_main(cli: Cli) -> Result<()> {
         RpcLimits {
             per_sec: cli.g.rpc_rps,
             send_tx_per_sec: cli.g.send_tx_rps,
+            // One budget for every process on this machine (sender, collect, verify ...).
+            shared_dir: Some(ratelimit_dir(&cli.g.data_dir)),
         },
         meter.clone(),
     );
@@ -499,6 +528,34 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
             }
             let sink = load_or_create_sink(&ctx.sink_path())?;
             println!("sink {}", sink.pubkey());
+            let mp = ctx.master_path();
+            if !mp.exists() {
+                if let Some(d) = mp.parent() {
+                    std::fs::create_dir_all(d)?;
+                }
+                keys::write_new_keypair(&mp, &solana_keypair::Keypair::new())?;
+                println!(
+                    "master {} (new; fund this wallet)",
+                    keys::read_keypair(&mp)?.pubkey()
+                );
+            } else {
+                println!("master {} (existing)", keys::read_keypair(&mp)?.pubkey());
+            }
+            Ok(())
+        }
+        Cmd::Airdrop { lamports } => {
+            ensure!(
+                !ctx.cluster.is_mainnet(),
+                "airdrop exists only on devnet/localnet; this endpoint is mainnet"
+            );
+            let master = keys::read_keypair(&ctx.master_path())
+                .context("no master keypair: run init-payers first")?
+                .pubkey()
+                .to_string();
+            let sig = ctx.rpc.request_airdrop(&master, lamports).await.context(
+                "requestAirdrop failed (provider or faucet limit); use https://faucet.solana.com",
+            )?;
+            println!("airdrop {lamports} lamports to {master}: {sig}");
             Ok(())
         }
         Cmd::Balances => {
@@ -522,6 +579,7 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
             live,
             max_spend_lamports,
         } => sweep(ctx, live, max_spend_lamports, run_id).await,
+        Cmd::ClockReport { since, until, out } => clock_report(ctx, &since, until.as_deref(), &out),
         Cmd::Reconcile { since, until } => {
             let before = funding::load_snapshot(&since)?;
             let after = match until {
@@ -1223,4 +1281,32 @@ async fn sweep(ctx: &Ctx, live_flag: bool, max_spend: Option<u64>, run_id: &str)
     .await?;
     println!("{}", serde_json::to_string_pretty(&r)?);
     funding::fail_if_not_ok(&r)
+}
+
+fn clock_report(ctx: &Ctx, since: &str, until: Option<&str>, out: &Path) -> Result<()> {
+    let logs = ctx.data_root.join("logs");
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(&logs)
+        .with_context(|| logs.display().to_string())?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .filter(|p| {
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            name.strip_prefix("dryrun-")
+                .is_some_and(|st| st >= since && until.is_none_or(|u| st < u))
+        })
+        .collect();
+    dirs.sort();
+    ensure!(
+        !dirs.is_empty(),
+        "no dryrun-* directories since {since} in {}",
+        logs.display()
+    );
+    let report = slwlab_sender::gaps::hourly(&dirs)?;
+    if let Some(d) = out.parent() {
+        std::fs::create_dir_all(d)?;
+    }
+    std::fs::write(out, serde_json::to_vec_pretty(&report)?)?;
+    println!("{} runs -> {}", dirs.len(), out.display());
+    Ok(())
 }
