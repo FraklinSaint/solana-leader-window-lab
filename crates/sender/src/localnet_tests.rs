@@ -24,7 +24,6 @@ use crate::rpc::Rpc;
 use crate::runner::{self, Mode, PayerPool, RunConfig, Runner, RunnerInit};
 use slwlab_common::fees::total_fee;
 use solana_keypair::Keypair;
-use solana_signer::Signer;
 use std::collections::{BTreeMap, HashSet};
 use std::time::Duration;
 
