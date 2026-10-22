@@ -71,16 +71,22 @@ async fn poll_loop(rpc: &Rpc, state: &Shared, for_dur: Duration) {
     }
 }
 
-/// Runs forever: WebSocket when available, polling for 60 s between reconnect attempts.
+/// Runs forever: WebSocket when available (public endpoints close it every few minutes, so
+/// it reconnects after 5 s of polling), otherwise getSlot polling.
 pub fn spawn(ws_url: Option<String>, rpc: Rpc, state: Shared) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         loop {
             if let Some(url) = &ws_url
                 && let Err(e) = ws_loop(url, &state).await
             {
-                tracing::warn!(error = %e, "slot websocket failed; falling back to polling for 60s");
+                tracing::warn!(error = %e, "slot websocket failed; polling for 5 s, then reconnecting");
             }
-            poll_loop(&rpc, &state, Duration::from_secs(60)).await;
+            poll_loop(
+                &rpc,
+                &state,
+                Duration::from_secs(if ws_url.is_some() { 5 } else { 60 }),
+            )
+            .await;
         }
     })
 }

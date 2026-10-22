@@ -367,6 +367,7 @@ pub struct Runner<'a> {
     quic: Option<TpuClient>,
     watches: Vec<ClockWatch>,
     clock_errs: Vec<f64>,
+    clock_resolved: usize,
     summary: RunSummary,
     n_windows: usize,
     last_poll: Instant,
@@ -421,6 +422,7 @@ impl<'a> Runner<'a> {
             mode: init.mode,
             watches: vec![],
             clock_errs: vec![],
+            clock_resolved: 0,
             n_windows: 0,
             last_poll: Instant::now(),
             stop: None,
@@ -520,7 +522,12 @@ impl<'a> Runner<'a> {
             match queue.pop_front() {
                 Some(w) => self.execute(w).await?,
                 None if planning_done => break,
-                None => self.idle_until(unix_ns() + 1_000_000_000).await?,
+                None => {
+                    // nothing scheduled: a collector pass may use up to ~8 s
+                    let now = unix_ns();
+                    self.idle_until(now + 1_000_000_000, now + 10_000_000_000)
+                        .await?
+                }
             }
         }
         if self.mode.is_live() {
@@ -541,8 +548,9 @@ impl<'a> Runner<'a> {
             }
         }
         self.check_clock()?;
+        self.dump_slot_feed()?;
         self.summary.unresolved = self.collector.pending_len();
-        self.summary.clock_prep = clock_stats(&self.clock_errs, self.summary.windows_executed);
+        self.summary.clock_prep = clock_stats(&self.clock_errs, self.clock_resolved);
         self.summary.stopped_early = self.stop.clone();
         if let Mode::Live { ledger, .. } = &self.mode {
             let t = ledger.totals();
@@ -558,18 +566,22 @@ impl<'a> Runner<'a> {
         Ok(self.summary)
     }
 
-    async fn idle_until(&mut self, t: i128) -> Result<()> {
+    /// Wait until `t`, doing background work. `hard` is the moment real work must start;
+    /// a collector pass runs only if it can finish (bounded) 2 s before `hard`.
+    async fn idle_until(&mut self, t: i128, hard: i128) -> Result<()> {
         loop {
-            let rem_ms = ((t - unix_ns()) / 1_000_000) as i64;
+            let now = unix_ns();
+            let rem_ms = ((t - now) / 1_000_000) as i64;
             if rem_ms <= 0 {
                 return Ok(());
             }
             self.check_clock()?;
-            if rem_ms > 3_000
+            let slack_ms = ((hard - now) / 1_000_000) as i64;
+            if slack_ms > 3_000
                 && self.collector.pending_len() > 0
                 && self.last_poll.elapsed() > Duration::from_secs(3)
             {
-                self.poll_collector(Duration::from_millis((rem_ms - 2_000) as u64))
+                self.poll_collector(Duration::from_millis((slack_ms - 2_000) as u64))
                     .await?;
                 continue;
             }
@@ -643,12 +655,27 @@ impl<'a> Runner<'a> {
             (lines, keep)
         };
         self.watches = keep;
+        self.clock_resolved += lines.len();
         for l in &lines {
             if let Some(e) = l.err_prep_ms {
                 self.clock_errs.push(e);
             }
         }
         collect::append_jsonl(&self.run_dir.join("clock.jsonl"), &lines)
+    }
+
+    /// Raw slot notifications (slot, first-seen UNIX ns) for the clock-model error report.
+    fn dump_slot_feed(&self) -> Result<()> {
+        let s = self
+            .feed
+            .lock()
+            .map_err(|_| anyhow::anyhow!("slot state poisoned"))?;
+        let rows: Vec<serde_json::Value> = s
+            .first_seen
+            .iter()
+            .map(|(k, v)| serde_json::json!({"slot": k, "t_ns": v}))
+            .collect();
+        collect::append_jsonl(&self.run_dir.join("slots.jsonl"), &rows)
     }
 
     fn skip(&mut self, mut log: WindowLog, reason: String) -> Result<()> {
@@ -675,14 +702,28 @@ impl<'a> Runner<'a> {
         } else {
             self.cfg.offsets_ms[k % self.cfg.offsets_ms.len()]
         };
-        let shift = i128::from(offset_ms - self.plan_cfg.offset_ms) * 1_000_000;
+        let offset_ns = i128::from(offset_ms) * 1_000_000;
         let prep_ns = i128::from(self.cfg.prep_ms) * 1_000_000;
-        self.idle_until(w.send_at_unix_ns + shift - prep_ns).await?;
+        // Plan-time predictions can be minutes ahead and off by seconds (LOGBOOK), so the
+        // wait re-predicts at least once a second and prep starts prep_ms before the
+        // *current* prediction.
+        loop {
+            let pred = self
+                .fit()
+                .map(|f| f.predict_ns(w.first_slot) as i128)
+                .unwrap_or(w.predicted_first_slot_unix_ns);
+            let prep_at = pred + offset_ns - prep_ns;
+            let now = unix_ns();
+            if now >= prep_at {
+                break;
+            }
+            self.idle_until(prep_at.min(now + 1_000_000_000), prep_at)
+                .await?;
+        }
 
         let fit = self.fit();
         let predicted_prep = fit.map(|f| f.predict_ns(w.first_slot) as i128);
-        let send_at = predicted_prep.unwrap_or(w.predicted_first_slot_unix_ns)
-            + i128::from(offset_ms) * 1_000_000;
+        let send_at = predicted_prep.unwrap_or(w.predicted_first_slot_unix_ns) + offset_ns;
         self.watches.push(ClockWatch {
             window_id: w.window_id.clone(),
             first_slot: w.first_slot,
