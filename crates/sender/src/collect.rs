@@ -46,11 +46,19 @@ pub struct SentTx {
     pub n_signatures: u64,
     /// Arm C: the shared writable account.
     pub conflict_account: Option<String>,
+    /// False for the RPC delivery check (one tx per window): such txs answer "did it
+    /// land", never "in which order". Ordering analysis must skip them.
+    #[serde(default = "default_true")]
+    pub ordering_eligible: bool,
     pub reserved_lamports: u64,
     pub blockhash: String,
     pub last_valid_block_height: u64,
     pub planned_send_unix_ns: i128,
     pub send: SendRecord,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -467,6 +475,7 @@ mod tests {
             cu_price_micro_lamports: 1,
             n_signatures: 1,
             conflict_account: None,
+            ordering_eligible: true,
             reserved_lamports: 5001,
             blockhash: "h".into(),
             last_valid_block_height: 1,

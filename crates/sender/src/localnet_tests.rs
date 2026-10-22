@@ -1,5 +1,6 @@
 //! End-to-end test against a local `solana-test-validator` (never mainnet, never devnet):
-//! fund -> two live windows (Arm P over QUIC, Arm C over RPC) -> collect -> sweep -> reconcile.
+//! fund -> two live windows (Arm P over QUIC; RPC delivery check = 1 tx) -> collect -> sweep
+//! -> reconcile.
 //!
 //! Ignored by default. Run with a validator already listening:
 //!
@@ -153,7 +154,15 @@ async fn localnet_end_to_end() {
             }
         })
         .collect();
-    let expected_cost: u64 = windows.iter().map(|w| w.expected_cost_lamports).sum();
+    // Window 2 goes through RPC: a delivery check with only its first-in-send-order tx.
+    let rpc_tx = windows[1]
+        .design
+        .txs
+        .iter()
+        .find(|t| t.send_rank == 0)
+        .unwrap();
+    let expected_cost: u64 = windows[0].expected_cost_lamports
+        + total_fee(lps, 1, rpc_tx.cu_price_micro_lamports, rpc_tx.cu_limit);
     let summary = {
         let mut ledger = Ledger::open(&ledger_path, "local-run", auth.cap()).unwrap();
         let pks: Vec<String> = payers.iter().map(|p| p.pubkey().to_string()).collect();
@@ -176,7 +185,7 @@ async fn localnet_end_to_end() {
             data_root: data_root.clone(),
             cfg: RunConfig {
                 run_id: "local-run".into(),
-                rpc_every: Some(2), // window 2 goes through sendTransaction
+                rpc_every: Some(2), // window 2 goes through sendTransaction (1 tx)
                 simulate_every: 1,
                 min_clock_obs: 10,
                 ..RunConfig::default()
@@ -206,15 +215,15 @@ async fn localnet_end_to_end() {
         s
     };
     assert_eq!(summary.windows_executed, 2, "{summary:?}");
-    assert_eq!(summary.txs_sent, 16);
+    assert_eq!(summary.txs_sent, 9);
     assert_eq!(summary.send_errors, 0);
     assert_eq!(summary.unresolved, 0);
-    assert_eq!(summary.landed, 16, "{summary:?}");
+    assert_eq!(summary.landed, 9, "{summary:?}");
     assert_eq!(summary.spent_run_lamports, Some(expected_cost));
 
     let manifest: Vec<ManifestLine> =
         collect::read_jsonl(&runner::manifest_path(&data_root, Purpose::Calibrate)).unwrap();
-    assert_eq!(manifest.len(), 16);
+    assert_eq!(manifest.len(), 9);
     let mut paths = BTreeMap::new();
     for l in &manifest {
         assert_eq!(l.outcome.status, Status::Landed);
@@ -223,11 +232,12 @@ async fn localnet_end_to_end() {
         assert_eq!(l.outcome.fee_paid, Some(l.tx.reserved_lamports));
         assert!(l.outcome.tx_error.is_none(), "{:?}", l.outcome.tx_error);
         assert!(collect::block_path(&data_root, l.outcome.slot.unwrap()).exists());
+        assert_eq!(l.tx.ordering_eligible, l.tx.send.path == "quic");
         *paths.entry(l.tx.send.path.clone()).or_insert(0) += 1;
     }
     assert_eq!(
         paths,
-        BTreeMap::from([("quic".to_string(), 8), ("rpc".to_string(), 8)])
+        BTreeMap::from([("quic".to_string(), 8), ("rpc".to_string(), 1)])
     );
     // CU usage of the minimal tx (feeds VERIFIED_FACTS F10): printed, and below the limit.
     let logs = std::fs::read_to_string(data_root.join("logs/local-run/windows.jsonl")).unwrap();
@@ -276,5 +286,5 @@ async fn localnet_end_to_end() {
     println!("{}", serde_json::to_string_pretty(&report).unwrap());
     assert!(report.ok, "{:?}", report.problems);
     assert_eq!(report.locked_rent_after, 0);
-    assert_eq!(report.landed_in_range, 17 + 16 + 17);
+    assert_eq!(report.landed_in_range, 17 + 9 + 17);
 }
