@@ -2,6 +2,9 @@
 pub mod arms;
 pub mod burst;
 pub mod clock;
+pub mod cluster;
+pub mod collect;
+pub mod feed;
 pub mod keys;
 pub mod ledger;
 pub mod live;

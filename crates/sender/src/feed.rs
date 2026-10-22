@@ -42,7 +42,9 @@ fn record(state: &Shared, slot: u64, t: i128, source: &'static str) {
 async fn ws_loop(ws_url: &str, state: &Shared) -> anyhow::Result<()> {
     let (mut ws, _) = tokio_tungstenite::connect_async(ws_url).await?;
     ws.send(Message::Text(
-        json!({"jsonrpc":"2.0","id":1,"method":"slotSubscribe"}).to_string().into(),
+        json!({"jsonrpc":"2.0","id":1,"method":"slotSubscribe"})
+            .to_string()
+            .into(),
     ))
     .await?;
     tracing::info!(ws_url, "slotSubscribe connected");
@@ -84,7 +86,9 @@ pub fn spawn(ws_url: Option<String>, rpc: Rpc, state: Shared) -> tokio::task::Jo
 
 /// Derive a WebSocket URL from an HTTP RPC URL (http->ws, https->wss, port+1 for localhost).
 pub fn ws_from_http(http: &str) -> String {
-    let ws = http.replacen("https://", "wss://", 1).replacen("http://", "ws://", 1);
+    let ws = http
+        .replacen("https://", "wss://", 1)
+        .replacen("http://", "ws://", 1);
     if let Some(rest) = ws.strip_prefix("ws://127.0.0.1:") {
         if let Ok(port) = rest.trim_end_matches('/').parse::<u16>() {
             return format!("ws://127.0.0.1:{}", port + 1);
@@ -97,7 +101,13 @@ pub fn ws_from_http(http: &str) -> String {
 mod tests {
     #[test]
     fn ws_url_derivation() {
-        assert_eq!(super::ws_from_http("https://api.mainnet-beta.solana.com"), "wss://api.mainnet-beta.solana.com");
-        assert_eq!(super::ws_from_http("http://127.0.0.1:8899"), "ws://127.0.0.1:8900");
+        assert_eq!(
+            super::ws_from_http("https://api.mainnet-beta.solana.com"),
+            "wss://api.mainnet-beta.solana.com"
+        );
+        assert_eq!(
+            super::ws_from_http("http://127.0.0.1:8899"),
+            "ws://127.0.0.1:8900"
+        );
     }
 }

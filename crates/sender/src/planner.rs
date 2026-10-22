@@ -26,6 +26,9 @@ pub struct PlanConfig {
     pub budget_lamports: u64,
     pub arms: Vec<Arm>,
     pub arm_cfg: ArmConfig,
+    /// Apply the Alpenglow/stabilization slot guard. Always true on mainnet; the runner sets
+    /// it from the cluster's genesis hash (`cluster::Cluster`), never from a user flag.
+    pub mainnet_guard: bool,
 }
 
 impl Default for PlanConfig {
@@ -41,6 +44,7 @@ impl Default for PlanConfig {
             budget_lamports: PLANNED_SPEND_BUDGET_LAMPORTS,
             arms: Arm::ALL.to_vec(),
             arm_cfg: ArmConfig::default(),
+            mainnet_guard: true,
         }
     }
 }
@@ -78,6 +82,20 @@ pub struct Skip {
     pub reason: String,
 }
 
+/// State carried across planning chunks (a long run plans the schedule piece by piece):
+/// per-validator arm counters keep the arm blocks balanced, `last_send` keeps the spacing,
+/// `spent` the budget.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PlanState {
+    pub per_validator: BTreeMap<String, usize>,
+    pub last_send: Option<i128>,
+    pub spent: u64,
+    pub planned: usize,
+    /// Highest first slot already considered. Chunks overlap so that windows cut at a chunk
+    /// edge are seen whole in the next chunk; this keeps each window considered once.
+    pub considered_through: Option<u64>,
+}
+
 /// Group a contiguous run of slot leaders (starting at `start_slot`) into leader windows.
 /// Back-to-back windows of the same leader merge into one window of 8+ slots.
 pub fn windows_from_leaders(start_slot: u64, leaders: &[String]) -> Vec<(u64, u64, String)> {
@@ -100,13 +118,11 @@ pub fn plan_windows(
     now_unix_ns: i128,
     cfg: &PlanConfig,
     shared_sink: Option<solana_pubkey::Pubkey>,
+    state: &mut PlanState,
 ) -> (Vec<PlannedWindow>, Vec<Skip>) {
     let by_id: HashMap<&str, &Target> = targets.iter().map(|t| (t.identity.as_str(), t)).collect();
     let mut planned = vec![];
     let mut skips = vec![];
-    let mut per_validator: BTreeMap<String, usize> = BTreeMap::new();
-    let mut last_send: Option<i128> = None;
-    let mut spent = 0u64;
     for (first_slot, n_slots, leader) in windows_from_leaders(start_slot, leaders) {
         let Some(t) = by_id.get(leader.as_str()) else {
             continue;
@@ -116,12 +132,19 @@ pub fn plan_windows(
             identity: leader.clone(),
             reason,
         };
-        // A window cut at the edge of the fetched schedule may be incomplete: skip it.
+        if state.considered_through.is_some_and(|c| first_slot <= c) {
+            continue;
+        }
+        // A window cut at the edge of the fetched schedule may be incomplete: skip it (the
+        // runner's next, overlapping chunk sees it whole).
         if first_slot == start_slot || first_slot + n_slots == start_slot + leaders.len() as u64 {
             skips.push(skip("window truncated by schedule range".into()));
             continue;
         }
-        if let Err(e) = guard::check_live_slot(first_slot, cfg.min_live_epoch) {
+        state.considered_through = Some(first_slot);
+        if cfg.mainnet_guard
+            && let Err(e) = guard::check_live_slot(first_slot, cfg.min_live_epoch)
+        {
             skips.push(skip(e.to_string()));
             continue;
         }
@@ -136,21 +159,21 @@ pub fn plan_windows(
             skips.push(skip(format!("lead {lead_ms} ms < min {}", cfg.min_lead_ms)));
             continue;
         }
-        if let Some(prev) = last_send
+        if let Some(prev) = state.last_send
             && send_at - prev < i128::from(cfg.min_spacing_ms) * 1_000_000
         {
             skips.push(skip("too close to previous planned window".into()));
             continue;
         }
-        if planned.len() >= cfg.max_windows {
+        if state.planned >= cfg.max_windows {
             skips.push(skip("max_windows reached".into()));
             continue;
         }
-        let k = per_validator.entry(leader.clone()).or_default();
+        let k = *state.per_validator.get(&leader).unwrap_or(&0);
         let vseed = arms::window_seed(cfg.campaign_seed, &leader);
         // Balanced per validator: blocks of all arms, shuffled per validator.
-        let arm_seq = arms::assign_arms(vseed, *k + 1, &cfg.arms);
-        let arm = arm_seq[*k];
+        let arm_seq = arms::assign_arms(vseed, k + 1, &cfg.arms);
+        let arm = arm_seq[k];
         let n_x = arm_seq.iter().filter(|&&a| a == Arm::X).count();
         let x_gap = cfg.arm_cfg.x_gaps_ms[(n_x.max(1) - 1) % cfg.arm_cfg.x_gaps_ms.len()];
         let window_id = format!("{first_slot}-{}", &leader[..8.min(leader.len())]);
@@ -168,16 +191,17 @@ pub fn plan_windows(
                 )
             })
             .sum();
-        if spent + cost > cfg.budget_lamports {
+        if state.spent + cost > cfg.budget_lamports {
             skips.push(skip(format!(
-                "planning budget: {spent} + {cost} > {}",
-                cfg.budget_lamports
+                "planning budget: {} + {cost} > {}",
+                state.spent, cfg.budget_lamports
             )));
             continue;
         }
-        spent += cost;
-        *k += 1;
-        last_send = Some(send_at);
+        state.spent += cost;
+        state.per_validator.insert(leader.clone(), k + 1);
+        state.last_send = Some(send_at);
+        state.planned += 1;
         planned.push(PlannedWindow {
             window_id,
             identity: leader.clone(),
@@ -258,6 +282,7 @@ mod tests {
             0,
             &PlanConfig::default(),
             None,
+            &mut PlanState::default(),
         );
         assert!(p.is_empty());
         assert!(
@@ -284,6 +309,7 @@ mod tests {
             now,
             &cfg,
             None,
+            &mut PlanState::default(),
         );
         assert!(!p.is_empty());
         for w in p.windows(2) {
@@ -301,9 +327,60 @@ mod tests {
             budget_lamports: 100_000,
             ..cfg
         };
-        let (p2, s2) = plan_windows(start, &l, &[target("tgt")], &fit(), now, &tight, None);
+        let (p2, s2) = plan_windows(
+            start,
+            &l,
+            &[target("tgt")],
+            &fit(),
+            now,
+            &tight,
+            None,
+            &mut PlanState::default(),
+        );
         assert!(p2.iter().map(|w| w.expected_cost_lamports).sum::<u64>() <= 100_000);
         assert!(s2.iter().any(|s| s.reason.contains("planning budget")));
+    }
+
+    #[test]
+    fn chunked_planning_continues_arm_blocks_and_spacing() {
+        let start = 460_100_000;
+        let l = leaders(start, &["tgt", "x", "y", "z", "w"], 800);
+        let now = fit().predict_ns(start) as i128;
+        let cfg = PlanConfig::default();
+        let mut st = PlanState::default();
+        let half = l.len() / 2;
+        let (a, _) = plan_windows(
+            start,
+            &l[..half],
+            &[target("tgt")],
+            &fit(),
+            now,
+            &cfg,
+            None,
+            &mut st,
+        );
+        // overlapping second chunk: windows already considered must not be planned twice
+        let (b, _) = plan_windows(
+            start + half as u64 - 16,
+            &l[half - 16..],
+            &[target("tgt")],
+            &fit(),
+            now,
+            &cfg,
+            None,
+            &mut st,
+        );
+        assert!(!a.is_empty() && !b.is_empty());
+        assert!(b[0].first_slot > a[a.len() - 1].first_slot);
+        let got: Vec<Arm> = a.iter().chain(&b).map(|w| w.design.arm).collect();
+        let want = arms::assign_arms(
+            arms::window_seed(cfg.campaign_seed, "tgt"),
+            got.len(),
+            &cfg.arms,
+        );
+        assert_eq!(got, want);
+        assert!(b[0].send_at_unix_ns - a[a.len() - 1].send_at_unix_ns >= 5_000_000_000);
+        assert_eq!(st.planned, got.len());
     }
 
     #[test]
@@ -312,8 +389,28 @@ mod tests {
         let l = leaders(start, &["tgt", "x", "y"], 200);
         let now = fit().predict_ns(start) as i128;
         let cfg = PlanConfig::default();
-        let a = plan_windows(start, &l, &[target("tgt")], &fit(), now, &cfg, None).0;
-        let b = plan_windows(start, &l, &[target("tgt")], &fit(), now, &cfg, None).0;
+        let a = plan_windows(
+            start,
+            &l,
+            &[target("tgt")],
+            &fit(),
+            now,
+            &cfg,
+            None,
+            &mut PlanState::default(),
+        )
+        .0;
+        let b = plan_windows(
+            start,
+            &l,
+            &[target("tgt")],
+            &fit(),
+            now,
+            &cfg,
+            None,
+            &mut PlanState::default(),
+        )
+        .0;
         assert_eq!(
             serde_json::to_string(&a).unwrap(),
             serde_json::to_string(&b).unwrap()

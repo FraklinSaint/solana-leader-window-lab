@@ -44,6 +44,9 @@ pub enum Entry {
         last_valid_block_height: u64,
         purpose: Purpose,
         window_id: Option<String>,
+        /// Fee payer; a payer is reused only after all its reservations are resolved.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        payer: Option<String>,
         ts: String,
     },
     Landed {
@@ -72,6 +75,7 @@ struct Reservation {
     run_id: String,
     amount: u64,
     last_valid_block_height: u64,
+    payer: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -240,6 +244,7 @@ impl Ledger {
                 sig,
                 amount,
                 last_valid_block_height,
+                payer,
                 ..
             } => {
                 if self.open.contains_key(sig) || self.settled.contains_key(sig) {
@@ -255,6 +260,7 @@ impl Ledger {
                         run_id: run_id.clone(),
                         amount: *amount,
                         last_valid_block_height: *last_valid_block_height,
+                        payer: payer.clone(),
                     },
                 );
             }
@@ -338,6 +344,26 @@ impl Ledger {
         purpose: Purpose,
         window_id: Option<&str>,
     ) -> Result<(), LedgerError> {
+        self.reserve_paid_by(
+            sig,
+            amount,
+            last_valid_block_height,
+            purpose,
+            window_id,
+            None,
+        )
+    }
+
+    /// [`Ledger::reserve`], also recording the fee payer.
+    pub fn reserve_paid_by(
+        &mut self,
+        sig: &str,
+        amount: u64,
+        last_valid_block_height: u64,
+        purpose: Purpose,
+        window_id: Option<&str>,
+        payer: Option<&str>,
+    ) -> Result<(), LedgerError> {
         self.check(amount)?;
         let e = Entry::Reserve {
             run_id: self.run_id.clone(),
@@ -346,6 +372,7 @@ impl Ledger {
             last_valid_block_height,
             purpose,
             window_id: window_id.map(str::to_string),
+            payer: payer.map(str::to_string),
             ts: now(),
         };
         self.apply(&e)?;
@@ -409,6 +436,30 @@ impl Ledger {
     pub fn settled_fee(&self, sig: &str) -> Option<u64> {
         self.settled.get(sig).copied()
     }
+
+    pub fn is_open(&self, sig: &str) -> bool {
+        self.open.contains_key(sig)
+    }
+
+    /// Payers that still have an unresolved reservation (busy, must not be reused).
+    pub fn busy_payers(&self) -> std::collections::BTreeSet<String> {
+        self.open.values().filter_map(|r| r.payer.clone()).collect()
+    }
+
+    /// Read every complete entry of a ledger file (for reconciliation and audits).
+    pub fn read_entries(path: &Path) -> Result<Vec<Entry>, LedgerError> {
+        let text = std::fs::read_to_string(path)?;
+        text.lines()
+            .enumerate()
+            .filter(|(_, l)| !l.trim().is_empty())
+            .map(|(i, l)| {
+                serde_json::from_str(l).map_err(|e| LedgerError::Corrupt {
+                    line: i + 1,
+                    err: e.to_string(),
+                })
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -418,6 +469,31 @@ mod tests {
 
     fn open(dir: &tempfile::TempDir, run: &str, cap: u64) -> Ledger {
         Ledger::open(&dir.path().join("ledger.jsonl"), run, cap).unwrap()
+    }
+
+    #[test]
+    fn busy_payers_survive_restart_until_resolved() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let mut l = open(&dir, "r1", 50_000);
+            l.reserve_paid_by("a", 6_000, 100, Purpose::Measure, None, Some("P1"))
+                .unwrap();
+            l.reserve_paid_by("b", 6_000, 100, Purpose::Measure, None, Some("P2"))
+                .unwrap();
+            l.settle_landed("b", 5_001, 7).unwrap();
+        }
+        let mut l = open(&dir, "r2", 50_000);
+        assert_eq!(l.busy_payers().into_iter().collect::<Vec<_>>(), vec!["P1"]);
+        let proof = ExpiryProof::new(101, 100, None).unwrap();
+        l.settle_expired("a", proof).unwrap();
+        assert!(l.busy_payers().is_empty());
+    }
+
+    #[test]
+    fn reserve_entries_without_payer_still_parse() {
+        let line = r#"{"kind":"reserve","run_id":"r","sig":"s","amount":1,"last_valid_block_height":2,"purpose":"measure","window_id":null,"ts":"t"}"#;
+        let e: Entry = serde_json::from_str(line).unwrap();
+        assert!(matches!(e, Entry::Reserve { payer: None, .. }));
     }
 
     fn expired(bh: u64) -> ExpiryProof {

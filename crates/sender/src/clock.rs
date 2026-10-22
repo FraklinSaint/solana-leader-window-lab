@@ -52,7 +52,7 @@ fn ols(points: &[(f64, f64)]) -> Option<(f64, f64)> {
 fn median(mut v: Vec<f64>) -> f64 {
     v.sort_by(|a, b| a.total_cmp(b));
     let m = v.len() / 2;
-    if v.len() % 2 == 0 {
+    if v.len().is_multiple_of(2) {
         (v[m - 1] + v[m]) / 2.0
     } else {
         v[m]

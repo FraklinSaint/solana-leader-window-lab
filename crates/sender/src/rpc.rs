@@ -218,6 +218,53 @@ impl Rpc {
         )
         .await
     }
+    pub async fn genesis_hash(&self) -> Result<String> {
+        self.typed("getGenesisHash", json!([])).await
+    }
+    /// Block height at an explicit commitment. Expiry proofs use `finalized`.
+    pub async fn block_height_at(&self, commitment: &str) -> Result<u64> {
+        self.typed("getBlockHeight", json!([{"commitment": commitment}]))
+            .await
+    }
+    /// Leader schedule of the epoch containing `slot`: identity -> slot indices in the epoch.
+    pub async fn leader_schedule(
+        &self,
+        slot: u64,
+    ) -> Result<std::collections::HashMap<String, Vec<u64>>> {
+        let v = self.call("getLeaderSchedule", json!([slot])).await?;
+        if v.is_null() {
+            bail!("getLeaderSchedule: no schedule for the epoch of slot {slot}");
+        }
+        Ok(serde_json::from_value(v)?)
+    }
+    /// Lamport balances of many accounts at `confirmed` (0 for missing accounts).
+    pub async fn balances(&self, pubkeys: &[String]) -> Result<Vec<u64>> {
+        let mut out = Vec::with_capacity(pubkeys.len());
+        for chunk in pubkeys.chunks(100) {
+            let v = self
+                .call(
+                    "getMultipleAccounts",
+                    json!([chunk, {"commitment": "confirmed", "encoding": "base64",
+                                   "dataSlice": {"offset": 0, "length": 0}}]),
+                )
+                .await?;
+            let vals = v["value"].as_array().cloned().unwrap_or_default();
+            if vals.len() != chunk.len() {
+                bail!(
+                    "getMultipleAccounts: {} results for {} keys",
+                    vals.len(),
+                    chunk.len()
+                );
+            }
+            out.extend(vals.iter().map(|a| a["lamports"].as_u64().unwrap_or(0)));
+        }
+        Ok(out)
+    }
+    /// Localnet/devnet only (the caller checks the cluster).
+    pub async fn request_airdrop(&self, pubkey: &str, lamports: u64) -> Result<String> {
+        self.typed("requestAirdrop", json!([pubkey, lamports]))
+            .await
+    }
     pub async fn send_transaction(
         &self,
         _auth: &crate::live::LiveAuth,

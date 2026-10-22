@@ -5,7 +5,7 @@ use crate::live::LiveAuth;
 use crate::quic::TpuConnection;
 use crate::rpc::Rpc;
 use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
@@ -16,11 +16,11 @@ pub struct BurstTx {
     pub offset_us: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SendRecord {
     pub idx: usize,
     pub sig: String,
-    pub path: &'static str,
+    pub path: String,
     pub planned_offset_us: u64,
     /// Monotonic ns relative to the burst's planned start.
     pub start_mono_ns: i64,
@@ -33,6 +33,8 @@ pub struct SendRecord {
     pub error: Option<String>,
 }
 
+// Only used through generics inside this crate, so the missing Send bound is harmless.
+#[allow(async_fn_in_trait)]
 pub trait Sink {
     fn path(&self) -> &'static str;
     /// Pre-open whatever is needed for `n` sends (no bytes leave the process).
@@ -189,7 +191,7 @@ pub async fn run_burst<S: Sink>(sink: &mut S, txs: &[BurstTx], start: Instant) -
         out.push(SendRecord {
             idx: tx.idx,
             sig: tx.sig.clone(),
-            path: sink.path(),
+            path: sink.path().to_string(),
             planned_offset_us: tx.offset_us,
             start_mono_ns: rel(t0),
             end_mono_ns: rel(t1),

@@ -136,7 +136,7 @@ impl TpuConnection {
         mut stream: quinn::SendStream,
         bytes: &[u8],
     ) -> Result<StreamWrite> {
-        let stream_id = u64::from(stream.id().index());
+        let stream_id = stream.id().index();
         stream.write_all(bytes).await?;
         stream.finish()?;
         Ok(StreamWrite { stream_id })
