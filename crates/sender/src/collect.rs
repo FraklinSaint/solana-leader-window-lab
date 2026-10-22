@@ -212,6 +212,52 @@ pub fn read_jsonl<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<Vec<T>> {
         .collect()
 }
 
+/// What one pass learned from the chain.
+pub struct Observation {
+    pub finalized_height: u64,
+    /// Signature -> `getSignatureStatuses` entry (with history search).
+    pub statuses: BTreeMap<String, Value>,
+    pub blocks: BTreeMap<u64, Arc<Value>>,
+}
+
+enum Resolution {
+    Pending,
+    Landed {
+        slot: u64,
+        loc: Located,
+        producer: Option<String>,
+    },
+    Expired(ExpiryProof),
+}
+
+fn resolve(p: &Pending, obs: &Observation) -> Resolution {
+    let st = obs.statuses.get(&p.sig).unwrap_or(&Value::Null);
+    if st.is_null() {
+        return match ExpiryProof::new(obs.finalized_height, p.last_valid_block_height, None) {
+            Some(proof) => Resolution::Expired(proof),
+            None => Resolution::Pending,
+        };
+    }
+    // Processed-only statuses have no fetched block yet: stay pending.
+    let Some((slot, block)) = st["slot"]
+        .as_u64()
+        .and_then(|s| obs.blocks.get(&s).map(|b| (s, b)))
+    else {
+        return Resolution::Pending;
+    };
+    match locate(block, &p.sig) {
+        Some(loc) => Resolution::Landed {
+            slot,
+            loc,
+            producer: producer(block),
+        },
+        None => {
+            tracing::error!(sig = %p.sig, slot, "status points at a block that does not contain the tx");
+            Resolution::Pending
+        }
+    }
+}
+
 pub struct Collector {
     rpc: Rpc,
     data_root: PathBuf,
@@ -253,89 +299,96 @@ impl Collector {
         Ok(b)
     }
 
-    /// One resolution pass. Settles the ledger (when given) and appends manifest lines.
-    /// Ledger errors (e.g. a fee above its reservation) are fatal by design.
-    pub async fn poll(&mut self, mut ledger: Option<&mut Ledger>) -> Result<Vec<ManifestLine>> {
-        if self.pending.is_empty() {
-            return Ok(vec![]);
-        }
+    /// Network half of a pass: no state changes besides the block cache and raw block files,
+    /// so it is safe to cancel (the runner bounds it with a timeout between windows).
+    pub async fn observe(&mut self) -> Result<Observation> {
         // Order matters, see module docs.
         let finalized_height = self.rpc.block_height_at("finalized").await?;
         let sigs: Vec<String> = self.pending.iter().map(|p| p.sig.clone()).collect();
         let statuses = self.rpc.signature_statuses(&sigs, true).await?;
+        let mut blocks = BTreeMap::new();
+        for st in &statuses {
+            let conf = st["confirmationStatus"].as_str().unwrap_or("");
+            if let (Some(slot), "confirmed" | "finalized") = (st["slot"].as_u64(), conf)
+                && !blocks.contains_key(&slot)
+            {
+                blocks.insert(slot, self.block(slot).await?);
+            }
+        }
+        Ok(Observation {
+            finalized_height,
+            statuses: sigs.into_iter().zip(statuses).collect(),
+            blocks,
+        })
+    }
+
+    /// Synchronous half: settle the ledger, build manifest lines, drop resolved txs.
+    /// Ledger errors (e.g. a fee above its reservation) are fatal by design.
+    pub fn apply(
+        &mut self,
+        obs: &Observation,
+        mut ledger: Option<&mut Ledger>,
+    ) -> Result<Vec<ManifestLine>> {
         let mut keep = vec![];
         let mut lines = vec![];
-        let pending = std::mem::take(&mut self.pending);
-        for (p, st) in pending.into_iter().zip(statuses) {
-            if !st.is_null() {
-                let conf = st["confirmationStatus"].as_str().unwrap_or("");
-                let Some(slot) = st["slot"].as_u64() else {
-                    keep.push(p);
-                    continue;
-                };
-                if conf != "confirmed" && conf != "finalized" {
-                    keep.push(p);
-                    continue;
+        for p in std::mem::take(&mut self.pending) {
+            match resolve(&p, obs) {
+                Resolution::Pending => keep.push(p),
+                Resolution::Landed {
+                    slot,
+                    loc,
+                    producer,
+                } => {
+                    if let Some(l) = ledger.as_deref_mut()
+                        && l.is_open(&p.sig)
+                    {
+                        l.settle_landed(&p.sig, loc.fee, slot)?;
+                    }
+                    if let Some(sent) = p.sent {
+                        lines.push(ManifestLine {
+                            outcome: Outcome {
+                                status: Status::Landed,
+                                slot: Some(slot),
+                                block_index: Some(loc.index),
+                                block_tx_count: Some(loc.tx_count),
+                                exclusion_reason: exclusion(
+                                    &sent,
+                                    Status::Landed,
+                                    Some(slot),
+                                    producer.as_deref(),
+                                ),
+                                producer,
+                                fee_paid: Some(loc.fee),
+                                tx_error: (!loc.err.is_null()).then_some(loc.err),
+                                resolved_at: now(),
+                            },
+                            tx: sent,
+                        });
+                    }
                 }
-                let block = self.block(slot).await?;
-                let Some(loc) = locate(&block, &p.sig) else {
-                    tracing::error!(sig = %p.sig, slot, "status points at a block that does not contain the tx");
-                    keep.push(p);
-                    continue;
-                };
-                if let Some(l) = ledger.as_deref_mut()
-                    && l.is_open(&p.sig)
-                {
-                    l.settle_landed(&p.sig, loc.fee, slot)?;
+                Resolution::Expired(proof) => {
+                    if let Some(l) = ledger.as_deref_mut()
+                        && l.is_open(&p.sig)
+                    {
+                        l.settle_expired(&p.sig, proof)?;
+                    }
+                    if let Some(sent) = p.sent {
+                        lines.push(ManifestLine {
+                            outcome: Outcome {
+                                status: Status::Expired,
+                                slot: None,
+                                block_index: None,
+                                block_tx_count: None,
+                                producer: None,
+                                fee_paid: None,
+                                tx_error: None,
+                                exclusion_reason: exclusion(&sent, Status::Expired, None, None),
+                                resolved_at: now(),
+                            },
+                            tx: sent,
+                        });
+                    }
                 }
-                if let Some(sent) = p.sent {
-                    let prod = producer(&block);
-                    lines.push(ManifestLine {
-                        outcome: Outcome {
-                            status: Status::Landed,
-                            slot: Some(slot),
-                            block_index: Some(loc.index),
-                            block_tx_count: Some(loc.tx_count),
-                            exclusion_reason: exclusion(
-                                &sent,
-                                Status::Landed,
-                                Some(slot),
-                                prod.as_deref(),
-                            ),
-                            producer: prod,
-                            fee_paid: Some(loc.fee),
-                            tx_error: (!loc.err.is_null()).then_some(loc.err),
-                            resolved_at: now(),
-                        },
-                        tx: sent,
-                    });
-                }
-            } else if let Some(proof) =
-                ExpiryProof::new(finalized_height, p.last_valid_block_height, None)
-            {
-                if let Some(l) = ledger.as_deref_mut()
-                    && l.is_open(&p.sig)
-                {
-                    l.settle_expired(&p.sig, proof)?;
-                }
-                if let Some(sent) = p.sent {
-                    lines.push(ManifestLine {
-                        outcome: Outcome {
-                            status: Status::Expired,
-                            slot: None,
-                            block_index: None,
-                            block_tx_count: None,
-                            producer: None,
-                            fee_paid: None,
-                            tx_error: None,
-                            exclusion_reason: exclusion(&sent, Status::Expired, None, None),
-                            resolved_at: now(),
-                        },
-                        tx: sent,
-                    });
-                }
-            } else {
-                keep.push(p);
             }
         }
         self.pending = keep;
@@ -343,6 +396,15 @@ impl Collector {
             append_jsonl(m, &lines)?;
         }
         Ok(lines)
+    }
+
+    /// One resolution pass.
+    pub async fn poll(&mut self, ledger: Option<&mut Ledger>) -> Result<Vec<ManifestLine>> {
+        if self.pending.is_empty() {
+            return Ok(vec![]);
+        }
+        let obs = self.observe().await?;
+        self.apply(&obs, ledger)
     }
 
     /// Poll until nothing is pending or `timeout` passes. Returns all resolved lines.
@@ -472,6 +534,75 @@ mod tests {
             exclusion(&e, Status::Expired, None, None).as_deref(),
             Some("send_error")
         );
+    }
+
+    fn pending(sig: &str, lvbh: u64, identity: &str) -> Pending {
+        let mut tx = sent(identity, 100, None);
+        tx.sig = sig.into();
+        Pending {
+            sig: sig.into(),
+            last_valid_block_height: lvbh,
+            sent: Some(tx),
+        }
+    }
+
+    #[test]
+    fn apply_settles_landed_expired_and_keeps_unproven() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut ledger = Ledger::open(&dir.path().join("l.jsonl"), "r", 1_000_000).unwrap();
+        for sig in ["s0", "s1", "gone", "young", "proc"] {
+            ledger
+                .reserve(sig, 6_000, 50, Purpose::Measure, Some("w"))
+                .unwrap();
+        }
+        let mut c = Collector::new(
+            Rpc::new("http://127.0.0.1:9"),
+            dir.path(),
+            Some(dir.path().join("manifest.jsonl")),
+        );
+        c.add(pending("s0", 50, "Prod"));
+        c.add(pending("s1", 50, "Someone"));
+        c.add(pending("gone", 50, "Prod"));
+        c.add(pending("young", 80, "Prod"));
+        c.add(pending("proc", 50, "Prod"));
+        let obs = Observation {
+            finalized_height: 60,
+            statuses: BTreeMap::from([
+                (
+                    "s0".to_string(),
+                    json!({"slot": 101, "confirmationStatus": "finalized"}),
+                ),
+                (
+                    "s1".to_string(),
+                    json!({"slot": 101, "confirmationStatus": "confirmed"}),
+                ),
+                ("gone".to_string(), Value::Null),
+                ("young".to_string(), Value::Null),
+                (
+                    "proc".to_string(),
+                    json!({"slot": 102, "confirmationStatus": "processed"}),
+                ),
+            ]),
+            blocks: BTreeMap::from([(101, Arc::new(block()))]),
+        };
+        let lines = c.apply(&obs, Some(&mut ledger)).unwrap();
+        assert_eq!(lines.len(), 3);
+        assert_eq!(ledger.settled_fee("s0"), Some(5000));
+        assert_eq!(ledger.settled_fee("s1"), Some(5003));
+        assert_eq!(ledger.settled_fee("gone"), Some(0));
+        assert!(ledger.is_open("young") && ledger.is_open("proc"));
+        assert_eq!(c.pending_len(), 2);
+        let s1 = lines.iter().find(|l| l.tx.sig == "s1").unwrap();
+        assert_eq!(s1.outcome.block_index, Some(1));
+        assert_eq!(
+            s1.outcome.exclusion_reason.as_deref(),
+            Some("producer_mismatch")
+        );
+        assert!(s1.outcome.tx_error.is_some());
+        let on_disk: Vec<ManifestLine> = read_jsonl(&dir.path().join("manifest.jsonl")).unwrap();
+        assert_eq!(on_disk.len(), 3);
+        // a second pass over the same observation neither double-settles nor double-writes
+        assert!(c.apply(&obs, Some(&mut ledger)).unwrap().is_empty());
     }
 
     #[test]
