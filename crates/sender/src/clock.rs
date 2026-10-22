@@ -14,17 +14,19 @@
 //! (median) and from 531 to 356 ms (p90) versus the plain fit (LOGBOOK 2026-10-22).
 //!
 //! Both parameters ([`ClockParams`]) are CLI options and are recorded in every run.json,
-//! because the best values depend on the feed: they were tuned on the public RPC and are
-//! re-chosen for the Helius slotSubscribe feed with `examples/clock_eval.rs` (exploratory)
-//! before the prereg freeze.
+//! because the best values depend on the feed. Defaults (window 600, anchor 3) come from an
+//! EXPLORATORY `examples/clock_eval.rs` replay of 10 min of Helius slotSubscribe
+//! notifications (`data/exploratory/clock_eval/helius_20261022T182628Z.json`): at 1.5 s
+//! ahead, median/p90 abs error 75/184 ms, vs 80/188 for (300, 5); at 0.5 s, 52/129 ms.
+//! The differences between neighbouring cells are small; they are frozen with the prereg.
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 /// Observations used for the intercept (re-anchoring), see module docs.
-pub const ANCHOR_K: usize = 5;
-/// Default sliding window for the slope (~65 s of slots).
-pub const WINDOW: usize = 300;
+pub const ANCHOR_K: usize = 3;
+/// Default sliding window for the slope (~130 s of slots).
+pub const WINDOW: usize = 600;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClockParams {

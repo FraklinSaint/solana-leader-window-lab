@@ -1,0 +1,71 @@
+{
+  "run_id": "dryrun-20261022T183752Z",
+  "mode": "dry_run",
+  "cluster": "mainnet",
+  "started": "2026-10-22T18:37:52.674194Z",
+  "finished": "2026-10-22T18:48:05.233615Z",
+  "windows_planned": 62,
+  "windows_executed": 62,
+  "skips": {
+    "too close to previous planned window": 61,
+    "window truncated by schedule range": 1
+  },
+  "txs_sent": 0,
+  "send_errors": 0,
+  "landed": 0,
+  "expired": 0,
+  "unresolved": 0,
+  "spent_run_lamports": null,
+  "reserved_run_lamports": null,
+  "spent_total_lamports": null,
+  "clock_prep": {
+    "windows": 62,
+    "observed": 62,
+    "median_abs_err_ms": 74.59626,
+    "p95_abs_err_ms": 199.803628,
+    "max_abs_err_ms": 228.603392
+  },
+  "stopped_early": null,
+  "by_path": {},
+  "credits": {
+    "by_method": {
+      "getClusterNodes": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getFeeForMessage": {
+        "calls": 63,
+        "credits": 63.0
+      },
+      "getGenesisHash": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getLatestBlockhash": {
+        "calls": 63,
+        "credits": 63.0
+      },
+      "getMinimumBalanceForRentExemption": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getSlot": {
+        "calls": 4,
+        "credits": 4.0
+      },
+      "getSlotLeaders": {
+        "calls": 3,
+        "credits": 3.0
+      },
+      "simulateTransaction": {
+        "calls": 3,
+        "credits": 3.0
+      }
+    },
+    "ws_bytes": 417066,
+    "ws_credits": 8.341320000000366,
+    "rate_limited": 0,
+    "credits": 147.3413200000063
+  },
+  "month_to_date_credits": 147.3413200000063
+}

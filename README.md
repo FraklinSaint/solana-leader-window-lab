@@ -124,14 +124,14 @@ offset. Comparison path: `live --rpc-every k` sends every k-th window through RP
 spaced ≥ 1 s by the free plan's limit, and the actual send times are recorded).
 `summary.json` reports sent/errors/landed/expired per path. Each tx records monotonic and wall-clock send times, connection and stream
 id, handshake time and RTT. Send time comes from a slot clock fitted to `slotSubscribe`
-notifications. Its slope uses ~300 observations, its intercept is re-anchored on the last 5
+notifications. Its slope uses ~600 observations, its intercept is re-anchored on the last 3
 (`--clock-window`, `--clock-anchor-k`, recorded in run.json), and it is re-predicted
 continuously while waiting. `examples/clock_eval.rs` replays a recorded feed to compare
 parameters (exploratory). Every window logs predicted vs observed start
 (`clock.jsonl`). Caveats: we are an unstaked client (QoS limits, F9). For BAM validators the TPU
 address may route to a BAM node (F7). Harmonic FIFO timestamps arrival "at the builder". The
-public RPC slot feed is too noisy for sub-window timing (LOGBOOK). The Helius feed is re-measured
-before the prereg freeze.
+public RPC slot feed was too noisy for sub-window timing (median 217 ms, p95 1.3 s). With the
+Helius feed, a 10-min dry-run gave median 75 ms, p95 200 ms (exploratory, LOGBOOK).
 
 ### Interaction of our own transactions with each other
 In arms P, F, X and R, each tx has its own fee payer and no other writable account (tested), so
