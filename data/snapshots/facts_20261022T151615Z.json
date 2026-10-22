@@ -1,0 +1,707 @@
+{
+  "generated_at_utc": "2026-10-22T15:16:15.183170+00:00",
+  "rpc_url": "https://api.mainnet-beta.solana.com",
+  "getVersion": {
+    "feature-set": 3383571666,
+    "solana-core": "4.3.2"
+  },
+  "getEpochSchedule": {
+    "firstNormalEpoch": 0,
+    "firstNormalSlot": 0,
+    "leaderScheduleSlotOffset": 432000,
+    "slotsPerEpoch": 432000,
+    "warmup": false
+  },
+  "getEpochInfo": {
+    "absoluteSlot": 460082735,
+    "blockHeight": 438116125,
+    "epoch": 1065,
+    "slotIndex": 2735,
+    "slotsInEpoch": 432000,
+    "transactionCount": 563233946919
+  },
+  "boundary": {
+    "produced_slots_near_boundary": [
+      459652998,
+      459652999,
+      459653008,
+      459653009,
+      459653010,
+      459653011,
+      459653012,
+      459653013,
+      459653014,
+      459653015,
+      459653016,
+      459653017
+    ],
+    "last_block_before": {
+      "slot": 459652999,
+      "parentSlot": 459652998,
+      "blockTime": 1792590840,
+      "n_tx": 1051,
+      "n_vote_tx": 649,
+      "tx_versions": {
+        "legacy": 730,
+        "0": 190,
+        "1": 131
+      },
+      "fee_reward_entries": 1,
+      "fee_reward_pubkey": "DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy"
+    },
+    "first_block_after": {
+      "slot": 459653008,
+      "parentSlot": 459652999,
+      "blockTime": 1792590843,
+      "n_tx": 1701,
+      "n_vote_tx": 0,
+      "tx_versions": {
+        "1": 799,
+        "0": 410,
+        "legacy": 492
+      },
+      "fee_reward_entries": 1,
+      "fee_reward_pubkey": "5ejbTALcBsKQ7Cj1iSuu2mY5jqbYHqh9gF5ERXLiYj1z"
+    }
+  },
+  "slot_time": {
+    "samples": {
+      "459703000": 1792601453,
+      "459982735": 1792660962,
+      "460080736": 1792681755
+    },
+    "ms_per_slot_long": 212.58762733761145,
+    "performance_samples": [
+      {
+        "numNonVoteTransactions": 147366,
+        "numSlots": 286,
+        "numTransactions": 147366,
+        "samplePeriodSecs": 60,
+        "slot": 460082765
+      },
+      {
+        "numNonVoteTransactions": 158419,
+        "numSlots": 286,
+        "numTransactions": 158419,
+        "samplePeriodSecs": 60,
+        "slot": 460082479
+      },
+      {
+        "numNonVoteTransactions": 166084,
+        "numSlots": 284,
+        "numTransactions": 166084,
+        "samplePeriodSecs": 60,
+        "slot": 460082193
+      },
+      {
+        "numNonVoteTransactions": 200832,
+        "numSlots": 290,
+        "numTransactions": 200832,
+        "samplePeriodSecs": 60,
+        "slot": 460081909
+      },
+      {
+        "numNonVoteTransactions": 179778,
+        "numSlots": 279,
+        "numTransactions": 179778,
+        "samplePeriodSecs": 60,
+        "slot": 460081619
+      }
+    ]
+  },
+  "leader_windows": {
+    "from_slot": 460080000,
+    "run_length_counts": {
+      "4": 1232,
+      "8": 9
+    },
+    "run_start_mod_4": {
+      "0": 1241
+    }
+  },
+  "blockhash": {
+    "lastValidBlockHeight": 438116345,
+    "blockHeight_now": 438116197,
+    "validity_blocks_remaining": 148
+  },
+  "rent_exempt_min_0_bytes": 650240,
+  "fee_for_message": [
+    {
+      "cu_price": 0,
+      "cu_limit": 1000,
+      "fee": 5000,
+      "formula": 5000
+    },
+    {
+      "cu_price": 1,
+      "cu_limit": 1000,
+      "fee": 5001,
+      "formula": 5001
+    },
+    {
+      "cu_price": 999,
+      "cu_limit": 1000,
+      "fee": 5001,
+      "formula": 5001
+    },
+    {
+      "cu_price": 1000,
+      "cu_limit": 1000,
+      "fee": 5001,
+      "formula": 5001
+    },
+    {
+      "cu_price": 1001,
+      "cu_limit": 1000,
+      "fee": 5002,
+      "formula": 5002
+    },
+    {
+      "cu_price": 1000000,
+      "cu_limit": 1000,
+      "fee": 6000,
+      "formula": 6000
+    }
+  ],
+  "clients_by_stake": [
+    {
+      "client|version": "AgaveBam|4.3.2",
+      "nodes": 362,
+      "voting_nodes": 362,
+      "stake": 159225800961058499,
+      "stake_pct": 36.434
+    },
+    {
+      "client|version": "HarmonicAgave|4.3.2",
+      "nodes": 100,
+      "voting_nodes": 63,
+      "stake": 104127489053723812,
+      "stake_pct": 23.826
+    },
+    {
+      "client|version": "JitoLabs|4.3.2",
+      "nodes": 843,
+      "voting_nodes": 139,
+      "stake": 95169465097042490,
+      "stake_pct": 21.777
+    },
+    {
+      "client|version": "Firedancer|26.10.4",
+      "nodes": 67,
+      "voting_nodes": 13,
+      "stake": 26349741846191717,
+      "stake_pct": 6.029
+    },
+    {
+      "client|version": "HarmonicFiredancer|26.10.4",
+      "nodes": 29,
+      "voting_nodes": 21,
+      "stake": 26167761023574590,
+      "stake_pct": 5.988
+    },
+    {
+      "client|version": "JitoLabs|4.3.0",
+      "nodes": 105,
+      "voting_nodes": 6,
+      "stake": 6354383053780934,
+      "stake_pct": 1.454
+    },
+    {
+      "client|version": "FireBAM|26.10.4",
+      "nodes": 9,
+      "voting_nodes": 9,
+      "stake": 6039776920529125,
+      "stake_pct": 1.382
+    },
+    {
+      "client|version": "Rakurai|4.3.2",
+      "nodes": 14,
+      "voting_nodes": 10,
+      "stake": 5314382294384507,
+      "stake_pct": 1.216
+    },
+    {
+      "client|version": "Agave|4.3.2",
+      "nodes": 1213,
+      "voting_nodes": 13,
+      "stake": 4509992189675084,
+      "stake_pct": 1.032
+    },
+    {
+      "client|version": "Firedancer|26.10.3",
+      "nodes": 8,
+      "voting_nodes": 3,
+      "stake": 2142049882016744,
+      "stake_pct": 0.49
+    },
+    {
+      "client|version": "Agave|4.5.0-alpha.2",
+      "nodes": 26,
+      "voting_nodes": 6,
+      "stake": 349102997404059,
+      "stake_pct": 0.08
+    },
+    {
+      "client|version": "Unknown(63642)|4.3.2",
+      "nodes": 1,
+      "voting_nodes": 1,
+      "stake": 343049908196931,
+      "stake_pct": 0.078
+    },
+    {
+      "client|version": "AgaveBam|4.5.0-alpha.2",
+      "nodes": 1,
+      "voting_nodes": 1,
+      "stake": 259277512682740,
+      "stake_pct": 0.059
+    },
+    {
+      "client|version": "HarmonicFiredancer|26.10.3",
+      "nodes": 2,
+      "voting_nodes": 1,
+      "stake": 222010949658245,
+      "stake_pct": 0.051
+    },
+    {
+      "client|version": "AgaveBam|4.3.0",
+      "nodes": 2,
+      "voting_nodes": 2,
+      "stake": 188275628434901,
+      "stake_pct": 0.043
+    },
+    {
+      "client|version": "Agave|4.4.0-beta.1",
+      "nodes": 12,
+      "voting_nodes": 2,
+      "stake": 117888191144025,
+      "stake_pct": 0.027
+    },
+    {
+      "client|version": "Firedancer|26.10.2",
+      "nodes": 5,
+      "voting_nodes": 1,
+      "stake": 89735050229903,
+      "stake_pct": 0.021
+    },
+    {
+      "client|version": "JitoLabs|4.3.0-rc.1",
+      "nodes": 3,
+      "voting_nodes": 2,
+      "stake": 53946999697984,
+      "stake_pct": 0.012
+    },
+    {
+      "client|version": "Firedancer|0.1.1",
+      "nodes": 18,
+      "voting_nodes": 1,
+      "stake": 498717120,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.3.0",
+      "nodes": 372,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.2.1",
+      "nodes": 38,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.5.0-alpha.0",
+      "nodes": 3,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.2.2",
+      "nodes": 112,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.1.2",
+      "nodes": 161,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.0.0",
+      "nodes": 30,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|2.3.8",
+      "nodes": 191,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Unknown(28263)|0.0.0",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.3.1",
+      "nodes": 5,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.1.0",
+      "nodes": 10,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Unknown(19785)|0.0.0",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.1.1",
+      "nodes": 23,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|4.4.0-beta.1",
+      "nodes": 6,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|2.3.13",
+      "nodes": 25,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.5.0-alpha.1",
+      "nodes": 8,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|2.2.0",
+      "nodes": 16,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Firedancer|1.0.0",
+      "nodes": 4,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Raiku|4.3.0",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.2.0-alpha.0",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.4.0-alpha.1",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.4.0-alpha.4",
+      "nodes": 4,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.4.0-beta.0",
+      "nodes": 3,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Rakurai|4.0.3",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|4.4.0-beta.0",
+      "nodes": 4,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|3.0.11",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|4.2.1",
+      "nodes": 7,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.3.0-rc.1",
+      "nodes": 5,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.4.0-alpha.2",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.2.0",
+      "nodes": 7,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.3.0-rc.0",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|3.1.10",
+      "nodes": 4,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Frankendancer|0.101.40300",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|3.1.8",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Unknown(42)|4.2.1",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|4.3.0-rc.0",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|4.3.1",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "HarmonicAgave|3.1.13",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|4.2.2",
+      "nodes": 7,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|2.3.8",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|3.1.5",
+      "nodes": 4,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.0.3",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|3.0.13",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Rakurai|4.3.0",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Unknown(61453)|0.1.0",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|3.0.11",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.2.0-rc.1",
+      "nodes": 2,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.3.0-beta.0",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|3.0.6",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Firedancer|1.1.1",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Unknown(16)|0.1.0",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|3.1.11",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "JitoLabs|4.2.0",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "AgaveBam|3.0.14",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|2.2.1",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    },
+    {
+      "client|version": "Agave|4.0.0-beta.6",
+      "nodes": 1,
+      "voting_nodes": 0,
+      "stake": 0,
+      "stake_pct": 0.0
+    }
+  ],
+  "kobe": {
+    "url": "https://kobe.mainnet.jito.network/api/v1/validators",
+    "n_validators": 646,
+    "fields": [
+      "active_stake",
+      "bam_connection_rate",
+      "identity_account",
+      "jito_directed_stake_lamports",
+      "jito_directed_stake_target",
+      "mev_commission_bps",
+      "mev_rewards",
+      "priority_fee_commission_bps",
+      "priority_fee_rewards",
+      "running_bam",
+      "running_jito",
+      "vote_account"
+    ],
+    "running_jito": 646,
+    "running_bam": 377
+  },
+  "failures": []
+}
