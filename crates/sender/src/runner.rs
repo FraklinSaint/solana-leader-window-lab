@@ -902,11 +902,13 @@ impl<'a> Runner<'a> {
                 .map(|t| total_fee(lps, 1, t.cu_price_micro_lamports, t.cu_limit))
                 .sum();
         }
-        let offset_ms = if self.cfg.offsets_ms.is_empty() {
+        let base_offset_ms = if self.cfg.offsets_ms.is_empty() {
             self.plan_cfg.offset_ms
         } else {
             self.cfg.offsets_ms[k % self.cfg.offsets_ms.len()]
         };
+        // Arm F's gapped burst must be held whole before the window starts (arms.rs).
+        let offset_ms = base_offset_ms - w.design.extra_lead_ms() as i64;
         let offset_ns = i128::from(offset_ms) * 1_000_000;
         let prep_ns = i128::from(self.cfg.prep_ms) * 1_000_000;
         // Plan-time predictions can be minutes ahead and off by seconds (LOGBOOK), so the

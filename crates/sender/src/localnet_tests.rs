@@ -125,6 +125,7 @@ async fn localnet_end_to_end() {
     };
     let cur = rpc.slot().await.unwrap();
     let arm_cfg = ArmConfig::default();
+    let n = arm_cfg.n;
     let windows: Vec<PlannedWindow> = [Arm::P, Arm::C]
         .iter()
         .enumerate()
@@ -215,15 +216,15 @@ async fn localnet_end_to_end() {
         s
     };
     assert_eq!(summary.windows_executed, 2, "{summary:?}");
-    assert_eq!(summary.txs_sent, 9);
+    assert_eq!(summary.txs_sent, n + 1);
     assert_eq!(summary.send_errors, 0);
     assert_eq!(summary.unresolved, 0);
-    assert_eq!(summary.landed, 9, "{summary:?}");
+    assert_eq!(summary.landed, n + 1, "{summary:?}");
     assert_eq!(summary.spent_run_lamports, Some(expected_cost));
 
     let manifest: Vec<ManifestLine> =
         collect::read_jsonl(&runner::manifest_path(&data_root, Purpose::Calibrate)).unwrap();
-    assert_eq!(manifest.len(), 9);
+    assert_eq!(manifest.len(), n + 1);
     let mut paths = BTreeMap::new();
     for l in &manifest {
         assert_eq!(l.outcome.status, Status::Landed);
@@ -237,7 +238,7 @@ async fn localnet_end_to_end() {
     }
     assert_eq!(
         paths,
-        BTreeMap::from([("quic".to_string(), 8), ("rpc".to_string(), 1)])
+        BTreeMap::from([("quic".to_string(), n), ("rpc".to_string(), 1)])
     );
     // CU usage of the minimal tx (feeds VERIFIED_FACTS F10): printed, and below the limit.
     let logs = std::fs::read_to_string(data_root.join("logs/local-run/windows.jsonl")).unwrap();
@@ -286,5 +287,5 @@ async fn localnet_end_to_end() {
     println!("{}", serde_json::to_string_pretty(&report).unwrap());
     assert!(report.ok, "{:?}", report.problems);
     assert_eq!(report.locked_rent_after, 0);
-    assert_eq!(report.landed_in_range, 17 + 9 + 17);
+    assert_eq!(report.landed_in_range, 17 + n + 1 + 17);
 }

@@ -134,7 +134,8 @@ struct PlanArgs {
     seed: u64,
     #[arg(long, default_value_t = -100, allow_hyphen_values = true)]
     offset_ms: i64,
-    #[arg(long, default_value_t = 8)]
+    /// Txs per window (pre-registered: 6, docs/SIMULATION.md).
+    #[arg(long, default_value_t = 6)]
     n: usize,
     #[arg(
         long,

@@ -42,12 +42,25 @@ pub struct ArmConfig {
     pub r_price: u64,
     pub r_cu_limits: Vec<u32>,
     pub p_gap_us: u64,
+    /// Arm F is sent this much earlier than the window's offset. Its burst spans
+    /// (n-1) * f_gap = 70 ms. If it straddles the window start, the late txs fall into later
+    /// scheduling passes and look FIFO, which would fake a tie-break determinant. The
+    /// simulator (analysis/slwlab/sim.py) showed this for ~25% of windows at a 100 ms clock
+    /// error. With 200 ms extra lead it is ~1%.
+    #[serde(default = "default_f_extra_lead_ms")]
+    pub f_extra_lead_ms: u64,
+}
+
+fn default_f_extra_lead_ms() -> u64 {
+    200
 }
 
 impl Default for ArmConfig {
     fn default() -> Self {
         Self {
-            n: 8,
+            // N = 6: the SIMULATION design choice under the 35M lamport budget
+            // (docs/SIMULATION.md, analysis/sim/results/sim_v1.json).
+            n: 6,
             cu_limit: 1_000,
             price_min: 10_000,
             price_max: 1_000_000,
@@ -60,6 +73,7 @@ impl Default for ArmConfig {
             r_price: 200_000,
             r_cu_limits: vec![1_000, 2_000, 3_000, 4_000, 5_000, 6_000, 7_000, 8_000],
             p_gap_us: 0,
+            f_extra_lead_ms: default_f_extra_lead_ms(),
         }
     }
 }
@@ -84,6 +98,15 @@ pub struct WindowDesign {
     pub txs: Vec<PlannedTx>,
     /// Arm C only: the shared writable account.
     pub shared_sink: Option<Pubkey>,
+    /// Sent this much earlier than the window offset (Arm F, see ArmConfig).
+    #[serde(default)]
+    pub lead_ms: u64,
+}
+
+impl WindowDesign {
+    pub fn extra_lead_ms(&self) -> u64 {
+        self.lead_ms
+    }
 }
 
 pub fn window_seed(campaign_seed: u64, window_id: &str) -> u64 {
@@ -174,6 +197,11 @@ pub fn design(
         seed,
         txs,
         shared_sink: if arm == Arm::C { shared_sink } else { None },
+        lead_ms: if arm == Arm::F {
+            cfg.f_extra_lead_ms
+        } else {
+            0
+        },
     }
 }
 
@@ -238,12 +266,20 @@ mod tests {
     }
 
     #[test]
+    fn only_arm_f_gets_the_extra_lead() {
+        for arm in Arm::ALL {
+            let lead = d(arm).extra_lead_ms();
+            assert_eq!(lead, if arm == Arm::F { 200 } else { 0 }, "{arm:?}");
+        }
+    }
+
+    #[test]
     fn arm_p_fee_rules_agree() {
         let w = d(Arm::P);
         let price = predict(&w, "R_PRICE", 5000);
         assert_eq!(price, predict(&w, "R_TOTAL", 5000));
         assert_eq!(price, predict(&w, "R_RATIO_AGAVE", 5000));
-        assert_eq!(price, (0..8).rev().collect::<Vec<_>>());
+        assert_eq!(price, (0..w.txs.len()).rev().collect::<Vec<_>>());
     }
 
     #[test]
@@ -251,7 +287,7 @@ mod tests {
         let w = d(Arm::R);
         let total = predict(&w, "R_TOTAL", 5000);
         let mut ratio = predict(&w, "R_RATIO_AGAVE", 5000);
-        assert_eq!(total, (0..8).rev().collect::<Vec<_>>()); // largest CU limit first
+        assert_eq!(total, (0..w.txs.len()).rev().collect::<Vec<_>>()); // largest CU limit first
         ratio.reverse();
         assert_eq!(total, ratio);
         // and R_PRICE is all ties -> falls back to send order
