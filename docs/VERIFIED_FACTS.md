@@ -189,6 +189,25 @@ Exact ties (Arm F: same price, same CU limit, so the same reward and cost):
 - **Harmonic FBA:** "deterministic" tie-break, rule unpublished (F7). We pre-register no
   direction, only "some determinant exists".
 
+## F6c. Simulator structural parameters — VERIFIED from source (Phase 1)
+
+The SIMULATION models (`analysis/slwlab/sim.py`) take their structure from these lines:
+
+- **Agave `a2033000`:** `DEFAULT_NUM_WORKERS = 4` non-vote banking workers
+  (`core/src/banking_stage.rs:85`, returned by `default_num_workers()`, `:673-674`). Batches are
+  at most 64 txs (F6). Operators can change the worker count, so 4 is the default, not a
+  certainty.
+- **Firedancer `b14bff44`:** `MAX_TXN_PER_MICROBLOCK = 5`
+  (`src/disco/pack/fd_microblock.h:71`). Full Firedancer runs `execle_tile_count = 2` leader
+  execution tiles by default (`src/app/firedancer/config/default.toml:1054`). Frankendancer
+  (fdctl) runs `bank_tile_count = 4` (`src/app/fdctl/config/default.toml:834`). The simulator
+  models both (`fd2`, `fd4`). We have not verified whether gossip's `Firedancer` clientId
+  separates full Firedancer from Frankendancer. Ceilings and thresholds use `fd2`, and `fd4`
+  is reported as the sensitivity check.
+- The background load, execution-time noise, arrival jitter, clock error and landing
+  probability are **not** derivable from source. They are swept over a pre-registered grid
+  (low / medium / high, `sim.py`). The medium level is primary.
+
 ## F7. Client identification — VERIFIED (new primary source)
 
 - `getClusterNodes` now returns a **`clientId`** field for every node (gossip contact info).
