@@ -7,18 +7,40 @@ We send small, controlled bursts of our own transactions into the leader windows
 mainnet validators. From the produced blocks we then decide which candidate ordering rule each
 validator follows, how strictly it follows it, or whether it follows any rule at all.
 
-> **Status: Phase 0 (scaffold + verified facts).** No transaction has been sent. No measurement exists yet.
+> **Status: Phase 2 (sender, ledger, dry-run, clock) built; awaiting gate review.** No transaction
+> has been sent to mainnet or devnet. No measurement exists yet. All dry-run data is exploratory.
 
 ## Quick start
 
 ```bash
 cp .env.example .env              # set RPC_URL (a private RPC is strongly recommended)
-docker compose up                 # dry-run plan on mainnet. Never sends.
+docker compose up                 # select validators (if needed) + print the window plan. Never sends.
+docker compose run --rm sender dry-run --duration-secs 86400   # real-time loop, nothing sent
 docker compose run --rm analyze   # regenerate docs/REPORT.md from committed data/
 docker compose run --rm verify    # re-fetch every block and check it against data/manifest.jsonl
 # live (operator only; the cap is mandatory and cannot exceed 0.05 SOL):
-docker compose run --rm -e CONFIRM_LIVE=yes sender live --max-spend-lamports N
+docker compose run --rm keys init-payers --count 32
+docker compose run --rm sender fund --payer-target-lamports 700000            # prints the plan
+docker compose run --rm -e CONFIRM_LIVE=yes sender fund --payer-target-lamports 700000 --live --max-spend-lamports 200000
+docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose calibrate --offsets -300,-100,0,100 --max-spend-lamports N
+docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose measure --prereg <commit> --max-spend-lamports N
+docker compose run --rm sender collect        # resolve anything left open (crash recovery)
+docker compose run --rm -e CONFIRM_LIVE=yes sender sweep --live --max-spend-lamports 200000
+docker compose run --rm sender reconcile --since data/snapshots/balances_<first>.json
 ```
+
+`sender` subcommands: `select-validators`, `plan`, `dry-run [--probe-connect]`, `live`, `collect`,
+`init-payers`, `balances`, `fund`, `sweep`, `reconcile`. Run `sender <cmd> --help` for options.
+Data from any cluster other than mainnet (decided by genesis hash) goes to
+`data/nonmainnet/<cluster>/` and is never analyzed.
+
+## Phases
+
+Order agreed at the Phase 0 gate: **2** (sender, ledger, dry-run, clock) → 3 (devnet end-to-end,
+operator) → 4 (24 h mainnet dry-run, selection snapshot, clock error report, prereg frozen and
+tagged `prereg-v1`) → 5 (calibration, ≤ 5,000,000 lamports, operator) → 6 (live campaigns on
+≥ 3 dates) → 7 (report). Phase 1 (parser, rules, stats, simulator) runs in parallel and must be
+complete before the prereg freeze.
 
 Without Docker: `make test`, `make facts`, `make verify`.
 
@@ -28,8 +50,13 @@ Without Docker: `make test`, `make facts`, `make verify`.
   `--max-spend-lamports N`, with `N ≤ HARD_CEILING_LAMPORTS = 50_000_000` (a compile-time constant).
 - **Alpenglow guard.** The code refuses any slot `< 459_653_000` (see VERIFIED_FACTS F1). Live
   plans additionally require `epoch ≥ 1065`.
-- **Keys** come only from `./secrets` (gitignored, mounted read-only) or env. CI runs gitleaks and
-  a keypair-pattern check.
+- **Write-ahead spend ledger** (`data/ledger.jsonl`). Every tx is reserved at its worst-case fee,
+  and the reservation is fsync'ed *before* the first byte is sent. A reservation is released only
+  on proof: the tx landed (actual `meta.fee`), or it is past `lastValidBlockHeight` at
+  *finalized* commitment and absent from history. `reconcile` checks wallet deltas, ledger and
+  on-chain fees against each other, and fails loudly on any mismatch.
+- **Keys** come only from `./secrets` (gitignored, mounted read-only except in the `keys`
+  service) or env. Secret bytes are never logged. CI runs gitleaks and a keypair-pattern check.
 - **No Jito bundles, tips or block-engine endpoints.** Plain transactions only.
 
 ## Why this design
@@ -45,20 +72,40 @@ _To be written in Phases 1–4._ Summary of the logic:
 ## Bounty considerations (one subsection each)
 
 ### Leader schedule and leader types
-_TODO (Phase 2/4)._
+A leader window is a run of consecutive slots led by one validator: 4 slots, or 8+ when two
+windows of the same validator are adjacent (VERIFIED_FACTS F3). The planner reads
+`getSlotLeaders` in overlapping chunks and plans each window at most once. `select-validators`
+labels every voting validator from gossip `clientId`, version scheme and Jito Kobe, with an
+evidence list and a confidence level (F7). It then picks per stratum: vanilla Agave, Jito-Agave
+and Firedancer are required; Harmonic (Agave/Firedancer), BAM and Rakurai are upside.
+Conclusions are per validator and date, never per client.
 
 ### Path from our backend to the executing node, and everything in between
-_TODO (Phase 2/5)._ Known now: for BAM validators the TPU address may route to a BAM node
-(VERIFIED_FACTS F7). Harmonic FIFO timestamps arrival "at the builder".
+Primary path: direct QUIC to the leader's gossip `tpuQuic` (ALPN `solana-tpu`, one
+unidirectional stream per tx). The connection is opened about 1.5 s before the burst; all txs are
+signed in advance, and the burst loop only writes bytes, each within 2 ms of its planned
+offset. Comparison path: `live --rpc-every k` sends every k-th window through RPC
+`sendTransaction`. Each tx records monotonic and wall-clock send times, connection and stream
+id, handshake time and RTT. Send time comes from a slot clock fitted to `slotSubscribe`
+notifications. Its slope uses ~300 observations, its intercept is re-anchored on the last 5, and
+it is re-predicted continuously while waiting. Every window logs predicted vs observed start
+(`clock.jsonl`). Caveats: we are an unstaked client (QoS limits, F9). For BAM validators the TPU
+address may route to a BAM node (F7). Harmonic FIFO timestamps arrival "at the builder". The
+public RPC slot feed is too noisy for sub-window timing (LOGBOOK), so a private RPC is required.
 
 ### Interaction of our own transactions with each other
-_TODO._ Each tx has its own fee payer and no other writable account, so there are no shared write locks.
+In arms P, F, X and R, each tx has its own fee payer and no other writable account (tested), so
+our txs never share a write lock. A payer is reused only after its previous tx is resolved. Arm C
+deliberately makes all N txs write-lock one shared account. It measures scheduling under
+conflict, is reported separately, and its source-derived prediction is in VERIFIED_FACTS F6b.
 
 ### Competition inside the block
 _TODO._
 
 ### Send order
-_TODO._
+Send order is a controlled variable. It is seeded-random in P, R and C, fixed in F, and the
+reverse of price order in X, with the gap swept over {0, 10, 25, 60, 120} ms. The seed, every
+planned offset and every actual send time are recorded.
 
 ### Noise vs rule
 _TODO._ Known noise source from Agave source: parallel worker threads (VERIFIED_FACTS F6).

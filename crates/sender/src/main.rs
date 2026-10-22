@@ -274,6 +274,8 @@ fn init_tracing(log_file: Option<&Path>) -> Result<()> {
 async fn main() {
     let cli = Cli::parse();
     if let Err(e) = real_main(cli).await {
+        // Also into the run log, so refused live attempts are auditable.
+        tracing::error!(error = %format!("{e:#}"), "exiting with error");
         eprintln!("error: {e:#}");
         std::process::exit(1);
     }

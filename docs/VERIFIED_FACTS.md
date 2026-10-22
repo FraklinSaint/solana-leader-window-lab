@@ -85,14 +85,15 @@ Unit-tested in `crates/common/src/fees.rs`.
 **Correction:** there is **no prio-graph scheduler** in v4.3.2. `core/src/banking_stage/transaction_scheduler/`
 contains only `greedy_scheduler.rs`; `prio_graph_scheduler.rs` no longer exists.
 
-- Priority, from `core/src/transaction_priority.rs::calculate_priority_and_cost`:
+- Priority, from `core/src/transaction_priority.rs:32-66` (`calculate_priority_and_cost`):
   ```
   reward   = priority_fee + (signature_fee − signature_fee × 50 / 100)    # burn 50% of base fee
   cost     = CostModel::calculate_cost_for_executed_transaction(tx, cu_limit, loaded_accounts_data_size_limit)
   priority = reward × 1_000_000 / (cost + 1)                               # integer division
   ```
-  Burn is `DEFAULT_BURN_PERCENT` = 50, from `runtime/src/bank/fee_distribution.rs`.
-- Cost, from `cost-model/src/cost_model.rs` and `block_cost_limits.rs`:
+  Burn is `DEFAULT_BURN_PERCENT` = 50 (`runtime/src/bank/fee_distribution.rs:112-114`).
+  `MULTIPLIER` and the `+ 1`: `core/src/transaction_priority.rs:58-65`.
+- Cost, from `cost-model/src/cost_model.rs:56-77,181-203` and `cost-model/src/block_cost_limits.rs:10-20`:
   ```
   cost = 720 × n_sigs                        # SIGNATURE_COST = 30 × 24
        + 300 × n_writable_accounts           # WRITE_LOCK_UNITS
@@ -105,47 +106,88 @@ contains only `greedy_scheduler.rs`; `prio_graph_scheduler.rs` no longer exists.
   `MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES` (64 MiB). That adds 2048 × 8 = 16,384 CU of cost, which
   dominates the denominator for small txs. We **always** set an explicit small loaded-data limit,
   so that the R_RATIO prediction is driven by `cu_limit`.
-- Queue: `BTreeSet<TransactionPriorityId{priority, id}>`, popped with `pop_last()`
-  (`transaction_state_container.rs`). **Ties on priority are broken by the larger `id`**.
-  `id` is a `Slab` key, and Slab reuses the lowest free slot. So the tie-break among equal
+- Queue: `BTreeSet<TransactionPriorityId{priority, id}>` (derived `Ord`, priority first:
+  `core/src/banking_stage/transaction_scheduler/transaction_priority_id.rs:4-7`), popped with
+  `pop_last()` (`transaction_state_container.rs:161-162`). **Ties on priority are broken by the
+  larger `id`**. `id` is a `Slab` key (`transaction_state_container.rs:46,294`), and Slab reuses
+  the lowest free slot. So the tie-break among equal
   priorities is "highest slab index first". That is **not arrival order** (neither FIFO nor LIFO
   in general). Prediction for Arm F on Agave: ties are effectively unordered with respect to our
   send order. This is a sharp, falsifiable prediction.
 - Dispatch: the greedy scheduler pops in priority order and assigns each non-conflicting tx to the
-  **least-loaded worker thread** (`scheduler_common.rs::select_thread`). Batches are at most
-  `TARGET_NUM_TRANSACTIONS_PER_BATCH = 64` txs or the entry-byte target. Batches on different
+  **least-loaded worker thread** (`transaction_scheduler/scheduler_common.rs:143-162`, called from
+  `greedy_scheduler.rs:155`). Batches are at most
+  `TARGET_NUM_TRANSACTIONS_PER_BATCH = 64` txs (`core/src/banking_stage/consumer.rs:33`) or the entry-byte target. Batches on different
   threads execute in parallel and are recorded in completion order. **Consequence:** even a
   perfect priority scheduler can interleave our 8 non-conflicting txs across threads, so block
   position is a *noisy* image of pop order. The simulator must model this, and the positive
   control is not expected to be STRICT a priori. We pre-register this.
-- Timing: before its slots, a leader **holds** received txs. `decision_maker.rs`: `Hold` when
+- Timing: before its slots, a leader **holds** received txs. `decision_maker.rs:95-96`: `Hold` when
   `slots_until_leader < FORWARD_TRANSACTIONS_TO_LEADER_AT_SLOT_OFFSET`, otherwise
   `ForwardAndHold`/`Forward`. Under Alpenglow, slot progress is time-based (`alpenglow_timing.rs`).
   **Design consequence:** a burst that arrives shortly *before* the window sits in the buffer
   and is popped by priority at window start. That gives contention among our own txs without
   needing external load. This is the hypothesis behind the offset sweep (−300/−100/0/+100 ms).
 - Saturation: there is a `SchedulerPriorityFloor` that, under buffer saturation, drops
-  low-priority packets (`scheduler_controller.rs::update_scheduler_priority_floor`). Our
+  low-priority packets (`transaction_scheduler/scheduler_controller.rs:347`, `update_scheduler_priority_floor`). Our
   lowest-price txs may therefore be **dropped, not reordered**, when the leader is saturated.
   Landing rate per price is a secondary outcome.
 
 ### Firedancer v26.10.4 (`b14bff44`), the reference for Firedancer, HarmonicFiredancer and FireBAM fallbacks
 
-- `src/disco/pack/fd_pack.c::fd_pack_estimate_rewards_and_compute`:
+- `src/disco/pack/fd_pack.c:1036-1062` (`fd_pack_estimate_rewards_and_compute`), cost in
+  `src/disco/pack/fd_pack_cost.h:337-565`:
   ```
   rewards     = 5000 × (n_sigs + n_precompile_sigs) × 50 / 100 + priority_fee   # FD_PACK_FEE_PER_SIGNATURE hardcoded
   compute_est = fd_pack_compute_cost(...)   # 720/sig, 300/writable, instr_data/4, cu_limit, 8/32KiB loaded data
   ```
-  Ordering: treap with `COMPARE_WORSE(x,y) = x.rewards × y.compute_est < y.rewards × x.compute_est`.
+  Ordering: treap with `COMPARE_WORSE(x,y) = x.rewards × y.compute_est < y.rewards × x.compute_est`
+  (`fd_pack.c:227-228`).
   That is an **exact rational comparison** of rewards/cost, not integer-divided.
 - So R_RATIO_FD and R_RATIO_AGAVE are the same rule up to integer rounding and the `+1`. They
   differ only on near-ties, and the arms are designed so that they agree, and say so.
 - V1 transactions take their fee and limits from a config mask and *ignore* ComputeBudget
-  instructions (`fd_pack_cost.h`). We send **legacy** transactions only, so both clients parse our
+  instructions (`fd_pack_cost.h:362-363`). We send **legacy** transactions only, so both clients parse our
   ComputeBudget instructions identically.
-- OPEN (Phase 1): the tie order of equal `rewards/compute_est` in the treap, and the microblock
-  and bank-tile dispatch (`fd_pack_pacing.h`, multiple bank tiles). Expect a thread-interleaving
-  noise source similar to Agave's.
+- Tie order of equal `rewards/compute_est`: see F6b. Still OPEN (Phase 1): microblock and
+  bank-tile dispatch (`fd_pack_pacing.h`, multiple bank tiles). Expect a thread-interleaving noise
+  source similar to Agave's.
+
+## F6b. Conflict chains (Arm C) and exact ties (Arm F) — VERIFIED from source (Phase 2)
+
+Arm C: all N txs write-lock one shared account; each has its own fee payer.
+
+- **Agave `a2033000`.** A tx whose write lock is held goes **only** to the thread that holds it:
+  `scheduling-utils/src/thread_aware_account_locks.rs:187`
+  (`write_locks: Some(..) => ThreadSet::only(write_locks.thread_id)`). Conflicting txs inside one
+  batch are allowed and execute in batch order (`accounts-db/src/accounts.rs:1277,1287`, tests "wr/ww
+  conflict in-batch succeeds"). The greedy scheduler fills batches in pop (= priority) order. So the
+  chain lands on **one thread, in priority order**, and thread interleaving between our own txs is
+  removed. **Prediction: Arm C on Agave is closer to strict R_RATIO than the lock-free arms.**
+- **Firedancer `b14bff44`.** While a tx that writes the shared account is in a scheduled, unfinished
+  microblock, later candidates that touch it conflict and are skipped (`src/disco/pack/fd_pack.c:2116-2124`,
+  `acct_in_use`). Candidates are visited best-first by reverse treap iteration (`fd_pack.c:2044`).
+  So the chain goes out about one tx per microblock, best first. The penalty treap starts only at
+  `PENALTY_TREAP_THRESHOLD = 64` references (`fd_pack.c:553`), far above our N = 8.
+  **Prediction: strict R_RATIO_FD order, unless the chain spans slot boundaries.**
+- Arm C is reported **separately**. Its txs are not lock-free, so it measures "scheduler +
+  conflict serialization", not the ordering rule alone.
+
+Exact ties (Arm F: same price, same CU limit, so the same reward and cost):
+
+- **Agave:** ties are broken by the larger Slab key (F6). The Slab hands out the lowest *free*
+  index, and that depends on every other tx in the buffer, which we cannot observe. **From outside,
+  this index cannot be told apart from random.** The pre-registered Agave tie prediction is
+  therefore "no observable determinant". If any of arrival, signature bytes or payer pubkey still
+  predicts the order, that is evidence against the source-derived model (or a non-vanilla build).
+- **Firedancer:** an inserted element that compares equal is treated as "epsilon larger" than the
+  existing equal ones (`src/util/tmpl/fd_treap.c:255-260`), and pack iterates in **reverse**
+  (`fd_pack.c:2044`). **Prediction: among exact ties, the last to reach pack is scheduled first
+  (LIFO by pack arrival).** Pack arrival is our send order plus verify-tile and network jitter.
+  The test therefore needs the Arm F send gap (10 ms) to exceed that jitter. The calibration
+  phase measures this.
+- **Harmonic FBA:** "deterministic" tie-break, rule unpublished (F7). We pre-register no
+  direction, only "some determinant exists".
 
 ## F7. Client identification — VERIFIED (new primary source)
 
@@ -228,7 +270,7 @@ contains only `greedy_scheduler.rs`; `prio_graph_scheduler.rs` no longer exists.
 
 | Item | Phase |
 |---|---|
-| Firedancer treap tie-break and bank-tile interleave | 1 |
+| Firedancer bank-tile interleave (tie-break: resolved, F6b) | 1 |
 | Per-connection vs global unstaked stream throttle | 2 |
 | Whether BAM and Harmonic validators accept plain TPU txs at all, and from whom (landing rate) | 5 (calibration) |
 | CU actually consumed by our minimal tx (simulateTransaction) | 2 |
