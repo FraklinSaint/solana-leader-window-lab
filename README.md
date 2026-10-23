@@ -10,7 +10,9 @@ validator follows, how strictly it follows it, or whether it follows any rule at
 > **Status: Phase 2 built; Phase 1 (rules, statistics, simulator, power analysis, analysis
 > pipeline) built; the pre-registered *procedure* is drafted. Its numbers are provisional
 > (pre-calibration SIMULATION) and are re-derived after calibration, then frozen.** No
-> transaction has been sent to mainnet. No measurement exists yet. All dry-run data is exploratory.
+> transaction has been sent to mainnet or devnet. No measurement exists yet. All dry-run data is
+> exploratory. Phase 3 (a devnet run that funds, sends, collects and sweeps) has **not** been
+> done; on devnet only a read-only selection and a 2-minute dry-run exist (see "Phases").
 
 ## Quick start
 
@@ -81,7 +83,7 @@ for it, and no provider region or key anywhere in the code.
 ## Phases
 
 Order (Phase 0 gate, corrected at the Phase 1 gate): **2** (sender, ledger, dry-run, clock) →
-3 (devnet end-to-end, operator) → 4 (mainnet dry-run in daytime session chunks, merged by
+3 (devnet end-to-end with sending, collect and sweep, operator; **not done yet**) → 4 (mainnet dry-run in daytime session chunks, merged by
 UTC hour, selection snapshot, clock error report) → 5 (calibration, ≤ 5,000,000 lamports, operator, **exploratory**) → **re-run the
 simulator with nuisance parameters estimated from calibration** (`slwlab.calibrate`,
 order-agnostic statistics only), re-derive ceilings, thresholds, allocation and the positive
@@ -89,6 +91,24 @@ control interval, then **freeze and tag `prereg-v1`** → 6 (confirmatory live c
 ≥ 3 dates, ≤ 38,000,000 lamports) → 7 (report). The pre-registered object is the
 *procedure* (docs/PREREGISTRATION.md §0). Its numbers are filled in after calibration and
 before the first confirmatory window. Phase 1 (parser, rules, stats, simulator) is built.
+
+**What exists on devnet** (`data/nonmainnet/devnet/`, 12 files, committed in `8abd145`, never
+analyzed). On 2026-10-22, on the dev PC with `SLWLAB_ENV_FILE=.env.devnet` (Helius devnet
+endpoint), two read-only commands were run. Nothing was funded or sent:
+- `sender select-validators` at 19:15:00Z: 4 snapshots (`cluster_nodes_`, `vote_accounts_`,
+  `kobe_validators_` and `selection_20261022T191500Z`). Devnet has few labeled clients: 5
+  validators were picked, and JitoAgave got 1 of the 2 required;
+- `sender dry-run --duration-secs 120` at 19:15:11Z: `logs/dryrun-20261022T191511Z/`
+  (`run.json`, `plan.jsonl`, `windows.jsonl`, `clock.jsonl`, `slots.jsonl`, `run.log.jsonl`,
+  `summary.json`, and `clock_hourly.json`, which the run writes itself). It planned and executed
+  18 windows with 32 ephemeral payers and **sent 0 transactions** (`txs_sent: 0`); window-start
+  error median 56 ms, p95 432 ms.
+
+It checked cluster detection by genesis hash, the routing of non-mainnet data to
+`data/nonmainnet/`, selection and planning on a second cluster, and the slot feed. It did not
+check `init-payers`, airdrop, `fund`, `live`, `collect`, `sweep` or `reconcile`. Those are Phase 3,
+still open. The localnet end-to-end test (`localnet_tests.rs`, CI job `localnet`) covers them on
+a local validator but has not run yet: it runs only in CI, which has not run yet.
 
 Without Docker: `make test`, `make facts`, `make verify`, `make verify-online`.
 

@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | missing | 0 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `019924e456186d997518abae834c985c42d98ef96e6c133585fb224abc45e90a` | 65 |
+| `docs/LOGBOOK.md` | `d12e58fc92a0bdbdd542f917ee29c3075eb4b0ddfbf6f7fa39f7b7f82acf720e` | 66 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -105,7 +105,7 @@ Confirmatory total 37,743,052 lamports (budget 38,000,000).
 
 Built from docs/LOGBOOK.md (kinds: failure, surprise, rate limit, env, limitation, correction, missed window). Times are UTC.
 
-Counts: failure 12, surprise 14, rate limit 1, env 2, limitation 2, correction 2
+Counts: failure 12, surprise 14, rate limit 1, env 2, limitation 2, correction 3
 
 | UTC | phase | kind | entry |
 |---|---|---|---|
@@ -142,6 +142,7 @@ Counts: failure 12, surprise 14, rate limit 1, env 2, limitation 2, correction 2
 | 2026-10-23T10:58:00Z | 4 | failure | Found by the crash test: `collect::read_jsonl` failed on a torn last line. A power loss during an append to sent.jsonl or plan.jsonl would have blocked `sender collect` after the reboot. Every append is synced, so only the last line can be torn. It is now skipped with a warning; a corrupt line elsewhere is still an error. |
 | 2026-10-23T11:03:00Z | 4 | surprise | Pre-flight on the operator's PC: the default route is Wi-Fi (TP-Link USB adapter, 150 Mbps), and the Windows Time service is stopped (`w32tm`: 0x80070426), so the clock is not being synced. Both need action before calibration. Ethernet is preferred; if Wi-Fi stays, it is a reported property of the path. |
 | 2026-10-23T12:05:00Z | 4 | failure | After commit 67048df, `scripts/session.ps1` disappeared from the operator's working tree, and `git restore` was denied. Other files in scripts\ could still be created. The binary copy it made (`run\bin\sender-d05e5c795fd8.exe`) is gone too, and the session it started at 11:47:15Z logged only `start`. Not confirmed (the Defender log needs admin), but the script compiled P/Invoke code in memory to keep the PC awake, a pattern antivirus heuristics flag. The session record is kept: a `reset` event was appended at 12:07:21Z, and its state was archived as `data/sessions/20261023T114715Z/state.json`. |
+| 2026-10-23T13:18:00Z | 3 | correction | Record of the devnet data, which the logbook did not have (only commit `8abd145` described it). On 2026-10-22 two read-only devnet commands were run (`SLWLAB_ENV_FILE=.env.devnet`): `select-validators` at 19:15:00Z (4 snapshots; 5 validators picked, JitoAgave 1 of 2) and `dry-run --duration-secs 120` at 19:15:11Z (18 windows executed, 0 transactions sent, window-start error median 56 / p95 432 ms). There was no init-payers, airdrop, fund, live send, collect, sweep or reconcile, so Phase 3 (devnet end-to-end) is not done. README now says so. The phase list said "3 (devnet end-to-end, operator)" without a status, which could be read as done. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: fa2fc7322948ee16c5713080f8e431e8c133f459c63dc3bd2c559408fa541d72 -->
+<!-- report-sha256: d0e51c42490b669fc33429bff927dc90fe0eb24cba9897c6def864b960e44f0a -->
