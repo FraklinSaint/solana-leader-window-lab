@@ -98,3 +98,15 @@ def test_tampered_position_is_caught(tmp_path):
             break
     probs = [p for w in parse.windows_from_manifest(lines) if w.usable for p in parse.verify_positions(w, tmp_path)]
     assert probs
+
+
+def test_window_sent_out_of_send_rank_order_is_excluded(tmp_path):
+    lines = synth(tmp_path, sim.AGAVE, windows=3)
+    wid = lines[0]["tx"]["window_id"]
+    for l in lines:
+        if l["tx"]["window_id"] == wid:  # idx order instead of send_rank order (bug of 2026-10-23)
+            l["tx"]["send"]["start_mono_ns"] = l["tx"]["idx"] * 1000
+            l["tx"]["send_rank"] = 5 - l["tx"]["idx"]
+    ws = {w.window_id: w for w in parse.windows_from_manifest(lines)}
+    assert ws[wid].reason == "send_order_mismatch" and not ws[wid].usable
+    assert all(w.reason != "send_order_mismatch" for k, w in ws.items() if k != wid)

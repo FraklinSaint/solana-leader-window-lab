@@ -14,6 +14,9 @@ pub struct BurstTx {
     pub sig: String,
     pub wire: Vec<u8>,
     pub offset_us: u64,
+    /// Planned send position (arms.rs `send_rank`). Txs with equal offsets (every arm with a
+    /// zero gap) go out in this order, never in idx order.
+    pub rank: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +25,9 @@ pub struct SendRecord {
     pub sig: String,
     pub path: String,
     pub planned_offset_us: u64,
+    /// Planned send position; the actual position is the order of `start_mono_ns`.
+    #[serde(default)]
+    pub send_rank: usize,
     /// Monotonic ns relative to the burst's planned start.
     pub start_mono_ns: i64,
     pub end_mono_ns: i64,
@@ -170,7 +176,10 @@ pub async fn wait_until(target: Instant) {
 /// a failed write must still be accounted for by the ledger.
 pub async fn run_burst<S: Sink>(sink: &mut S, txs: &[BurstTx], start: Instant) -> Vec<SendRecord> {
     let mut order: Vec<&BurstTx> = txs.iter().collect();
-    order.sort_by_key(|t| t.offset_us);
+    // Offset first (gapped arms), then the randomized send rank. Sorting by offset alone kept
+    // idx order whenever all offsets were 0, so arms P, R and C went out in price / CU-limit
+    // order instead of their randomized order (LOGBOOK 2026-10-23 13:40).
+    order.sort_by_key(|t| (t.offset_us, t.rank));
     let mut out = Vec::with_capacity(txs.len());
     let conn_id = sink.conn_id();
     for (slot, tx) in order.into_iter().enumerate() {
@@ -197,6 +206,7 @@ pub async fn run_burst<S: Sink>(sink: &mut S, txs: &[BurstTx], start: Instant) -
             sig: tx.sig.clone(),
             path: sink.path().to_string(),
             planned_offset_us: tx.offset_us,
+            send_rank: tx.rank,
             start_mono_ns: rel(t0),
             end_mono_ns: rel(t1),
             start_unix_ns: u0,
@@ -222,8 +232,44 @@ mod tests {
                 sig: format!("sig{i}"),
                 wire: vec![i as u8; 200],
                 offset_us: i as u64 * gap_us,
+                rank: i,
             })
             .collect()
+    }
+
+    /// Zero gap, randomized ranks (arms P, R, C): the dry-run output must be in send_rank
+    /// order, not idx order. Records come out in send order, and start_mono_ns increases.
+    #[tokio::test]
+    async fn zero_gap_burst_goes_out_in_send_rank_order() {
+        for ranks in [
+            [3usize, 4, 5, 1, 0, 2],
+            [2, 1, 3, 0, 5, 4],
+            [0, 1, 2, 3, 4, 5],
+        ] {
+            let burst: Vec<BurstTx> = ranks
+                .iter()
+                .enumerate()
+                .map(|(idx, &rank)| BurstTx {
+                    idx,
+                    sig: format!("sig{idx}"),
+                    wire: vec![idx as u8; 200],
+                    offset_us: 0,
+                    rank,
+                })
+                .collect();
+            let mut sink = DryRunSink::default();
+            sink.prepare(burst.len()).await.unwrap();
+            let recs = run_burst(&mut sink, &burst, Instant::now()).await;
+            let mut by_time: Vec<&SendRecord> = recs.iter().collect();
+            by_time.sort_by_key(|r| r.start_mono_ns);
+            let sent_ranks: Vec<usize> = by_time.iter().map(|r| ranks[r.idx]).collect();
+            assert_eq!(sent_ranks, vec![0, 1, 2, 3, 4, 5], "ranks {ranks:?}");
+            assert!(
+                recs.windows(2)
+                    .all(|w| w[0].start_mono_ns < w[1].start_mono_ns)
+            );
+            assert!(recs.iter().all(|r| r.send_rank == ranks[r.idx]));
+        }
     }
 
     #[tokio::test]

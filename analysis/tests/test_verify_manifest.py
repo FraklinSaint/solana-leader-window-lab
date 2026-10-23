@@ -122,6 +122,7 @@ def run(tmp, lines, ledger):
     vm.check_plans(lines, tmp, rep)
     vm.check_schedules(lines, tmp, rep)
     vm.check_platform(lines, rep)
+    vm.check_send_order(lines, rep)
     return rep
 
 
@@ -130,7 +131,7 @@ def test_clean_data_passes(tmp_path):
         lines, ledger = build(tmp_path / arm, arm=arm)
         rep = run(tmp_path / arm, lines, ledger)
         assert rep.problems == [], rep.problems
-        assert {"M", "B", "T", "P", "E", "X", "H", "L", "Q"} <= set(rep.checked)
+        assert {"M", "B", "T", "P", "E", "X", "H", "L", "Q", "O"} <= set(rep.checked)
 
 
 def test_main_writes_report_and_exit_code(tmp_path):
@@ -245,7 +246,8 @@ def test_send_order_changed_after_planning_is_caught(tmp_path):
     a, b = lines[0]["tx"], lines[1]["tx"]
     a["send_rank"], b["send_rank"] = b["send_rank"], a["send_rank"]
     rep = run(tmp_path, lines, ledger)
-    assert checks_failed(rep) == {"P"}
+    # P: manifest differs from the plan; O: the recorded send times no longer follow send_rank
+    assert checks_failed(rep) == {"P", "O"}
     lines[0]["tx"]["run_id"] = "live-other"
     assert "window not in its run's plan.jsonl" in {p["problem"] for p in run(tmp_path, lines, ledger).problems}
 
@@ -265,3 +267,36 @@ def test_unregistered_host_other_machine_and_missing_host_are_caught(tmp_path):
     # an OS update or a rebuilt binary on the same machine is reported, not failed
     assert len(summary["os_builds"]) == 2 and len(summary["sender_sha256"]) == 2
     assert len(probs) == 3
+
+
+def test_send_order_must_follow_send_rank(tmp_path):
+    lines, ledger = build(tmp_path)
+    # the fixture sends in send_rank order: clean
+    rep = vm.Report()
+    vm.check_send_order(lines, rep)
+    assert rep.problems == [] and rep.checked["O"] > 0
+    # idx order instead of rank order (the 2026-10-23 burst bug) is caught
+    win = lines[0]["tx"]["window_id"]
+    same = [l["tx"] for l in lines if l["tx"]["window_id"] == win]
+    for t in same:
+        t["send_rank"] = (len(same) - 1) - t["idx"]
+        t["send"]["start_mono_ns"] = t["idx"] * 1000
+    rep = vm.Report()
+    vm.check_send_order(lines, rep)
+    assert any(p["window_id"] == win for p in rep.problems)
+
+
+def test_send_order_in_dryrun_windows(tmp_path):
+    d = tmp_path / "dryrun-20261023T130118Z"
+    d.mkdir()
+
+    def rec(wid, ranks, mono):
+        return {"run_id": d.name, "window": {"window_id": wid, "design": {"arm": "P", "txs": [
+            {"idx": i, "send_rank": r} for i, r in enumerate(ranks)]}},
+                "sends": [{"idx": i, "start_mono_ns": m, "start_unix_ns": 0, "error": None} for i, m in enumerate(mono)]}
+    good = rec("1-good", [2, 0, 1], [3000, 1000, 2000])
+    bad = rec("2-bad", [2, 0, 1], [1000, 2000, 3000])  # idx order
+    (d / "windows.jsonl").write_text(json.dumps(good) + "\n" + json.dumps(bad) + "\n")
+    rep = vm.Report()
+    vm.check_send_order_windows(d, rep)
+    assert [p["window_id"] for p in rep.problems] == ["2-bad"]

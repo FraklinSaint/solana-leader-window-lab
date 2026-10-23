@@ -1,0 +1,27 @@
+{
+ "from": [
+  "selection_20261022T163227Z.json",
+  "cluster_nodes_20261022T163227Z.json.gz"
+ ],
+ "independence_units": 9,
+ "label": "DERIVED",
+ "note": "Picked validators whose gossip tpuQuic IP is advertised by more than one node, or shared by more than one picked validator. What runs at that address is not inferred.",
+ "picked": 10,
+ "shared_tpu_ips": [
+  {
+   "gossip_nodes_on_ip": 38,
+   "ip": "198.13.140.105",
+   "picked_on_ip": [
+    "Fd7btgySsrjuo25CJCj7oE7VPMyezDhnx7pZkj2v69Nk",
+    "JUPiTERrZqgf1jUyR7dSkhMx4Kn2qJyekWsg3LT1h4b"
+   ]
+  },
+  {
+   "gossip_nodes_on_ip": 9,
+   "ip": "208.91.105.55",
+   "picked_on_ip": [
+    "DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy"
+   ]
+  }
+ ]
+}

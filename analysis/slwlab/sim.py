@@ -215,8 +215,10 @@ def simulate_window(arm: str, sch: Scheduler, nz: Nuisance, rng: np.random.Gener
     order = block_order(d, sch, nz, rng, extra)
     keep = rng.random(len(order)) < nz.p_land
     landed = [i for i in order if keep[i]]
-    # the sender records actual send times; planned offsets + jitter stand in for them
-    arrival_us = [t.send_offset_us + rng.normal(0, 50.0) for t in d.txs]
+    # Recorded send times: the burst loop sends in send_rank order (offset first), about 5 us
+    # apart (dry-run records, 2026-10-23). Arrival at the leader is modelled separately, with
+    # network jitter, in arrivals_ms.
+    arrival_us = [t.send_offset_us + t.send_rank * 5.0 for t in d.txs]
     span = None
     if "pos" in extra and landed:
         ps = [extra["pos"][i] for i in landed]

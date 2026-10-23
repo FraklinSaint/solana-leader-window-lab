@@ -99,6 +99,24 @@ Simulated signatures (N = 8, mean tau R_PRICE at gap 0/10/25/60/120 ms): Agave
 0.43/0.00/−0.37/−0.85/−0.96; Firedancer 0.82/0.32/−0.25/−0.82/−0.96; FBA(50 ms)
 0.97/−0.13/−0.74/−1.00/−1.00; FIFO −0.02/−1.00/−1.00/−1.00/−1.00.
 
+**Multi-slot bursts (registered 2026-10-23, before any live window).** At g ≥ 60 ms a burst
+spans (N − 1)·g = 300 or 600 ms, about 1.4 or 2.8 slots at ≈ 211 ms. Two of our txs that land in
+different slots are ordered by time, not by the scheduler. Therefore, for every gap (and
+binding for g ≥ 60 ms):
+1. Per window, landed txs are grouped by landed slot. Only pairs within one slot enter tau:
+   Kendall tau-b per slot group, combined as the pair-weighted mean. A window with no
+   within-slot pair contributes no tau. It is counted and reported.
+2. Cross-slot pairs are reported per gap as the **slot-split rate** (share of landed pairs in
+   different slots). They are never counted as evidence for or against any rule.
+3. The batching granularity estimate above uses within-slot taus only.
+4. Power: the simulator gets a slot model. Slot boundaries are at k × slot_ms from the
+   window's first slot, with slot_ms the calibrated slot time; a tx gets the slot its
+   arrival falls in; scheduling inside a slot is unchanged. Ceilings and power for X at
+   g ∈ {60, 120} under rule 1 are computed with `make sim` and recorded in SIMULATION.md before
+   `prereg-v1`. The simulated numbers above were computed without a slot model, so they are
+   superseded for g ≥ 60 ms. If half-strength power at the allocated W is < 0.9 for a gap, that
+   gap is reported as EXPLORATORY and the granularity estimate is restricted to g ≤ 25 ms.
+
 ## 6. Statistics
 
 - Per window: Kendall tau-b between the landed order (block index, same-slot txs only) and each
@@ -119,6 +137,26 @@ Simulated signatures (N = 8, mean tau R_PRICE at gap 0/10/25/60/120 ms): Agave
   resamples), Holm-adjusted p, and a paired bootstrap between the top two rules.
 - Strictness: share of windows with tau_norm ≥ 0.5, share of perfectly ordered windows, and the
   full distribution.
+
+## 6c. Independence units (registered 2026-10-23)
+
+Validators whose gossip `tpuQuic` addresses share one IP are one **independence unit**. Our txs
+to them reach the same address, so their results are not independent. Verdicts are still
+reported per validator. Every statement that counts or pools validators counts units: "k of n
+validators follow rule R", agreement within a stratum, any stratum-level pooling (SESSIONS
+option B), and any cross-validator interval, where the unit is the resampling unit. The unit is
+fixed at plan time from the gossip address recorded in each manifest row (`tx.tpu_quic`) and in
+the selection snapshot (`shared_tpu_ips`). For the current selection
+(`data/snapshots/shared_tpu_ips_20261022T163227Z.json`), the 10 picked validators form 9 units:
+HarmonicAgave `Fd7btgyS` and HarmonicFiredancer `JUPiTERr` share 198.13.140.105 (38 gossip nodes
+advertise it). BamAgave `DRpbCBMx` is alone among the picks at 208.91.105.55, which 9 gossip
+nodes advertise. What runs at a shared address is not inferred. ASNs are not recorded.
+
+**Send order realized (registered 2026-10-23).** Each window's actual send order (order of
+`start_mono_ns`) must equal its planned `send_rank` (verifier check O). A window where it does
+not is excluded with reason `send_order_mismatch`. Before the fix of 2026-10-23, the burst loop
+sent zero-gap arms (P, R, C) in idx order, i.e. in ascending price or CU limit. That affected
+dry-runs only; no live window was ever sent with it.
 
 ## 7. Verdicts (per cell, thresholds from SIMULATION)
 

@@ -24,6 +24,9 @@ Offline, from `data/` alone (no trust in the collector):
   X  `exclusion_reason` is re-derived from the block (producer, window bounds), not trusted.
   H  hidden data: no manifest tx marked "not landed" appears in any saved block, and no tx
      paid by one of our payers appears in a saved block without a manifest line.
+  O  send order: in every window, the order of the actual send start times (`start_mono_ns`)
+     equals the planned `send_rank` order. (Until 2026-10-23 the burst loop sent zero-gap arms
+     in idx order; LOGBOOK 13:40.) Also for dry-run output: `--windows <run dir>`.
   Q  platform: every calibration and confirmatory tx carries a host record (platform id, OS,
      OS build, machine id, sender binary SHA-256; crates/sender/src/host.rs), the platform is
      registered, and all of them come from one (platform, OS, machine). OS build and binary
@@ -202,6 +205,40 @@ def check_schedules(lines: list[dict], data_root: pathlib.Path, rep: Report) -> 
             elif who != t["identity"]:
                 bad.append(f"{s}:{who}")
         rep.fail("E", "not the scheduled leader: " + ",".join(bad), window_id=wid) if bad else rep.ok("E")
+
+
+def send_order_ok(sends: list[dict], rank_of: dict[int, int]) -> bool:
+    """True if the sends, ordered by actual start time, are in planned send_rank order."""
+    done = [s for s in sends if s.get("error") is None]
+    by_time = sorted(done, key=lambda s: (int(s["start_mono_ns"]), int(s.get("start_unix_ns", 0))))
+    ranks = [rank_of[int(s["idx"])] for s in by_time]
+    return ranks == sorted(ranks)
+
+
+def check_send_order(lines: list[dict], rep: Report) -> None:
+    """O: per window, actual send order (start_mono_ns) == planned send_rank order."""
+    windows: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for l in lines:
+        windows[(l["tx"]["run_id"], l["tx"]["window_id"])].append(l["tx"])
+    for (run_id, wid), txs in sorted(windows.items()):
+        txs = [t for t in txs if t.get("ordering_eligible", True)]
+        if len(txs) < 2:
+            continue
+        ok = send_order_ok([dict(t["send"], idx=t["idx"]) for t in txs], {t["idx"]: t["send_rank"] for t in txs})
+        rep.ok("O") if ok else rep.fail("O", "sent in a different order than send_rank", run_id=run_id, window_id=wid)
+
+
+def check_send_order_windows(run_dir: pathlib.Path, rep: Report) -> None:
+    """O on a dry-run (or live) run directory's windows.jsonl."""
+    for w in read_jsonl(run_dir / "windows.jsonl"):
+        sends = w.get("sends") or []
+        if len(sends) < 2:
+            continue
+        rank_of = {t["idx"]: t["send_rank"] for t in w["window"]["design"]["txs"]}
+        ok = send_order_ok(sends, rank_of)
+        rep.ok("O") if ok else rep.fail("O", "sent in a different order than send_rank",
+                                        run_id=w.get("run_id"), window_id=w["window"]["window_id"],
+                                        arm=w["window"]["design"]["arm"])
 
 
 def check_platform(lines: list[dict], rep: Report) -> dict:
@@ -475,6 +512,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="default: data/manifest.jsonl and data/exploratory/calibration_manifest.jsonl")
     ap.add_argument("--ledger", default=None, help="default: <data>/ledger.jsonl")
     ap.add_argument("--online", action="store_true", help="also re-fetch from RPC_URL (read-only)")
+    ap.add_argument("--windows", action="append", help="also check send order in <run dir>/windows.jsonl")
     ap.add_argument("--sample", type=int, default=None, help="online: re-fetch only K saved blocks")
     ap.add_argument("--seed", type=int, default=20261023)
     ap.add_argument("--out", default=None, help="default: <data>/verify/verify_<UTC>.json")
@@ -490,6 +528,9 @@ def main(argv: list[str] | None = None) -> int:
     check_plans(lines, data_root, rep)
     check_schedules(lines, data_root, rep)
     summary["platform"] = check_platform(lines, rep)
+    check_send_order(lines, rep)
+    for d in a.windows or []:
+        check_send_order_windows(pathlib.Path(d), rep)
     url = os.environ.get("RPC_URL", "")
     if a.online:
         if not url:

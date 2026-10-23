@@ -426,6 +426,8 @@ pub struct Runner<'a> {
     epoch_map: Option<crate::leaders::EpochMap>,
     /// Epochs whose leader schedule is known to be in data/snapshots (leaders.rs).
     schedules_saved: std::collections::BTreeSet<u64>,
+    /// Windows skipped before any reservation; their quota goes back to the plan state.
+    released: Vec<PlannedWindow>,
 }
 
 /// What earlier runs of `purpose` already attempted, so that a new session, or a restart
@@ -553,6 +555,7 @@ impl<'a> Runner<'a> {
             slots_dumped_through: 0,
             epoch_map: None,
             schedules_saved: std::collections::BTreeSet::new(),
+            released: vec![],
             data_root: init.data_root,
         })
     }
@@ -711,6 +714,9 @@ impl<'a> Runner<'a> {
                             .skips
                             .entry("execute error".into())
                             .or_default() += 1;
+                    }
+                    for w in self.released.drain(..) {
+                        planner::release(&mut state, &w);
                     }
                 }
                 None if planning_done => break,
@@ -997,6 +1003,10 @@ impl<'a> Runner<'a> {
     fn skip(&mut self, mut log: WindowLog, reason: String) -> Result<()> {
         tracing::info!(window = %log.window.window_id, %reason, "window skipped");
         *self.summary.skips.entry(reason_key(&reason)).or_default() += 1;
+        if log.reserved_lamports == 0 {
+            // never attempted: free its quota (a reserved window stays counted, as in the ledger)
+            self.released.push(log.window.clone());
+        }
         log.outcome = "skipped";
         log.skip_reason = Some(reason);
         self.log("windows.jsonl", &log)
@@ -1207,6 +1217,7 @@ impl<'a> Runner<'a> {
                 sig: b.signature.to_string(),
                 wire: b.wire.clone(),
                 offset_us: t.send_offset_us,
+                rank: t.send_rank,
             })
             .collect();
 
@@ -1299,6 +1310,7 @@ impl<'a> Runner<'a> {
                         vote_account: w.vote_account.clone(),
                         stratum: w.stratum.clone(),
                         selection_ref: self.cfg.selection_ref.clone(),
+                        tpu_quic: w.tpu_quic.clone(),
                         arm: d.arm,
                         gap_us: d.gap_us,
                         offset_ms,
@@ -1348,6 +1360,7 @@ fn failed_sends(txs: &[BurstTx], path: &str, err: &str) -> Vec<SendRecord> {
             sig: t.sig.clone(),
             path: path.into(),
             planned_offset_us: t.offset_us,
+            send_rank: t.rank,
             start_mono_ns: 0,
             end_mono_ns: 0,
             start_unix_ns: unix_ns(),

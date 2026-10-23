@@ -99,6 +99,13 @@ def classify(w: Window) -> None:
     if any(l["tx"]["first_slot"] < ALPENGLOW_GENESIS_SLOT for l in w.lines):
         w.reason = "pre_alpenglow"
         return
+    # PREREGISTRATION §6c: the actual send order must be the planned send_rank order.
+    sent = sorted((l for l in w.lines if l["tx"]["send"].get("error") is None),
+                  key=lambda l: int(l["tx"]["send"]["start_mono_ns"]))
+    ranks = [l["tx"]["send_rank"] for l in sent]
+    if ranks != sorted(ranks):
+        w.reason = "send_order_mismatch"
+        return
     ok = [l for l in w.lines if l["outcome"]["status"] == "landed" and not l["outcome"].get("exclusion_reason")]
     if not ok:
         w.reason = "none_landed_clean"

@@ -293,6 +293,56 @@ pub fn candidates(
     out
 }
 
+/// IP part of a gossip `tpuQuic` address ("198.13.140.105:12341" -> "198.13.140.105",
+/// "[2001:db8::1]:8009" -> "2001:db8::1").
+pub fn tpu_ip(addr: &str) -> &str {
+    let host = addr.rsplit_once(':').map_or(addr, |(h, _)| h);
+    host.trim_start_matches('[').trim_end_matches(']')
+}
+
+/// Picked validators whose TPU address shares its IP with other gossip nodes: the IP, how many
+/// gossip nodes advertise it, and which picked validators sit behind it. Validators behind one
+/// address are treated as one independence unit in the analysis (README, transaction path).
+/// What runs at that address is not inferred here.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SharedTpu {
+    pub ip: String,
+    pub gossip_nodes_on_ip: usize,
+    pub picked_on_ip: Vec<String>,
+}
+
+pub fn shared_tpu_ips(nodes: &[crate::rpc::ClusterNode], picked: &[Candidate]) -> Vec<SharedTpu> {
+    let mut nodes_on: BTreeMap<String, usize> = BTreeMap::new();
+    for n in nodes {
+        if let Some(a) = &n.tpu_quic {
+            *nodes_on.entry(tpu_ip(a).to_string()).or_default() += 1;
+        }
+    }
+    let mut by_ip: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for c in picked {
+        if let Some(a) = &c.tpu_quic {
+            by_ip
+                .entry(tpu_ip(a).to_string())
+                .or_default()
+                .push(c.identity.clone());
+        }
+    }
+    by_ip
+        .into_iter()
+        .filter_map(|(ip, mut ids)| {
+            let n = nodes_on.get(&ip).copied().unwrap_or(0);
+            (n > 1 || ids.len() > 1).then(|| {
+                ids.sort();
+                SharedTpu {
+                    ip,
+                    gossip_nodes_on_ip: n,
+                    picked_on_ip: ids,
+                }
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,6 +421,63 @@ mod tests {
             notes
                 .iter()
                 .any(|n| n.contains("REQUIRED stratum Firedancer"))
+        );
+    }
+
+    #[test]
+    fn shared_tpu_ips_are_reported_for_picked_validators() {
+        assert_eq!(tpu_ip("198.13.140.105:12341"), "198.13.140.105");
+        assert_eq!(tpu_ip("[2001:db8::1]:8009"), "2001:db8::1");
+        let node = |pk: &str, tpu: &str| crate::rpc::ClusterNode {
+            pubkey: pk.into(),
+            version: None,
+            feature_set: None,
+            client_id: None,
+            tpu_quic: Some(tpu.into()),
+            shred_version: None,
+        };
+        let nodes = vec![
+            node("H1", "198.13.140.105:12341"),
+            node("H2", "198.13.140.105:12349"),
+            node("O1", "198.13.140.105:12000"),
+            node("B1", "208.91.105.55:5010"),
+            node("B2", "208.91.105.55:5011"),
+            node("A1", "5.199.172.176:12002"),
+        ];
+        let mk = |id: &str, tpu: &str| Candidate {
+            identity: id.into(),
+            vote_account: format!("v-{id}"),
+            stake_lamports: 1,
+            client_id: None,
+            version: None,
+            tpu_quic: Some(tpu.into()),
+            stratum: Stratum::Agave,
+            confidence: Confidence::Medium,
+            evidence: vec![],
+            kobe: None,
+            windows_in_horizon: 1,
+        };
+        let picked = vec![
+            mk("H2", "198.13.140.105:12349"),
+            mk("H1", "198.13.140.105:12341"),
+            mk("B1", "208.91.105.55:5010"),
+            mk("A1", "5.199.172.176:12002"),
+        ];
+        let got = shared_tpu_ips(&nodes, &picked);
+        assert_eq!(
+            got,
+            vec![
+                SharedTpu {
+                    ip: "198.13.140.105".into(),
+                    gossip_nodes_on_ip: 3,
+                    picked_on_ip: vec!["H1".into(), "H2".into()]
+                },
+                SharedTpu {
+                    ip: "208.91.105.55".into(),
+                    gossip_nodes_on_ip: 2,
+                    picked_on_ip: vec!["B1".into()]
+                },
+            ]
         );
     }
 

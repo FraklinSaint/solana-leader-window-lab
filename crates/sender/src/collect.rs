@@ -33,6 +33,10 @@ pub struct SentTx {
     pub stratum: String,
     /// Selection snapshot holding this validator's client label and evidence.
     pub selection_ref: Option<String>,
+    /// Gossip `tpuQuic` address of the window's validator at plan time. Validators sharing
+    /// its IP are one independence unit in the analysis.
+    #[serde(default)]
+    pub tpu_quic: Option<String>,
     pub arm: Arm,
     pub gap_us: u64,
     pub offset_ms: i64,
@@ -494,6 +498,7 @@ mod tests {
             vote_account: "v".into(),
             stratum: "Agave".into(),
             selection_ref: None,
+            tpu_quic: None,
             arm: Arm::P,
             gap_us: 0,
             offset_ms: -100,
@@ -517,6 +522,7 @@ mod tests {
                 sig: "s1".into(),
                 path: "quic".into(),
                 planned_offset_us: 0,
+                send_rank: 0,
                 start_mono_ns: 0,
                 end_mono_ns: 1,
                 start_unix_ns: 1_700_000_000_000_000_000,

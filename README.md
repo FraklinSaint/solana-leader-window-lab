@@ -327,6 +327,22 @@ both. Dry-runs are exploratory wherever they ran. The PC's default route is Wi-F
 2026-10-23). That adds jitter to our send times, which calibration absorbs into the send
 offset and the analysis treats as arrival noise. It is a property of this path, reported, not
 corrected.
+**Shared TPU addresses.** The address we send to is the validator's gossip `tpuQuic`. Several
+validators can advertise the same IP. In the current selection, HarmonicAgave `Fd7btgyS` and
+HarmonicFiredancer `JUPiTERr` both use 198.13.140.105, an IP advertised by 38 gossip nodes; BamAgave
+`DRpbCBMx` uses 208.91.105.55, advertised by 9 nodes. Across all 656 candidates, 456 share a TPU
+IP with another node. Validators behind one address are one **independence unit**
+(PREREGISTRATION §6c): verdicts stay per validator, but anything that counts or pools validators
+counts units (10 picked validators = 9 units). The address is recorded at plan time in every
+manifest row (`tx.tpu_quic`) and in the selection snapshot (`shared_tpu_ips`;
+`data/snapshots/shared_tpu_ips_20261022T163227Z.json` for the current one). We do not claim to
+know what runs at a shared address. ASNs are not recorded.
+
+**Send order.** Within a burst, txs go out in their planned `send_rank` order (offset first, then
+rank), and the recorded `start_mono_ns` shows the actual order. Verifier check O and the parser
+(`send_order_mismatch`) reject any window where the two differ. Until 2026-10-23 the burst loop
+sent zero-gap arms (P, R, C) in idx order, i.e. in ascending price (P, C) or CU limit (R). That
+made send order identical to the key under test. It affected dry-runs only (LOGBOOK).
 Unattended runs log every blind period to `<run>/gaps.jsonl`: host sleep or stall, slot-feed
 stall, RPC outage. A silent WebSocket is dropped after 10 s and reconnected, and the slot
 clock is cleared after a host stall of more than 30 s. `clock_hourly.json` (per run, and

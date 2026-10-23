@@ -1148,6 +1148,7 @@ async fn select_validators(ctx: &Ctx, min_windows: usize) -> Result<()> {
                     "vote_accounts": format!("vote_accounts_{ts}.json.gz"),
                     "kobe_validators": kobe_raw.as_ref().map(|_| format!("kobe_validators_{ts}.json.gz"))},
             "notes": notes, "picked": picked, "candidates": cands,
+            "shared_tpu_ips": select::shared_tpu_ips(&nodes, &picked),
         }))?,
     )?;
     println!("{}", path.display());

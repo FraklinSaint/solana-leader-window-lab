@@ -147,6 +147,24 @@ pub fn pick_quota_arm(
         .map(|(a, _)| a)
 }
 
+/// Give a planned window's quota back: it was skipped at execution before any tx of it was
+/// reserved (late after re-prediction, no blockhash, fee check, ...), so it was never
+/// attempted. Without this a skipped window still counted toward its cell within the run.
+pub fn release(state: &mut PlanState, w: &PlannedWindow) {
+    if let Some(n) = state.per_validator.get_mut(&w.identity) {
+        *n = n.saturating_sub(1);
+    }
+    if let Some(n) = state
+        .arm_counts
+        .get_mut(&w.identity)
+        .and_then(|m| m.get_mut(&w.design.arm))
+    {
+        *n = n.saturating_sub(1);
+    }
+    state.planned = state.planned.saturating_sub(1);
+    state.spent = state.spent.saturating_sub(w.expected_cost_lamports);
+}
+
 #[allow(clippy::too_many_arguments)] // pure function of its inputs, by design
 pub fn plan_windows(
     start_slot: u64,
@@ -355,6 +373,46 @@ mod tests {
                 .any(|s| s.reason.contains("before ALPENGLOW_GENESIS_SLOT"))
         );
         assert!(s.iter().any(|s| s.reason.contains("stabilization")));
+    }
+
+    #[test]
+    fn a_released_window_frees_its_quota_for_a_later_one() {
+        let q: BTreeMap<Arm, usize> = [(Arm::C, 1)].into();
+        let cfg = PlanConfig {
+            mainnet_guard: false,
+            quotas: Some([("Agave".to_string(), q)].into()),
+            ..PlanConfig::default()
+        };
+        let start = 460_100_000;
+        let l = leaders(
+            start,
+            &["A", "X", "X", "X", "X", "X", "X", "X", "X", "X"],
+            6,
+        );
+        let now = 1e18 as i128 - 60_000_000_000;
+        let mut st = PlanState::default();
+        let (first, _) = plan_windows(start, &l, &[target("A")], &fit(), now, &cfg, None, &mut st);
+        assert_eq!(first.len(), 1, "quota of one window");
+        // the window is skipped at execution before any reservation: release it
+        release(&mut st, &first[0]);
+        assert_eq!(st.arm_counts["A"][&Arm::C], 0);
+        let l2 = leaders(
+            start + 400,
+            &["A", "X", "X", "X", "X", "X", "X", "X", "X", "X"],
+            6,
+        );
+        let (again, skips) = plan_windows(
+            start + 400,
+            &l2,
+            &[target("A")],
+            &fit(),
+            now,
+            &cfg,
+            None,
+            &mut st,
+        );
+        assert_eq!(again.len(), 1, "{skips:?}");
+        assert!(again[0].first_slot > first[0].first_slot);
     }
 
     #[test]
