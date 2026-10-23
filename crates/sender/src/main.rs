@@ -1529,7 +1529,30 @@ async fn campaign(
             "continuing the allocation of earlier runs"
         );
     }
+    // First Ctrl+C: stop planning, drop windows not yet started, finish and write
+    // summary.json (live: the bounded collect pass included). Second Ctrl+C: exit at once;
+    // the ledger is durable before every send, and `sender collect` resolves what is open.
+    let interrupt = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    {
+        let flag = interrupt.clone();
+        tokio::spawn(async move {
+            let mut presses = 0u32;
+            while tokio::signal::ctrl_c().await.is_ok() {
+                presses += 1;
+                if presses == 1 {
+                    flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                    eprintln!(
+                        "interrupt: finishing the run and writing summary.json (Ctrl+C again exits now)"
+                    );
+                } else {
+                    eprintln!("second interrupt: exiting without summary.json");
+                    std::process::exit(130);
+                }
+            }
+        });
+    }
     let runner = Runner::new(RunnerInit {
+        interrupt,
         rpc: ctx.rpc.clone(),
         cluster: ctx.cluster.clone(),
         data_root: ctx.data_root.clone(),

@@ -14,6 +14,7 @@
 //! end: drain the collector, write summary.json
 //! ```
 
+use crate::arms::Arm;
 use crate::burst::{self, BurstTx, DryRunSink, QuicSink, RpcSink, SendRecord, unix_ns};
 use crate::clock::Fit;
 use crate::cluster::Cluster;
@@ -94,6 +95,9 @@ pub struct RunConfig {
     /// Sending host (host.rs): run.json header and every manifest row.
     pub host: Option<crate::host::HostInfo>,
 }
+
+/// `stopped_early` of a run ended by Ctrl+C.
+pub const INTERRUPTED: &str = "interrupted (Ctrl+C)";
 
 /// Manifest name of the RPC comparison path. Helius routes `sendTransaction` through its
 /// staked connections by default (docs: "Staked Connections (default)"; stated for paid
@@ -304,6 +308,59 @@ pub struct RunSummary {
     /// Estimated provider credits used by this process so far (credits.rs).
     pub credits: Option<crate::credits::Usage>,
     pub month_to_date_credits: Option<f64>,
+    /// simulateTransaction results per arm: CU consumed and loaded-accounts data size against
+    /// the tx's limits (at least one simulation per arm per run).
+    pub simulation_by_arm: BTreeMap<String, SimArmStats>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct SimArmStats {
+    pub simulated: usize,
+    /// Simulations that ran without error (an unfunded dry-run payer gives AccountNotFound).
+    pub ok: usize,
+    pub errors: BTreeMap<String, usize>,
+    pub units_min: Option<u64>,
+    pub units_max: Option<u64>,
+    /// Smallest CU limit among the simulated txs (the binding one).
+    pub cu_limit_min: Option<u32>,
+    pub loaded_bytes_max: Option<u64>,
+    pub loaded_bytes_limit: u32,
+    /// Every ok simulation used less than its CU limit and its loaded-data limit.
+    pub within_limits: Option<bool>,
+}
+
+impl SimArmStats {
+    pub fn record(
+        &mut self,
+        cu_limit: u32,
+        units: Option<u64>,
+        loaded: Option<u64>,
+        err: &serde_json::Value,
+    ) {
+        self.simulated += 1;
+        self.loaded_bytes_limit = crate::txbuild::LOADED_ACCOUNTS_DATA_LIMIT;
+        if !err.is_null() {
+            let key = err
+                .as_str()
+                .map(str::to_string)
+                .or_else(|| err.as_object().and_then(|o| o.keys().next().cloned()))
+                .unwrap_or_else(|| err.to_string());
+            *self.errors.entry(key).or_default() += 1;
+            return;
+        }
+        self.ok += 1;
+        if let Some(u) = units {
+            self.units_min = Some(self.units_min.map_or(u, |m| m.min(u)));
+            self.units_max = Some(self.units_max.map_or(u, |m| m.max(u)));
+        }
+        self.cu_limit_min = Some(self.cu_limit_min.map_or(cu_limit, |m| m.min(cu_limit)));
+        if let Some(l) = loaded {
+            self.loaded_bytes_max = Some(self.loaded_bytes_max.map_or(l, |m| m.max(l)));
+        }
+        let fits = units.is_none_or(|u| u < u64::from(cu_limit))
+            && loaded.is_none_or(|l| l < u64::from(self.loaded_bytes_limit));
+        self.within_limits = Some(self.within_limits.unwrap_or(true) && fits);
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -396,6 +453,8 @@ pub struct RunnerInit<'a> {
     pub mode: Mode<'a>,
     /// Allocation already attempted by earlier runs of this purpose ([`prior_plan_state`]).
     pub prior: PlanState,
+    /// Set by the first Ctrl+C: stop planning, drop windows not yet started, write summary.json.
+    pub interrupt: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 pub struct Runner<'a> {
@@ -428,6 +487,9 @@ pub struct Runner<'a> {
     schedules_saved: std::collections::BTreeSet<u64>,
     /// Windows skipped before any reservation; their quota goes back to the plan state.
     released: Vec<PlannedWindow>,
+    interrupt: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Arms simulated at least once in this run.
+    simulated_arms: std::collections::BTreeSet<Arm>,
 }
 
 /// What earlier runs of `purpose` already attempted, so that a new session, or a restart
@@ -556,6 +618,8 @@ impl<'a> Runner<'a> {
             epoch_map: None,
             schedules_saved: std::collections::BTreeSet::new(),
             released: vec![],
+            interrupt: init.interrupt.clone(),
+            simulated_arms: Default::default(),
             data_root: init.data_root,
         })
     }
@@ -576,11 +640,19 @@ impl<'a> Runner<'a> {
         collect::append_jsonl(&self.run_dir.join(file), std::slice::from_ref(item))
     }
 
-    async fn wait_for_clock(&self) -> Result<Fit> {
+    fn interrupted(&self) -> bool {
+        self.interrupt.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// `None` if interrupted while warming up.
+    async fn wait_for_clock(&self) -> Result<Option<Fit>> {
         let end = Instant::now() + Duration::from_secs(120);
         loop {
+            if self.interrupted() {
+                return Ok(None);
+            }
             if let Some(f) = self.fit() {
-                return Ok(f);
+                return Ok(Some(f));
             }
             anyhow::ensure!(
                 Instant::now() < end,
@@ -609,7 +681,10 @@ impl<'a> Runner<'a> {
     /// slot and the planner finds no window boundaries). Same execution path as `run`.
     pub async fn run_fixed(mut self, windows: Vec<PlannedWindow>) -> Result<RunSummary> {
         self.write_run_json()?;
-        self.wait_for_clock().await?;
+        if self.wait_for_clock().await?.is_none() {
+            self.stop = Some(INTERRUPTED.into());
+            return self.finish().await;
+        }
         self.summary.windows_planned = windows.len();
         for w in windows {
             if self.stop.is_some() {
@@ -627,13 +702,20 @@ impl<'a> Runner<'a> {
             self.feed.clone(),
             self.cfg.clock,
         ));
-        self.wait_for_clock().await?;
+        if self.wait_for_clock().await?.is_none() {
+            self.stop = Some(INTERRUPTED.into());
+            return self.finish().await;
+        }
         let deadline = unix_ns() + i128::from(self.cfg.duration_secs) * 1_000_000_000;
         let mut state = self.prior.clone();
         let mut next_start = self.slot_resilient(deadline).await? + 10;
         let mut queue: VecDeque<PlannedWindow> = VecDeque::new();
         let mut planning_done = false;
         while self.stop.is_none() {
+            if self.interrupted() {
+                self.stop = Some(INTERRUPTED.into());
+                break;
+            }
             if unix_ns() > deadline + 60_000_000_000 {
                 break; // a host stall can carry us far past the end
             }
@@ -1057,6 +1139,11 @@ impl<'a> Runner<'a> {
         // wait re-predicts at least once a second and prep starts prep_ms before the
         // *current* prediction.
         loop {
+            if self.interrupted() {
+                // not started: nothing reserved, nothing sent; its quota is freed
+                self.released.push(w);
+                return Ok(());
+            }
             let pred = self
                 .fit()
                 .map(|f| f.predict_ns(w.first_slot) as i128)
@@ -1168,24 +1255,52 @@ impl<'a> Runner<'a> {
             }
         }
 
-        if self.cfg.simulate_every > 0 && k.is_multiple_of(self.cfg.simulate_every) {
-            let sim = self.rpc.simulate(&b64(&built[kmax].wire)).await;
+        let first_of_arm = !self.simulated_arms.contains(&d.arm);
+        if self.cfg.simulate_every > 0
+            && (first_of_arm || k.is_multiple_of(self.cfg.simulate_every))
+        {
+            // The binding tx: the smallest CU limit (Arm R spans 1,000-6,000), ties -> costliest.
+            let ksim = (0..d.txs.len())
+                .min_by_key(|&i| (d.txs[i].cu_limit, std::cmp::Reverse(costs[i])))
+                .unwrap_or(kmax);
+            let limit = d.txs[ksim].cu_limit;
+            let sim = self.rpc.simulate(&b64(&built[ksim].wire)).await;
             let units = sim.as_ref().ok().and_then(|v| v["unitsConsumed"].as_u64());
+            let loaded = sim
+                .as_ref()
+                .ok()
+                .and_then(|v| v["loadedAccountsDataSize"].as_u64());
             log.simulation = Some(match &sim {
-                Ok(v) => serde_json::json!({"err": v["err"], "units_consumed": units,
-                                            "cu_limit": d.txs[kmax].cu_limit}),
+                Ok(v) => serde_json::json!({"err": v["err"], "idx": d.txs[ksim].idx,
+                    "units_consumed": units, "cu_limit": limit,
+                    "loaded_accounts_data_size": loaded,
+                    "loaded_accounts_data_limit": crate::txbuild::LOADED_ACCOUNTS_DATA_LIMIT}),
                 Err(e) => serde_json::json!({"rpc_error": format!("{e:#}")}),
             });
+            let stats = self
+                .summary
+                .simulation_by_arm
+                .entry(format!("{:?}", d.arm))
+                .or_default();
+            match &sim {
+                Ok(v) => stats.record(limit, units, loaded, &v["err"]),
+                Err(_) => stats.record(limit, None, None, &serde_json::json!("rpc_error")),
+            }
+            self.simulated_arms.insert(d.arm);
             if self.mode.is_live()
-                && let (Ok(v), Some(u)) = (&sim, units)
+                && let Ok(v) = &sim
                 && v["err"].is_null()
-                && u >= u64::from(d.txs[kmax].cu_limit)
             {
-                self.stop = Some(format!(
-                    "CU limit {} does not exceed measured usage {u}",
-                    d.txs[kmax].cu_limit
-                ));
-                return self.skip(log, "CU limit below usage".into());
+                let over_cu = units.is_some_and(|u| u >= u64::from(limit));
+                let over_loaded = loaded
+                    .is_some_and(|l| l >= u64::from(crate::txbuild::LOADED_ACCOUNTS_DATA_LIMIT));
+                if over_cu || over_loaded {
+                    self.stop = Some(format!(
+                        "limits too low: CU {units:?} vs limit {limit}, loaded data {loaded:?} vs limit {}",
+                        crate::txbuild::LOADED_ACCOUNTS_DATA_LIMIT
+                    ));
+                    return self.skip(log, "CU or loaded-data limit below usage".into());
+                }
             }
         }
 
@@ -1441,6 +1556,77 @@ mod tests {
         assert_eq!((s.windows, s.observed), (5, 4));
         assert_eq!(s.max_abs_err_ms, Some(10.0));
         assert_eq!(s.median_abs_err_ms, Some(4.0));
+    }
+
+    #[test]
+    fn simulation_stats_per_arm() {
+        let mut s = SimArmStats::default();
+        s.record(
+            1_000,
+            Some(0),
+            None,
+            &serde_json::json!({"InstructionError": [0, "x"]}),
+        );
+        s.record(1_000, Some(0), None, &serde_json::json!("AccountNotFound"));
+        assert_eq!((s.simulated, s.ok), (2, 0));
+        assert_eq!(s.errors.get("AccountNotFound"), Some(&1));
+        assert_eq!(s.errors.get("InstructionError"), Some(&1));
+        assert_eq!(s.within_limits, None, "no ok simulation yet");
+        s.record(1_000, Some(450), Some(2_000), &serde_json::Value::Null);
+        s.record(6_000, Some(470), Some(2_100), &serde_json::Value::Null);
+        assert_eq!(
+            (s.units_min, s.units_max, s.cu_limit_min),
+            (Some(450), Some(470), Some(1_000))
+        );
+        assert_eq!(
+            (s.loaded_bytes_max, s.loaded_bytes_limit),
+            (Some(2_100), 32 * 1024)
+        );
+        assert_eq!(s.within_limits, Some(true));
+        s.record(1_000, Some(1_000), Some(2_000), &serde_json::Value::Null);
+        assert_eq!(s.within_limits, Some(false), "usage == limit does not fit");
+    }
+
+    /// Ctrl+C (the interrupt flag) during a dry-run: the run stops and still writes
+    /// summary.json, with `stopped_early` saying why. Offline: nothing touches the network.
+    #[tokio::test]
+    async fn interrupt_writes_summary_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let interrupt: std::sync::Arc<std::sync::atomic::AtomicBool> = Default::default();
+        let runner = Runner::new(RunnerInit {
+            rpc: Rpc::new("http://127.0.0.1:9"),
+            cluster: Cluster::Mainnet,
+            data_root: dir.path().to_path_buf(),
+            cfg: RunConfig {
+                run_id: "dryrun-20261023T150000Z".into(),
+                ..RunConfig::default()
+            },
+            plan_cfg: PlanConfig::default(),
+            targets: vec![],
+            feed: crate::feed::new_state(),
+            pool: PayerPool::new(vec![], HashSet::new(), None, 0),
+            shared_sink: None,
+            mode: Mode::DryRun {
+                probe_connect: false,
+            },
+            prior: PlanState::default(),
+            interrupt: interrupt.clone(),
+        })
+        .unwrap();
+        interrupt.store(true, std::sync::atomic::Ordering::SeqCst);
+        let t0 = Instant::now();
+        let summary = runner.run().await.unwrap();
+        assert!(
+            t0.elapsed() < Duration::from_secs(5),
+            "must not wait for the slot clock"
+        );
+        assert_eq!(summary.stopped_early.as_deref(), Some(INTERRUPTED));
+        let run_dir = dir.path().join("logs").join("dryrun-20261023T150000Z");
+        let written: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(run_dir.join("summary.json")).unwrap()).unwrap();
+        assert_eq!(written["stopped_early"], INTERRUPTED);
+        assert!(written["finished"].as_str().unwrap().ends_with('Z'));
+        assert!(run_dir.join("run.json").exists());
     }
 
     #[test]

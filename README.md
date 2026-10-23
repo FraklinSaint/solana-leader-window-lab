@@ -175,6 +175,13 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
   closes it, and a new session continues the allocation from the ledger
   (`runner.rs::prior_plan_state`), so no attempted window is planned again and no quota is
   refilled;
+- **Ctrl+C** once: the worker stops planning, drops windows not yet started and writes its
+  `summary.json` (live: after the bounded collect pass); the session logs `stopped`. Twice: it
+  exits at once (the ledger is durable before every send; `sender collect` resolves the rest);
+- **CU and loaded-accounts data**: every run simulates the binding tx of each arm at least once
+  (`simulateTransaction`, `sigVerify: false`) and reports `simulation_by_arm` in `summary.json`.
+  Unfunded dry-run payers give `AccountNotFound`, so the real numbers come from funded (devnet,
+  calibration) runs; a live run stops if usage reaches the CU or the 32 KiB loaded-data limit;
 - **coverage by UTC hour** at the end (`data/sessions/<id>/coverage.{json,md}`): seconds with a
   running worker minus its gaps, gap seconds by kind, windows and clock error per hour; hours
   with no coverage are flagged GAP.

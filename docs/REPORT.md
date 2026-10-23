@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | missing | 0 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `7a0f6e07eed8ff99213fc32d4b9fd77ba49d619d2f7f2b4c3961c5ca0f3c8d49` | 71 |
+| `docs/LOGBOOK.md` | `acadbc855b5169b42ef62b193962b2f53fd4b91f1f9cf6d908fa22eaf2ff65d0` | 73 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -105,7 +105,7 @@ Confirmatory total 37,743,052 lamports (budget 38,000,000).
 
 Built from docs/LOGBOOK.md (kinds: failure, surprise, rate limit, env, limitation, correction, missed window). Times are UTC.
 
-Counts: failure 14, surprise 16, rate limit 1, env 2, limitation 2, correction 3
+Counts: failure 14, surprise 17, rate limit 1, env 2, limitation 2, correction 3
 
 | UTC | phase | kind | entry |
 |---|---|---|---|
@@ -147,6 +147,7 @@ Counts: failure 14, surprise 16, rate limit 1, env 2, limitation 2, correction 3
 | 2026-10-23T13:40:00Z | 4 | surprise | Shared TPU addresses: HarmonicAgave `Fd7btgyS` and HarmonicFiredancer `JUPiTERr` both advertise 198.13.140.105, an IP with 38 gossip nodes. BamAgave `DRpbCBMx`'s 208.91.105.55 has 9. Across all 656 candidates, 456 share a TPU IP with another node. Registered: validators behind one IP form one independence unit (PREREGISTRATION §6c). The 10 picks are 9 units. The address is recorded in manifest rows (`tx.tpu_quic`) and in the selection (`shared_tpu_ips`); `data/snapshots/shared_tpu_ips_20261022T163227Z.json` is derived for the current selection. What runs at these addresses is not inferred, and no ASN lookup was made. |
 | 2026-10-23T13:40:00Z | 4 | failure | Arm X at gaps of 60 and 120 ms spans 300 and 600 ms, about 1.4 and 2.8 slots. The simulator has no slot model, and the parser's usable rule (at least 5 of 6 in one slot) makes nearly every 120 ms window unusable. Registered in §5b before any live window: within-slot pairs only, a slot-split rate per gap, and power from a slot-aware simulator run before `prereg-v1`. If power is below 0.9, that gap is EXPLORATORY. The simulator, parser and analysis changes and the power run follow after the session (CPU-heavy). |
 | 2026-10-23T13:40:00Z | 4 | surprise | Plan-time window predictions differ from the send-time re-prediction by median −1.8 s (p10 −5.3 s, p90 +3.8 s; 190 windows, lead 4–502 s, median 373 s). Cause: the planner uses the live fit, whose slope comes from the last 600 notifications (≈ 127 s). That slope varies between 207.7 and 215.0 ms/slot, and the planner extrapolates it about 6 minutes ahead (1% of slope ≈ 4 s at 400 s). The send time itself is re-predicted at execution. Fixed now: a window skipped before any reservation gives its quota back (it used to count within the run). After the session: a long-baseline slope for plan-time prediction, chosen by replaying this session's slots.jsonl against a criterion fixed in advance (median absolute plan-time error at the observed leads). |
+| 2026-10-23T14:12:00Z | 4 | surprise | EXPLORATORY: the clock error of chunk 1 is worse than the 10-minute run of 2026-10-22 18:37Z. p95 is 297.8 ms by nearest rank (312.8 ms with rank ⌊0.95·n⌋, the figure in the 14:03 row), 95% bootstrap CI 228–341 ms, n = 394, versus 199.8 ms (CI 137–227, n = 62). Share of windows above 200 ms: 9.6% vs 4.8%. Medians: 87.6 vs 74.0 ms. Within chunk 1 there is no trend: p95 per 10-minute slice is 251, 314, 332, 233, 345 and 317 ms. The cause cannot be attributed from these data. Chunk 1 covers a single UTC hour (13Z), the other run another (18Z). Its pre-flight shows Wi-Fi (TP-Link USB, ifType 71), 2.8 of 8.0 GiB RAM free and the clock 5.3 ms off NTP. The 10-22 run has no host or pre-flight record. Load is not recorded during a run. Hour and Wi-Fi/load effects will be separable only after the chunks at other hours, and with per-run host load logging (to add). |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: bfec65b335117f0b239552371b75e5981756c7b8a2967566ca5e3c86d1b6cffe -->
+<!-- report-sha256: 1b6dd2154890e1f7cbb66bb1fac1fa40b9acd2d7039354c4e05b7303d393ae72 -->

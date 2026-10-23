@@ -207,6 +207,7 @@ async fn localnet_end_to_end() {
                 purpose: Purpose::Calibrate,
             },
             prior: Default::default(),
+            interrupt: Default::default(),
         })
         .unwrap();
         let s = runner.run_fixed(windows).await.unwrap();
