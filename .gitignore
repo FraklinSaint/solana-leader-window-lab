@@ -18,7 +18,8 @@ id.json
 .env.*
 !.env.example
 
-# session runner: binary copies, open-session pointer, heartbeats (scripts/session.ps1)
-/run/
-/data/sessions/current.json
+# sender session: open-session pointer and heartbeats (crates/sender/src/session.rs)
+/data/sessions/open.json
 /data/sessions/*/heartbeat
+/data/**/sessions/open.json
+/data/**/sessions/*/heartbeat

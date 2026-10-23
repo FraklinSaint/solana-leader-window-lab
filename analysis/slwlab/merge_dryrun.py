@@ -5,8 +5,8 @@
 
 The PC is on only in the daytime, so the 24 h dry-run is a set of chunks (sessions) on
 different dates. Input: every ``data/logs/dryrun-<stamp>/`` and ``data/logs/live-<stamp>/`` with
-since <= stamp < until, plus the session event logs ``data/sessions/<id>/events.jsonl`` and the
-older ``data/logs/dryrun24h-*.restarts.jsonl``.
+since <= stamp < until, plus the session event logs ``data/sessions/<id>/events.jsonl``
+(``sender session``).
 
 For each run: its mode (dry-run, or live calibration/confirmatory) and platform (``run.json``
 ``host``: platform id, OS, machine id; runs from before host records are ``unrecorded``), its live interval (``run.json`` start to ``summary.json`` finish; if the
@@ -234,7 +234,6 @@ def summarize(runs: list[dict]) -> dict:
 def campaign_events(data: pathlib.Path, since: str, until: str | None) -> list[dict]:
     out = []
     files = [(p.parent.name, p) for p in sorted((data / "sessions").glob("*/events.jsonl"))]
-    files += [(p.name.split("-", 1)[1].split(".", 1)[0], p) for p in sorted((data / "logs").glob("dryrun24h-*.*.jsonl"))]
     for st, p in files:
         if st >= since and (until is None or st < until):
             for e in read_jsonl(p):

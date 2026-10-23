@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | missing | 0 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `ab1fef1dd1c8c7cb0bd04fe4be95bcd7cc80afabf24a80074349763ba02a4772` | 62 |
+| `docs/LOGBOOK.md` | `019924e456186d997518abae834c985c42d98ef96e6c133585fb224abc45e90a` | 65 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -105,7 +105,7 @@ Confirmatory total 37,743,052 lamports (budget 38,000,000).
 
 Built from docs/LOGBOOK.md (kinds: failure, surprise, rate limit, env, limitation, correction, missed window). Times are UTC.
 
-Counts: failure 11, surprise 14, rate limit 1, env 2, limitation 2, correction 2
+Counts: failure 12, surprise 14, rate limit 1, env 2, limitation 2, correction 2
 
 | UTC | phase | kind | entry |
 |---|---|---|---|
@@ -141,6 +141,7 @@ Counts: failure 11, surprise 14, rate limit 1, env 2, limitation 2, correction 2
 | 2026-10-23T10:55:00Z | 4 | failure | Found before any live run: every run started its plan state from zero (`runner.rs`, `PlanState::default()`). In quota mode, each new session or each restart after a crash would plan the whole allocation again. The purpose budget would have stopped the overspend, but the early cells would be overfilled and the late ones starved. Fix: `prior_plan_state` rebuilds per-validator and per-arm counts and the last attempted slot from the ledger (fsync'd before any send) joined with `plan.jsonl`. A window counts once. A reserved window missing from its plan is an error. |
 | 2026-10-23T10:58:00Z | 4 | failure | Found by the crash test: `collect::read_jsonl` failed on a torn last line. A power loss during an append to sent.jsonl or plan.jsonl would have blocked `sender collect` after the reboot. Every append is synced, so only the last line can be torn. It is now skipped with a warning; a corrupt line elsewhere is still an error. |
 | 2026-10-23T11:03:00Z | 4 | surprise | Pre-flight on the operator's PC: the default route is Wi-Fi (TP-Link USB adapter, 150 Mbps), and the Windows Time service is stopped (`w32tm`: 0x80070426), so the clock is not being synced. Both need action before calibration. Ethernet is preferred; if Wi-Fi stays, it is a reported property of the path. |
+| 2026-10-23T12:05:00Z | 4 | failure | After commit 67048df, `scripts/session.ps1` disappeared from the operator's working tree, and `git restore` was denied. Other files in scripts\ could still be created. The binary copy it made (`run\bin\sender-d05e5c795fd8.exe`) is gone too, and the session it started at 11:47:15Z logged only `start`. Not confirmed (the Defender log needs admin), but the script compiled P/Invoke code in memory to keep the PC awake, a pattern antivirus heuristics flag. The session record is kept: a `reset` event was appended at 12:07:21Z, and its state was archived as `data/sessions/20261023T114715Z/state.json`. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: b23164291f03e2baff63e55428556e9725fd8661fbea6c7dc22e2216c2cd6c13 -->
+<!-- report-sha256: fa2fc7322948ee16c5713080f8e431e8c133f459c63dc3bd2c559408fa541d72 -->

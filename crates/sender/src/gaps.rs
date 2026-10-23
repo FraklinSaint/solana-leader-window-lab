@@ -132,7 +132,7 @@ fn quantile(sorted: &[f64], q: f64) -> f64 {
     sorted[((sorted.len() - 1) as f64 * q).round() as usize]
 }
 
-fn hour_of(unix_ns: i128) -> String {
+pub fn hour_of(unix_ns: i128) -> String {
     chrono::DateTime::from_timestamp((unix_ns / 1_000_000_000) as i64, 0)
         .map(|t| t.format("%Y-%m-%dT%H:00:00Z").to_string())
         .unwrap_or_else(|| "invalid".into())

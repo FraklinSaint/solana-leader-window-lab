@@ -1,0 +1,14 @@
+{
+    "id":  "20261023T114715Z",
+    "mode":  "dryrun",
+    "start":  1792756036,
+    "end":  1792784836,
+    "exe":  "C:\\Users\\user\\solana-leader-window-lab\\run\\bin\\sender-d05e5c795fd8.exe",
+    "exe_sha256":  "d05e5c795fd80e39aef77d8b33d677c38fe0af3552dd81af208986a304421e32",
+    "max_spend_lamports":  0,
+    "prereg":  "",
+    "allocation":  "",
+    "offsets":  "",
+    "confirmed_live":  false,
+    "platform":  ""
+}

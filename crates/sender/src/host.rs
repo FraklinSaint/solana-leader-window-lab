@@ -29,7 +29,7 @@ pub struct HostInfo {
     /// First 16 hex chars of SHA-256(MachineGuid) on Windows, of /etc/machine-id on Linux.
     /// Identifies the machine without publishing the id itself.
     pub machine_id: String,
-    /// SHA-256 of the running sender executable (the session copy, see scripts/session.ps1).
+    /// SHA-256 of the running sender executable (Windows keeps it locked while it runs).
     pub sender_sha256: String,
 }
 

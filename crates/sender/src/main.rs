@@ -28,6 +28,7 @@ use slwlab_sender::rpc::Rpc;
 use slwlab_sender::rpc::RpcLimits;
 use slwlab_sender::runner::{self, Mode, PayerPool, RunConfig, Runner, RunnerInit};
 use slwlab_sender::select;
+use slwlab_sender::session::{self, SessionMode, SessionState, Start, Worker};
 use slwlab_sender::{feed, rpc};
 use solana_pubkey::Pubkey;
 use solana_signer::Signer;
@@ -204,8 +205,44 @@ enum PurposeArg {
     Calibrate,
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+enum SessionModeArg {
+    Dryrun,
+    Calibrate,
+    Measure,
+}
+
 #[derive(Subcommand)]
 enum Cmd {
+    /// A measurement session on this PC (README "Running natively"): pre-flight checks, no
+    /// idle sleep, one supervised worker (dry-run or live) until the session's fixed end,
+    /// restarted after a crash, gaps and coverage by UTC hour. Running the same command again
+    /// resumes an interrupted dry-run session; a live session is never resumed.
+    Session {
+        #[arg(long, value_enum, default_value_t = SessionModeArg::Dryrun)]
+        mode: SessionModeArg,
+        /// Session length, at most 10 h.
+        #[arg(long, default_value_t = 8.0)]
+        hours: f64,
+        /// Close the open session without resuming it.
+        #[arg(long)]
+        reset: bool,
+        /// Live only: lamports the whole session may reserve (each worker gets what is left).
+        #[arg(long)]
+        max_spend_lamports: Option<u64>,
+        /// Measure only: commit of the `prereg-v1` tag.
+        #[arg(long)]
+        prereg: Option<String>,
+        /// Measure only: allocation file with plan_quota.
+        #[arg(long)]
+        allocation: Option<PathBuf>,
+        /// Calibrate only: offset sweep, e.g. -300,-100,0,100.
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offsets: Vec<i64>,
+        /// NTP server for the clock-offset check.
+        #[arg(long, default_value = "time.cloudflare.com")]
+        ntp_server: String,
+    },
     /// Snapshot cluster/vote/Kobe/leader-schedule data and pick validators per stratum.
     SelectValidators {
         #[arg(long, default_value_t = 40)]
@@ -603,6 +640,36 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
             max_spend_lamports,
         } => sweep(ctx, live, max_spend_lamports, run_id).await,
         Cmd::ClockReport { since, until, out } => clock_report(ctx, &since, until.as_deref(), &out),
+        Cmd::Session {
+            mode,
+            hours,
+            reset,
+            max_spend_lamports,
+            prereg,
+            allocation,
+            offsets,
+            ntp_server,
+        } => {
+            let mode = match mode {
+                SessionModeArg::Dryrun => SessionMode::Dryrun,
+                SessionModeArg::Calibrate => SessionMode::Calibrate,
+                SessionModeArg::Measure => SessionMode::Measure,
+            };
+            run_session(
+                ctx,
+                SessionArgs {
+                    mode,
+                    hours,
+                    reset,
+                    max_spend_lamports,
+                    prereg,
+                    allocation,
+                    offsets,
+                    ntp_server,
+                },
+            )
+            .await
+        }
         Cmd::Reconcile { since, until } => {
             let before = funding::load_snapshot(&since)?;
             let after = match until {
@@ -759,6 +826,242 @@ async fn leader_snapshots(ctx: &Ctx) -> Result<()> {
     }
     if failed == 2 {
         anyhow::bail!("no leader schedule saved");
+    }
+    Ok(())
+}
+
+struct SessionArgs {
+    mode: SessionMode,
+    hours: f64,
+    reset: bool,
+    max_spend_lamports: Option<u64>,
+    prereg: Option<String>,
+    allocation: Option<PathBuf>,
+    offsets: Vec<i64>,
+    ntp_server: String,
+}
+
+/// Runs workers as child processes of this same binary (the file Windows keeps locked while it
+/// runs, so it cannot change during the session).
+struct ProcWorker {
+    exe: PathBuf,
+    global: Vec<String>,
+    platform: Option<String>,
+    st: SessionState,
+    ledger: PathBuf,
+}
+
+impl ProcWorker {
+    fn child(&self, args: &[String]) -> Result<i32> {
+        let mut c = std::process::Command::new(&self.exe);
+        c.args(&self.global).args(args);
+        if let Some(p) = &self.platform {
+            c.env(slwlab_sender::host::PLATFORM_ENV, p);
+        }
+        let status = tokio::task::block_in_place(|| c.status())
+            .with_context(|| format!("starting {}", self.exe.display()))?;
+        Ok(status.code().unwrap_or(-1))
+    }
+}
+
+impl Worker for ProcWorker {
+    fn run(&mut self, left_secs: i64) -> Result<i32> {
+        let mut a: Vec<String> = match self.st.mode {
+            SessionMode::Dryrun => vec!["dry-run".into()],
+            m => vec!["live".into(), "--purpose".into(), m.name().into()],
+        };
+        a.extend(["--duration-secs".into(), left_secs.to_string()]);
+        if self.st.mode.is_live() {
+            let cap = self.cap_left()?.unwrap_or(0);
+            a.extend(["--max-spend-lamports".into(), cap.to_string()]);
+            if !self.st.offsets.is_empty() {
+                let o: Vec<String> = self.st.offsets.iter().map(i64::to_string).collect();
+                a.extend(["--offsets".into(), o.join(",")]);
+            }
+            if let (Some(p), Some(al)) = (&self.st.prereg, &self.st.allocation) {
+                a.extend([
+                    "--prereg".into(),
+                    p.clone(),
+                    "--allocation".into(),
+                    al.clone(),
+                ]);
+            }
+        }
+        self.child(&a)
+    }
+    fn after_crash(&mut self) -> Result<Option<i32>> {
+        if !self.st.mode.is_live() {
+            return Ok(None);
+        }
+        self.child(&["collect".into()]).map(Some)
+    }
+    fn cap_left(&mut self) -> Result<Option<u64>> {
+        let Some(max) = self
+            .st
+            .max_spend_lamports
+            .filter(|_| self.st.mode.is_live())
+        else {
+            return Ok(None);
+        };
+        let used = session::reserved_since(&self.ledger, self.st.start_unix)?;
+        Ok(Some(max.saturating_sub(used)))
+    }
+}
+
+async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
+    let paths = session::Paths::new(&ctx.data_root);
+    let now = chrono::Utc::now().timestamp();
+    if a.reset {
+        match session::reset(&paths, now)? {
+            Some(id) => println!("session {id} closed"),
+            None => println!("no open session"),
+        }
+        return Ok(());
+    }
+    let env_file = std::env::var("SLWLAB_ENV_FILE").unwrap_or_else(|_| ".env".into());
+    let platform = std::env::var(slwlab_sender::host::PLATFORM_ENV)
+        .ok()
+        .or_else(|| read_dotenv(Path::new(&env_file)).remove(slwlab_sender::host::PLATFORM_ENV))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    let mut host = slwlab_sender::host::HostInfo::detect();
+    if let Some(p) = &platform {
+        host.platform = p.clone();
+    }
+    let purpose = match a.mode {
+        SessionMode::Dryrun => None,
+        SessionMode::Calibrate => Some(Purpose::Calibrate),
+        SessionMode::Measure => Some(Purpose::Measure),
+    };
+    if let Some(purpose) = purpose {
+        // The worker repeats every check; failing here avoids opening a session that cannot run.
+        live::authorize(
+            true,
+            std::env::var(live::CONFIRM_ENV).ok().as_deref(),
+            a.max_spend_lamports,
+        )?;
+        if purpose == Purpose::Measure {
+            ensure!(
+                ctx.cluster.is_mainnet(),
+                "confirmatory measurements are mainnet-only"
+            );
+            ensure!(
+                a.prereg.as_deref().is_some_and(|p| p.len() >= 7) && a.allocation.is_some(),
+                "--mode measure needs --prereg <prereg-v1 commit> and --allocation <file>"
+            );
+        }
+        slwlab_sender::host::gate_live(
+            &host,
+            purpose,
+            ctx.cluster.is_mainnet(),
+            &slwlab_sender::host::calibration_hosts(&runner::manifest_path(
+                &ctx.data_root,
+                Purpose::Calibrate,
+            ))?,
+        )?;
+    }
+    let req = session::Request {
+        mode: a.mode,
+        secs: (a.hours * 3600.0).round() as i64,
+        host: host.clone(),
+        max_spend_lamports: a.max_spend_lamports,
+        prereg: a.prereg.clone(),
+        allocation: a.allocation.as_ref().map(|p| p.display().to_string()),
+        offsets: a.offsets.clone(),
+    };
+    let pf = slwlab_sender::preflight::run(platform.as_deref(), &a.ntp_server);
+    for w in &pf.warnings {
+        println!("WARNING: {w}");
+    }
+    let (st, resumed) = match session::open_or_resume(&paths, &req, now)? {
+        Start::New(st) => (st, false),
+        Start::Resumed(st) => (st, true),
+    };
+    let pf_name = if resumed {
+        format!("preflight_resume_{}.json", session::stamp(now))
+    } else {
+        "preflight.json".into()
+    };
+    std::fs::write(
+        paths.dir(&st.id).join(pf_name),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "ts": session::utc(now), "host": host, "info": pf.info, "warnings": pf.warnings,
+        }))?,
+    )?;
+    println!(
+        "{} {} session {} until {} (sender {})",
+        if resumed { "resuming" } else { "starting" },
+        st.mode.name(),
+        st.id,
+        st.end_utc,
+        &host.sender_sha256[..12]
+    );
+    let awake = slwlab_winsys::KeepAwake::start();
+    if !awake.active {
+        println!("WARNING: could not block idle sleep on this OS");
+    }
+    let heartbeat = session::Heartbeat::start(paths.heartbeat(&st.id));
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    {
+        let stop = stop.clone();
+        tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                stop.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        });
+    }
+    let g = &ctx.g;
+    let mut worker = ProcWorker {
+        exe: std::env::current_exe()?,
+        global: vec![
+            "--data-dir".into(),
+            g.data_dir.display().to_string(),
+            "--secrets-dir".into(),
+            g.secrets_dir.display().to_string(),
+            "--clock-window".into(),
+            g.clock_window.to_string(),
+            "--clock-anchor-k".into(),
+            g.clock_anchor_k.to_string(),
+            "--rpc-rps".into(),
+            g.rpc_rps.to_string(),
+            "--send-tx-rps".into(),
+            g.send_tx_rps.to_string(),
+        ],
+        platform,
+        st: st.clone(),
+        ledger: ctx.ledger_path(),
+    };
+    let outcome = session::supervise(&paths, &st, &mut worker, &stop)?;
+    drop(heartbeat);
+    drop(awake);
+    match outcome {
+        session::Outcome::Done => {
+            if st.mode.is_live() {
+                let c = worker.child(&["collect".into()])?;
+                session::event(
+                    &paths,
+                    &st.id,
+                    chrono::Utc::now().timestamp(),
+                    "collect",
+                    serde_json::json!({"exit_code": c, "detail": "end of session"}),
+                )?;
+            }
+            let md = session::finish(&paths, &ctx.data_root, &st, chrono::Utc::now().timestamp())?;
+            println!(
+                "session {} done; coverage by UTC hour: {}",
+                st.id,
+                md.display()
+            );
+        }
+        session::Outcome::Stopped if st.mode.is_live() => println!(
+            "live session {} stopped. It will not resume: `sender session --reset`, then a new \
+             session continues the allocation from the ledger",
+            st.id
+        ),
+        session::Outcome::Stopped => println!(
+            "session {} stopped; run the same command again to continue it until {}",
+            st.id, st.end_utc
+        ),
     }
     Ok(())
 }

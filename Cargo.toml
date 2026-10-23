@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/common", "crates/sender"]
+members = ["crates/common", "crates/sender", "crates/winsys"]
 
 [workspace.package]
 version = "0.1.0"

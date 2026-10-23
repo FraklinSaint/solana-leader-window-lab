@@ -1,0 +1,2 @@
+{"ts":"2026-10-23T11:47:21Z","event":"start","warnings":2,"exe_sha256":"d05e5c795fd80e39aef77d8b33d677c38fe0af3552dd81af208986a304421e32","mode":"dryrun","end":"2026-10-23T19:47:16Z"}
+{"ts":"2026-10-23T12:07:21Z","event":"reset","detail":"closed: the PowerShell runner (scripts/session.ps1) and its binary copy run/bin/sender-d05e5c795fd8.exe disappeared from disk after this start (suspected antivirus); no worker run is recorded. Replaced by sender session (LOGBOOK entry at 2026-10-23T12:10:00Z)."}

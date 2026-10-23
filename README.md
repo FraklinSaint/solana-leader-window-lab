@@ -18,9 +18,9 @@ validator follows, how strictly it follows it, or whether it follows any rule at
 cp .env.example .env              # set RPC_URL and RPC_WS_URL (env only; see "RPC provider")
 docker compose up                 # select validators (if needed) + print the window plan. Never sends.
 docker compose run --rm sender dry-run --duration-secs 86400   # real-time loop, nothing sent
-# Windows native, one daytime session (copied binary, no sleep, resume after crash/reboot,
-# pre-flight, gap log, coverage by UTC hour; see "Sessions on one Windows PC"):
-#   powershell -ExecutionPolicy Bypass -File scripts\session.ps1 -Mode dryrun -Hours 8
+# Windows native, one daytime session (see "Running natively"):
+#   cargo build --release --locked -p slwlab-sender
+#   .\target\release\sender.exe session --mode dryrun --hours 8
 docker compose run --rm analyze   # regenerate docs/REPORT.md from committed data/
 docker compose run --rm verify    # re-fetch every block and check it against data/manifest.jsonl
 # live (operator only; the cap is mandatory and cannot exceed 0.05 SOL):
@@ -34,7 +34,7 @@ docker compose run --rm -e CONFIRM_LIVE=yes sender sweep --live --max-spend-lamp
 docker compose run --rm sender reconcile --since data/snapshots/balances_<first>.json
 ```
 
-`sender` subcommands: `select-validators`, `leader-snapshots`, `plan`, `dry-run [--probe-connect]`,
+`sender` subcommands: `session`, `select-validators`, `leader-snapshots`, `plan`, `dry-run [--probe-connect]`,
 `live`, `collect`, `init-payers`, `balances`, `fund`, `sweep`, `reconcile`, `clock-report`. Run `sender <cmd> --help` for options.
 Data from any cluster other than mainnet (decided by genesis hash) goes to
 `data/nonmainnet/<cluster>/` and is never analyzed.
@@ -117,26 +117,51 @@ confirmatory data:**
   claim becomes stratum-level, and its power holds only if every pooled validator follows the
   same rule. Per-validator statements for `5Us18hLZ` get fewer windows than in A.
 
-**Runner.** `scripts/session.ps1 -Mode dryrun|calibrate|measure -Hours ≤10`:
-- runs a **copy** of `sender.exe` (`run\bin\sender-<sha12>.exe`, hash in the session state
-  and in every run header), so a rebuild during a session cannot change or lock it;
-- blocks idle sleep while it runs;
-- **resumes**: sender crashes are restarted with the remaining time (live sessions first run
-  `sender collect`). After a crash, power loss or reboot, a Startup-folder entry runs `-Resume`
-  at the next logon and continues the same fixed UTC interval. The planner continues the
-  allocation from the ledger (`runner.rs::prior_plan_state`: reservations are fsync'd before
-  any send, joined with `plan.jsonl`), so a restart never re-plans an attempted window and never
-  refills a quota;
-- runs a **pre-flight** check and records it (`data/sessions/<id>/preflight.json`): it warns
-  if the power plan lets the PC sleep or hibernate, if Windows Update waits for a restart, if
-  the default route is **Wi-Fi**, if on battery, if the Windows Time service is not syncing,
-  or if disk space is low. Live modes need a typed "yes";
-- logs every gap with UTC timestamps (`data/sessions/<id>/events.jsonl`: down, sender_down,
-  stopped, resume), and inside a run `gaps.jsonl` (host_stall, slot_feed, rpc_error). Gaps are
-  never filled;
-- caps each live run at the session cap minus everything reserved since the session started;
-- writes **coverage by UTC hour** at the end (`data/sessions/<id>/coverage.md`,
-  `slwlab.merge_dryrun`): covered seconds, clock error and windows per UTC hour.
+### Running natively
+
+The entry point is the `sender` binary itself; there is no PowerShell or batch runner, and
+none may be added beyond a one-line call of the binary (`analysis/tests/test_script_hygiene.py`
+fails on in-memory interop, encoded commands, expression evaluation and hidden windows in any
+tracked script). A PowerShell runner with that kind of interop was removed from the operator's
+disk on 2026-10-23, most likely by antivirus (LOGBOOK).
+
+```powershell
+cargo build --release --locked -p slwlab-sender           # once, and after every code change
+.\target\release\sender.exe session --mode dryrun --hours 8   # in a normal PowerShell, repo root
+```
+
+`sender session --mode dryrun|calibrate|measure --hours <= 10`:
+- **pre-flight** (`crates/sender/src/preflight.rs`), recorded in `data/sessions/<id>/preflight.json`
+  and printed as warnings: sleep and hibernate timeouts (`powercfg`), free RAM, the
+  default-route adapter and whether it is **Wi-Fi**, the clock offset against an NTP server
+  (SNTP, `--ntp-server`, default time.cloudflare.com), the platform id (`SLWLAB_PLATFORM`), and
+  whether Windows Update or servicing is waiting for a restart (registry, `reg query`);
+- **session header** `data/sessions/<id>/session.json`: mode, fixed UTC interval, platform,
+  OS build, machine id, sender SHA-256;
+- **no idle sleep**: `SetThreadExecutionState` through `crates/winsys`, the only crate with
+  `unsafe` code (three Windows API calls behind safe functions; the workspace forbids
+  `unsafe` everywhere else);
+- **supervised worker**: the binary runs itself as `sender dry-run` (or `sender live` with every
+  live guard: `CONFIRM_LIVE=yes`, `--max-spend-lamports`, prereg, platform gate) for the time
+  left, and restarts it 30 s after a crash. A live worker is followed by `sender collect`
+  before the restart, and each live worker may reserve only the session cap minus everything
+  reserved since the session started;
+- **gaps with UTC timestamps**, never filled (`data/sessions/<id>/events.jsonl`): `down` (the
+  supervisor was not running: crash, power loss, reboot), `worker_down` (restart pause),
+  `stopped` (Ctrl+C), plus the worker's own `gaps.jsonl` (host_stall, slot_feed, rpc_error);
+- **resume**: after a crash or reboot, running the same command continues an interrupted
+  **dry-run** session until its fixed end, with a `down` gap from the last heartbeat. Nothing
+  starts by itself at logon. A **live** session is never resumed: `sender session --reset`
+  closes it, and a new session continues the allocation from the ledger
+  (`runner.rs::prior_plan_state`), so no attempted window is planned again and no quota is
+  refilled;
+- **coverage by UTC hour** at the end (`data/sessions/<id>/coverage.{json,md}`): seconds with a
+  running worker minus its gaps, gap seconds by kind, windows and clock error per hour; hours
+  with no coverage are flagged GAP.
+
+The binary is the same file for the whole session (Windows keeps a running executable locked,
+so a rebuild fails until the session ends), and its hash is in the session header and in every
+run header.
 
 **Merging chunks.** `make merge SINCE=<stamp>` merges all dry-run and live runs since the stamp,
 by (mode, platform, RPC host) and pooled: per absolute UTC hour and per hour of day (00–23), with
@@ -151,9 +176,11 @@ recovery, every reservation is intact. No tx appears as sent without a reservati
 project ceiling counts the open reservations, and a reserved signature cannot be reserved again
 (no double spend). Payers of unresolved txs stay busy. The allocation continues exactly where
 it stopped. After the reservations are settled, `reconcile` balances wallets against the ledger
-and catches a one-lamport discrepancy. The session script's resume path was tested with a stub
-sender: crash, abrupt kill of the script, a simulated 5-min outage, resume to the fixed end. Not
-tested here: a live run against a real cluster (localnet does not start on Windows; CI only).
+and catches a one-lamport discrepancy. The session supervisor (`session.rs` tests, fake worker
+and clock) is tested for: worker crash and restart pause, resume after a simulated power loss
+with the `down` gap dated from the heartbeat, the same fixed interval after resume, coverage by
+UTC hour with a GAP hour, live sessions that never resume, collect after a live crash, the
+session cap, and Ctrl+C. Not tested here: a live run against a real cluster (localnet does not start on Windows; CI only).
 
 ## Verify (no trust in our collector)
 
@@ -343,11 +370,11 @@ a simulated reference (`analysis/slwlab/sim.py`, labeled SIMULATION everywhere):
 
 ```
 crates/common    fee math, Alpenglow guard, spend ceiling (Rust)
-crates/sender    planner, clock, tx builder, QUIC sender, spend ledger, CLI (Rust)
+crates/sender    planner, clock, tx builder, QUIC sender, spend ledger, sessions, CLI (Rust)
+crates/winsys    the only unsafe code: keep-awake, free RAM, default-route adapter (Windows API)
 analysis/        parser, candidate rules, stats, simulator, report (Python, pytest)
 scripts/         verify_facts.py (re-derives docs/VERIFIED_FACTS.md from RPC), verify_manifest.py
-                 (independent check of data/), check_no_keys.py, scan_history.py, session.ps1
-                 (Windows session runner)
+                 (independent check of data/), check_no_keys.py, scan_history.py
 data/            manifest, raw blocks, snapshots, ledger, logs (committed)
 docs/            BOUNTY, VERIFIED_FACTS, PREREGISTRATION, LOGBOOK, REPORT
 secrets/         payer keypairs (gitignored, never committed)

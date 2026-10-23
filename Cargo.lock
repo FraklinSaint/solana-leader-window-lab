@@ -1990,6 +1990,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "slwlab-common",
+ "slwlab-winsys",
  "solana-hash",
  "solana-instruction",
  "solana-keypair",
@@ -2005,6 +2006,13 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "webpki-roots 1.0.10",
+]
+
+[[package]]
+name = "slwlab-winsys"
+version = "0.1.0"
+dependencies = [
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
