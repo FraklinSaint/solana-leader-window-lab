@@ -1,0 +1,4 @@
+{"end":"2026-10-23T21:01:17Z","event":"start","mode":"dryrun","ts":"2026-10-23T13:01:17Z"}
+{"event":"run_start","left_secs":28799,"run":1,"ts":"2026-10-23T13:01:18Z"}
+{"event":"run_exit","exit_code":-1073741510,"from":"2026-10-23T13:01:18Z","ran_secs":3415,"run":1,"to":"2026-10-23T13:58:13Z","ts":"2026-10-23T13:58:13Z"}
+{"detail":"Ctrl+C","event":"stopped","ts":"2026-10-23T13:58:13Z"}

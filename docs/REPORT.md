@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | missing | 0 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `f05a3d13abe5e47ce1fa8b8877522e9b336f2cb799ddb7d6af537701fb8ae43d` | 70 |
+| `docs/LOGBOOK.md` | `7a0f6e07eed8ff99213fc32d4b9fd77ba49d619d2f7f2b4c3961c5ca0f3c8d49` | 71 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -149,4 +149,4 @@ Counts: failure 14, surprise 16, rate limit 1, env 2, limitation 2, correction 3
 | 2026-10-23T13:40:00Z | 4 | surprise | Plan-time window predictions differ from the send-time re-prediction by median −1.8 s (p10 −5.3 s, p90 +3.8 s; 190 windows, lead 4–502 s, median 373 s). Cause: the planner uses the live fit, whose slope comes from the last 600 notifications (≈ 127 s). That slope varies between 207.7 and 215.0 ms/slot, and the planner extrapolates it about 6 minutes ahead (1% of slope ≈ 4 s at 400 s). The send time itself is re-predicted at execution. Fixed now: a window skipped before any reservation gives its quota back (it used to count within the run). After the session: a long-baseline slope for plan-time prediction, chosen by replaying this session's slots.jsonl against a criterion fixed in advance (median absolute plan-time error at the observed leads). |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: e997502422c6bcb9b527158d82c9f29fd8afc47cb328f4583604d5cb31003cf2 -->
+<!-- report-sha256: bfec65b335117f0b239552371b75e5981756c7b8a2967566ca5e3c86d1b6cffe -->
