@@ -8,6 +8,7 @@ pub mod credits;
 pub mod feed;
 pub mod funding;
 pub mod gaps;
+pub mod host;
 pub mod keys;
 pub mod leaders;
 pub mod ledger;

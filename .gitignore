@@ -17,3 +17,8 @@ id.json
 /data/**/ledger.jsonl.lock
 .env.*
 !.env.example
+
+# session runner: binary copies, open-session pointer, heartbeats (scripts/session.ps1)
+/run/
+/data/sessions/current.json
+/data/sessions/*/heartbeat

@@ -1,0 +1,12 @@
+{
+  "absolute_slot": 460409270,
+  "cluster": "mainnet",
+  "epoch": 1065,
+  "fetched_utc": "2026-10-23T10:29:23Z",
+  "label": "SNAPSHOT",
+  "method": "getEpochInfo",
+  "request_unix_ns": "1792751363396307700",
+  "response_unix_ns": "1792751363440189300",
+  "slot_index": 329270,
+  "slots_in_epoch": 432000
+}

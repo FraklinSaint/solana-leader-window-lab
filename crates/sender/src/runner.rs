@@ -91,6 +91,8 @@ pub struct RunConfig {
     /// RPC endpoint with the API key redacted (provenance in run.json).
     pub endpoint: String,
     pub clock: crate::clock::ClockParams,
+    /// Sending host (host.rs): run.json header and every manifest row.
+    pub host: Option<crate::host::HostInfo>,
 }
 
 /// Manifest name of the RPC comparison path. Helius routes `sendTransaction` through its
@@ -130,6 +132,7 @@ impl Default for RunConfig {
             rpc_path_label: "rpc",
             endpoint: String::new(),
             clock: crate::clock::ClockParams::default(),
+            host: None,
         }
     }
 }
@@ -391,6 +394,8 @@ pub struct RunnerInit<'a> {
     pub pool: PayerPool,
     pub shared_sink: Option<Pubkey>,
     pub mode: Mode<'a>,
+    /// Allocation already attempted by earlier runs of this purpose ([`prior_plan_state`]).
+    pub prior: PlanState,
 }
 
 pub struct Runner<'a> {
@@ -400,6 +405,7 @@ pub struct Runner<'a> {
     run_dir: PathBuf,
     cfg: RunConfig,
     plan_cfg: PlanConfig,
+    prior: PlanState,
     targets: Vec<Target>,
     feed: feed::Shared,
     pool: PayerPool,
@@ -420,6 +426,73 @@ pub struct Runner<'a> {
     epoch_map: Option<crate::leaders::EpochMap>,
     /// Epochs whose leader schedule is known to be in data/snapshots (leaders.rs).
     schedules_saved: std::collections::BTreeSet<u64>,
+}
+
+/// What earlier runs of `purpose` already attempted, so that a new session, or a restart
+/// after a crash or power loss, continues the allocation instead of starting it over and never
+/// plans a window at or before one already attempted.
+///
+/// Source: the spend ledger (each reservation is fsync'd before its tx is sent), joined with
+/// the run's `logs/<run_id>/plan.jsonl` (identity, arm, first slot; written at plan time). A
+/// window counts once however many of its txs were reserved. `sent.jsonl` is not used: it is
+/// written after the burst, so a crash in between would undercount. A torn last ledger line
+/// (power loss mid-write) is ignored: its tx was never sent. A reserved window missing from its
+/// plan.jsonl is an error (deleted logs would silently reset the allocation).
+pub fn prior_plan_state(data_root: &Path, ledger: &Path, purpose: Purpose) -> Result<PlanState> {
+    let mut state = PlanState::default();
+    let Ok(text) = std::fs::read_to_string(ledger) else {
+        return Ok(state);
+    };
+    let lines: Vec<&str> = text.split_inclusive('\n').collect();
+    let mut windows: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> =
+        Default::default();
+    for (i, l) in lines.iter().enumerate() {
+        if l.trim().is_empty() {
+            continue;
+        }
+        let e: crate::ledger::Entry = match serde_json::from_str(l.trim_end()) {
+            Ok(e) => e,
+            Err(_) if i + 1 == lines.len() && !l.ends_with('\n') => continue,
+            Err(e) => anyhow::bail!("{}: line {}: {e}", ledger.display(), i + 1),
+        };
+        if let crate::ledger::Entry::Reserve {
+            run_id,
+            purpose: p,
+            window_id: Some(w),
+            ..
+        } = e
+            && p == purpose
+        {
+            windows.entry(run_id).or_default().insert(w);
+        }
+    }
+    for (run_id, wids) in windows {
+        let plan = data_root.join("logs").join(&run_id).join("plan.jsonl");
+        let planned: std::collections::BTreeMap<String, PlannedWindow> =
+            crate::collect::read_jsonl::<serde_json::Value>(&plan)
+                .with_context(|| plan.display().to_string())?
+                .into_iter()
+                .filter_map(|v| serde_json::from_value::<PlannedWindow>(v["window"].clone()).ok())
+                .map(|w| (w.window_id.clone(), w))
+                .collect();
+        for wid in wids {
+            let Some(w) = planned.get(&wid) else {
+                anyhow::bail!(
+                    "window {wid} has a ledger reservation but is not in {}; the allocation cannot be reconstructed",
+                    plan.display()
+                );
+            };
+            *state.per_validator.entry(w.identity.clone()).or_default() += 1;
+            *state
+                .arm_counts
+                .entry(w.identity.clone())
+                .or_default()
+                .entry(w.design.arm)
+                .or_default() += 1;
+            state.considered_through = state.considered_through.max(Some(w.first_slot));
+        }
+    }
+    Ok(state)
 }
 
 /// Where a run's measurement outcomes go. Dry-runs write none; calibration is exploratory.
@@ -463,6 +536,7 @@ impl<'a> Runner<'a> {
             run_dir,
             cfg: init.cfg,
             plan_cfg: init.plan_cfg,
+            prior: init.prior,
             targets: init.targets,
             feed: init.feed,
             pool: init.pool,
@@ -522,7 +596,8 @@ impl<'a> Runner<'a> {
                 "exploratory": !matches!(self.mode, Mode::Live { purpose: Purpose::Measure, .. }),
                 "run_config": self.cfg, "plan_config": self.plan_cfg, "targets": self.targets,
                 "payers": self.pool.len(), "shared_sink": self.shared_sink.map(|p| p.to_string()),
-                "started": self.summary.started,
+                "started": self.summary.started, "host": self.cfg.host,
+                "purpose": match &self.mode { Mode::Live { purpose, .. } => Some(*purpose), Mode::DryRun { .. } => None },
             }),
         )
     }
@@ -551,7 +626,7 @@ impl<'a> Runner<'a> {
         ));
         self.wait_for_clock().await?;
         let deadline = unix_ns() + i128::from(self.cfg.duration_secs) * 1_000_000_000;
-        let mut state = PlanState::default();
+        let mut state = self.prior.clone();
         let mut next_start = self.slot_resilient(deadline).await? + 10;
         let mut queue: VecDeque<PlannedWindow> = VecDeque::new();
         let mut planning_done = false;
@@ -1237,6 +1312,7 @@ impl<'a> Runner<'a> {
                         n_signatures: 1,
                         conflict_account: d.shared_sink.map(|p| p.to_string()),
                         ordering_eligible: path == Some(PathKind::Quic),
+                        host: self.cfg.host.clone(),
                         reserved_lamports: costs[i],
                         blockhash: bh.blockhash.clone(),
                         last_valid_block_height: bh.last_valid_block_height,

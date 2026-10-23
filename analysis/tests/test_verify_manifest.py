@@ -70,7 +70,7 @@ def build(tmp, windows=4, n=6, arm="P", seed=0):
             if landed:
                 block[int(pos[i])] = tx
             lines.append({"tx": {
-                "sig": sig, "run_id": "live-20261101T000000Z", "cluster": "mainnet", "purpose": "measure",
+                "sig": sig, "run_id": "live-20261101T000000Z", "cluster": "mainnet", "purpose": "measure", "host": dict(HOST),
                 "window_id": f"{slot}-{k}", "identity": IDENT, "vote_account": "v", "stratum": "Agave",
                 "arm": arm, "gap_us": 0, "offset_ms": -100, "first_slot": slot, "n_slots": 4, "idx": i,
                 "send_rank": i, "payer": payer, "cu_limit": limit, "cu_price_micro_lamports": price,
@@ -112,11 +112,16 @@ def build(tmp, windows=4, n=6, arm="P", seed=0):
     return lines, ledger
 
 
+HOST = {"platform": "win-pc1", "os": "windows", "arch": "x86_64", "os_build": "10.0.17763.6893",
+        "machine_id": "0123456789abcdef", "sender_sha256": "ab" * 32}
+
+
 def run(tmp, lines, ledger):
     rep = vm.Report()
     vm.check_offline(lines, tmp, ledger, rep)
     vm.check_plans(lines, tmp, rep)
     vm.check_schedules(lines, tmp, rep)
+    vm.check_platform(lines, rep)
     return rep
 
 
@@ -125,7 +130,7 @@ def test_clean_data_passes(tmp_path):
         lines, ledger = build(tmp_path / arm, arm=arm)
         rep = run(tmp_path / arm, lines, ledger)
         assert rep.problems == [], rep.problems
-        assert {"M", "B", "T", "P", "E", "X", "H", "L"} <= set(rep.checked)
+        assert {"M", "B", "T", "P", "E", "X", "H", "L", "Q"} <= set(rep.checked)
 
 
 def test_main_writes_report_and_exit_code(tmp_path):
@@ -243,3 +248,20 @@ def test_send_order_changed_after_planning_is_caught(tmp_path):
     assert checks_failed(rep) == {"P"}
     lines[0]["tx"]["run_id"] = "live-other"
     assert "window not in its run's plan.jsonl" in {p["problem"] for p in run(tmp_path, lines, ledger).problems}
+
+
+def test_unregistered_host_other_machine_and_missing_host_are_caught(tmp_path):
+    lines, ledger = build(tmp_path)
+    lines[0]["tx"]["host"] = dict(HOST, platform="unregistered")
+    lines[1]["tx"]["host"] = dict(HOST, machine_id="fedcba9876543210")
+    del lines[2]["tx"]["host"]
+    lines[3]["tx"]["host"] = dict(HOST, os_build="10.0.17763.7000", sender_sha256="cd" * 32)
+    rep = vm.Report()
+    summary = vm.check_platform(lines, rep)
+    probs = [p["problem"] for p in rep.problems]
+    assert any("not a registered platform" in p for p in probs)
+    assert any("no host record" in p for p in probs)
+    assert any("more than one platform" in p for p in probs)
+    # an OS update or a rebuilt binary on the same machine is reported, not failed
+    assert len(summary["os_builds"]) == 2 and len(summary["sender_sha256"]) == 2
+    assert len(probs) == 3

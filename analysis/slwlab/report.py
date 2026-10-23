@@ -182,6 +182,20 @@ def dates_section(lines: list[dict], data_root: pathlib.Path, cache: dict, label
                      "usable" if w.usable else w.reason])
     out = table(["UTC date", "windows", "usable", "txs sent"],
                 [[d, c["windows"], c["usable"], c["txs"]] for d, c in sorted(by_date.items())])
+    # Windows by UTC hour of day. Sessions run only while the PC is on (daytime), so hours
+    # without windows are shown as not measured, never filled (README "What this does NOT
+    # separate"). A window without a block time (not landed) counts under "unknown".
+    by_hour: dict[str, Counter] = defaultdict(Counter)
+    for w in windows:
+        bt = block_time(data_root, w.slot, cache) if w.usable else None
+        h = utc_z(bt)[11:13] if bt is not None else "unknown"
+        by_hour[h]["windows"] += 1
+        by_hour[h]["usable"] += int(w.usable)
+    hours = [f"{h:02d}" for h in range(24)] + (["unknown"] if "unknown" in by_hour else [])
+    out += ["", "Windows by UTC hour of day (block time of the landed window):", ""]
+    out += table(["UTC hour", "windows", "usable", ""],
+                 [[h, by_hour[h]["windows"], by_hour[h]["usable"],
+                   "not measured" if h != "unknown" and not by_hour[h]["windows"] else ""] for h in hours])
     out += ["", f"<details><summary>Every {label} window ({len(rows)}): slot and block time (UTC)</summary>", ""]
     out += table(["window", "stratum", "arm", "slot", "block time (UTC)", "status"], rows)
     out += ["", "</details>", ""]

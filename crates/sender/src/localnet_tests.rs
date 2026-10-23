@@ -206,6 +206,7 @@ async fn localnet_end_to_end() {
                 ledger: &mut ledger,
                 purpose: Purpose::Calibrate,
             },
+            prior: Default::default(),
         })
         .unwrap();
         let s = runner.run_fixed(windows).await.unwrap();

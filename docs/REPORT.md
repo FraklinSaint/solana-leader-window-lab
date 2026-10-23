@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | missing | 0 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `6721678871f17ce71241b0148ae189877fd0e96cbe9f104e15cbfbe22d5be07d` | 53 |
+| `docs/LOGBOOK.md` | `ab1fef1dd1c8c7cb0bd04fe4be95bcd7cc80afabf24a80074349763ba02a4772` | 62 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -105,7 +105,7 @@ Confirmatory total 37,743,052 lamports (budget 38,000,000).
 
 Built from docs/LOGBOOK.md (kinds: failure, surprise, rate limit, env, limitation, correction, missed window). Times are UTC.
 
-Counts: failure 9, surprise 13, rate limit 1, env 2, limitation 2, correction 2
+Counts: failure 11, surprise 14, rate limit 1, env 2, limitation 2, correction 2
 
 | UTC | phase | kind | entry |
 |---|---|---|---|
@@ -138,6 +138,9 @@ Counts: failure 9, surprise 13, rate limit 1, env 2, limitation 2, correction 2
 | 2026-10-22T21:35:00Z † | 1 | failure | The burst-timing test failed 3 of 10 runs: a send was up to 43 ms late. The machine was busy (a game running, and CPU-heavy tests spawning child processes). Windows preempted the spinning sender thread. Production records actual send times, so lateness is measured, not hidden. The test now needs one of three attempts within 2 ms. Operational note: no heavy programs during live sending. |
 | 2026-10-22T21:30:00Z | – | correction | Timestamp error. The four entries stamped "2026-10-23 00:30" and "00:35" were written in local time (UTC+3), not UTC. Their commits (fcf01e7 … c7d2537) are at 2026-10-22 21:10–21:12 UTC. The entries stay as written (append-only); read them as about 2026-10-22 21:10 UTC. From now on, timestamps come from `date -u`. |
 | 2026-10-22T21:30:00Z | 7 | surprise | `getSlotLeaders` on Helius answers for epochs 1062 and 1064, but epoch 1053 is "unavailable". About 10 epochs are kept, and an epoch now lasts about 25 h (432,000 slots × ≈ 213 ms). By judging (2026-11-19), the schedules of the campaign epochs will be gone. The durable leader evidence is therefore `plan.jsonl` (the schedule read at plan time, check P) plus the block Fee reward (checks B, X). The online leader check S reports older slots as unavailable instead of failing. |
+| 2026-10-23T10:55:00Z | 4 | failure | Found before any live run: every run started its plan state from zero (`runner.rs`, `PlanState::default()`). In quota mode, each new session or each restart after a crash would plan the whole allocation again. The purpose budget would have stopped the overspend, but the early cells would be overfilled and the late ones starved. Fix: `prior_plan_state` rebuilds per-validator and per-arm counts and the last attempted slot from the ledger (fsync'd before any send) joined with `plan.jsonl`. A window counts once. A reserved window missing from its plan is an error. |
+| 2026-10-23T10:58:00Z | 4 | failure | Found by the crash test: `collect::read_jsonl` failed on a torn last line. A power loss during an append to sent.jsonl or plan.jsonl would have blocked `sender collect` after the reboot. Every append is synced, so only the last line can be torn. It is now skipped with a warning; a corrupt line elsewhere is still an error. |
+| 2026-10-23T11:03:00Z | 4 | surprise | Pre-flight on the operator's PC: the default route is Wi-Fi (TP-Link USB adapter, 150 Mbps), and the Windows Time service is stopped (`w32tm`: 0x80070426), so the clock is not being synced. Both need action before calibration. Ethernet is preferred; if Wi-Fi stays, it is a reported property of the path. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: 0877bc337473763c3c5bb759b7109e851b80438e5d7ac8e3ddcb6069bc65505c -->
+<!-- report-sha256: b23164291f03e2baff63e55428556e9725fd8661fbea6c7dc22e2216c2cd6c13 -->

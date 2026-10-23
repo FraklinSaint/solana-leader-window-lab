@@ -211,6 +211,9 @@ enum Cmd {
         #[arg(long, default_value_t = 40)]
         min_windows: usize,
     },
+    /// Save the leader schedule of the current and the next epoch (read-only, write-once).
+    /// Unlike select-validators it writes no new selection, so the chosen validators stay.
+    LeaderSnapshots,
     /// Print the window plan for the next --slots slots (no waiting, no sending).
     Plan {
         #[command(flatten)]
@@ -472,6 +475,7 @@ async fn real_main(cli: Cli) -> Result<()> {
 async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
     match cmd {
         Cmd::SelectValidators { min_windows } => select_validators(ctx, min_windows).await,
+        Cmd::LeaderSnapshots => leader_snapshots(ctx).await,
         Cmd::Plan { plan, slots } => plan_only(ctx, &plan, slots).await,
         Cmd::DryRun { run, probe_connect } => {
             campaign(
@@ -511,6 +515,17 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
                     "--purpose measure requires --prereg <commit of the prereg-v1 tag>"
                 );
             }
+            // Calibration and confirmatory windows: one registered Linux platform (host.rs).
+            let here = slwlab_sender::host::HostInfo::detect();
+            slwlab_sender::host::gate_live(
+                &here,
+                purpose,
+                ctx.cluster.is_mainnet(),
+                &slwlab_sender::host::calibration_hosts(&runner::manifest_path(
+                    &ctx.data_root,
+                    Purpose::Calibrate,
+                ))?,
+            )?;
             let mut ledger = Ledger::open(&ctx.ledger_path(), run_id, auth.cap())?;
             report_open_reservations(&ledger);
             campaign(
@@ -688,6 +703,64 @@ async fn load_targets(ctx: &Ctx, path: &Path) -> Result<Vec<Target>> {
             stratum: format!("{:?}", c.stratum),
         })
         .collect())
+}
+
+async fn leader_snapshots(ctx: &Ctx) -> Result<()> {
+    let t0 = slwlab_sender::burst::unix_ns();
+    let epoch = ctx.rpc.epoch_info().await?;
+    let t1 = slwlab_sender::burst::unix_ns();
+    // Slot <-> UTC anchor for planning (analysis/slwlab/sessions.py): the reply's slot and
+    // the local request/response times. The local clock must be NTP-synced.
+    let dir = ctx.data_root.join("snapshots");
+    std::fs::create_dir_all(&dir)?;
+    let anchor = serde_json::json!({
+        "label": "SNAPSHOT",
+        "cluster": ctx.cluster.name(),
+        "method": "getEpochInfo",
+        "fetched_utc": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        "request_unix_ns": t0.to_string(),
+        "response_unix_ns": t1.to_string(),
+        "absolute_slot": epoch.absolute_slot,
+        "epoch": epoch.epoch,
+        "slot_index": epoch.slot_index,
+        "slots_in_epoch": epoch.slots_in_epoch,
+    });
+    std::fs::write(
+        dir.join(format!("epoch_info_{}.json", stamp())),
+        serde_json::to_vec_pretty(&anchor)?,
+    )?;
+    let emap = slwlab_sender::leaders::EpochMap::from_info(&epoch);
+    let start = epoch.absolute_slot - epoch.slot_index;
+    let mut failed = 0;
+    for s in [start, start + epoch.slots_in_epoch] {
+        match slwlab_sender::leaders::ensure(
+            &ctx.rpc,
+            &ctx.data_root,
+            &ctx.cluster.name(),
+            &emap,
+            s,
+        )
+        .await
+        {
+            Ok((e, written)) => println!(
+                "epoch {e}: {}",
+                if written {
+                    "snapshot saved"
+                } else {
+                    "already on disk"
+                }
+            ),
+            Err(e) => {
+                failed += 1;
+                // The next epoch's schedule is published only after its leader-schedule slot.
+                println!("epoch of slot {s}: not saved ({e:#})");
+            }
+        }
+    }
+    if failed == 2 {
+        anyhow::bail!("no leader schedule saved");
+    }
+    Ok(())
 }
 
 async fn select_validators(ctx: &Ctx, min_windows: usize) -> Result<()> {
@@ -973,7 +1046,8 @@ async fn plan_only(ctx: &Ctx, a: &PlanArgs, slots: u64) -> Result<()> {
         unix_ns(),
         &cfg,
         Some(Pubkey::new_unique()),
-        &mut PlanState::default(),
+        // what is left of the confirmatory allocation after earlier sessions
+        &mut runner::prior_plan_state(&ctx.data_root, &ctx.ledger_path(), Purpose::Measure)?,
     );
     println!(
         "selection {} | cluster {} | lamports/signature {lps} | clock {:.1} ms/slot (resid {:.1} ms, n={}) | budget left {}",
@@ -1124,6 +1198,7 @@ async fn campaign(
         rpc_path_label: runner::rpc_path_label(&ctx.ep.rpc),
         endpoint: ctx.rpc.endpoint(),
         clock: ctx.clock_params(),
+        host: Some(slwlab_sender::host::HostInfo::detect()),
         ..RunConfig::default()
     };
     tracing::info!(
@@ -1136,6 +1211,20 @@ async fn campaign(
         hard_ceiling = HARD_CEILING_LAMPORTS,
         "starting campaign"
     );
+    // Continue the allocation of earlier sessions (and of a run that crashed) for this purpose.
+    let prior = match &mode {
+        Mode::Live { purpose, .. } => {
+            runner::prior_plan_state(&ctx.data_root, &ctx.ledger_path(), *purpose)?
+        }
+        Mode::DryRun { .. } => PlanState::default(),
+    };
+    if !prior.per_validator.is_empty() {
+        tracing::info!(
+            windows = prior.per_validator.values().sum::<usize>(),
+            through_slot = prior.considered_through,
+            "continuing the allocation of earlier runs"
+        );
+    }
     let runner = Runner::new(RunnerInit {
         rpc: ctx.rpc.clone(),
         cluster: ctx.cluster.clone(),
@@ -1146,6 +1235,7 @@ async fn campaign(
         feed: state,
         pool,
         shared_sink: sink,
+        prior,
         mode,
     })?;
     let dir = runner.run_dir().to_path_buf();

@@ -18,8 +18,9 @@ validator follows, how strictly it follows it, or whether it follows any rule at
 cp .env.example .env              # set RPC_URL and RPC_WS_URL (env only; see "RPC provider")
 docker compose up                 # select validators (if needed) + print the window plan. Never sends.
 docker compose run --rm sender dry-run --duration-secs 86400   # real-time loop, nothing sent
-# Windows native, unattended 24 h (restarts, gap log, hourly clock report):
-#   powershell -ExecutionPolicy Bypass -File scripts\dryrun24h.ps1
+# Windows native, one daytime session (copied binary, no sleep, resume after crash/reboot,
+# pre-flight, gap log, coverage by UTC hour; see "Sessions on one Windows PC"):
+#   powershell -ExecutionPolicy Bypass -File scripts\session.ps1 -Mode dryrun -Hours 8
 docker compose run --rm analyze   # regenerate docs/REPORT.md from committed data/
 docker compose run --rm verify    # re-fetch every block and check it against data/manifest.jsonl
 # live (operator only; the cap is mandatory and cannot exceed 0.05 SOL):
@@ -33,8 +34,8 @@ docker compose run --rm -e CONFIRM_LIVE=yes sender sweep --live --max-spend-lamp
 docker compose run --rm sender reconcile --since data/snapshots/balances_<first>.json
 ```
 
-`sender` subcommands: `select-validators`, `plan`, `dry-run [--probe-connect]`, `live`, `collect`,
-`init-payers`, `balances`, `fund`, `sweep`, `reconcile`. Run `sender <cmd> --help` for options.
+`sender` subcommands: `select-validators`, `leader-snapshots`, `plan`, `dry-run [--probe-connect]`,
+`live`, `collect`, `init-payers`, `balances`, `fund`, `sweep`, `reconcile`, `clock-report`. Run `sender <cmd> --help` for options.
 Data from any cluster other than mainnet (decided by genesis hash) goes to
 `data/nonmainnet/<cluster>/` and is never analyzed.
 
@@ -80,8 +81,8 @@ for it, and no provider region or key anywhere in the code.
 ## Phases
 
 Order (Phase 0 gate, corrected at the Phase 1 gate): **2** (sender, ledger, dry-run, clock) →
-3 (devnet end-to-end, operator) → 4 (24 h mainnet dry-run, selection snapshot, clock error
-report) → 5 (calibration, ≤ 5,000,000 lamports, operator, **exploratory**) → **re-run the
+3 (devnet end-to-end, operator) → 4 (mainnet dry-run in daytime session chunks, merged by
+UTC hour, selection snapshot, clock error report) → 5 (calibration, ≤ 5,000,000 lamports, operator, **exploratory**) → **re-run the
 simulator with nuisance parameters estimated from calibration** (`slwlab.calibrate`,
 order-agnostic statistics only), re-derive ceilings, thresholds, allocation and the positive
 control interval, then **freeze and tag `prereg-v1`** → 6 (confirmatory live campaigns on
@@ -90,6 +91,69 @@ control interval, then **freeze and tag `prereg-v1`** → 6 (confirmatory live c
 before the first confirmatory window. Phase 1 (parser, rules, stats, simulator) is built.
 
 Without Docker: `make test`, `make facts`, `make verify`, `make verify-online`.
+
+## Sessions on one Windows PC
+
+Every run happens on one Windows PC that cannot stay on overnight: **3–4 sessions of 6–10 h
+in the daytime, on different dates**. A VPS was planned and dropped (identity verification
+blocked it), and no VPS code remains in the repo.
+
+**Plan.** `make sessions` (`analysis/slwlab/sessions.py`) writes `docs/SESSIONS.md` (PLANNING,
+not measurement) from the saved leader schedules. It reports windows per hour and the hours
+each validator and each (validator × arm) cell needs for its quota, then replays session
+scenarios (3–4 × 6–10 h, quota split evenly over the sessions so that every cell has windows
+from every session's UTC hours) and reports, per cell, the attempted and expected usable
+windows, the power (SIMULATION curves) and the cost. The binding stratum is vanilla Agave:
+`5Us18hLZ` has ≈ 11 windows/h and needs ≈ 15 h for its 166 attempted windows. Two designs are
+shown side by side. **The choice is the operator's, and it is pre-registered before any
+confirmatory data:**
+- **A. Per-validator quotas** (current design). Each chosen validator is its own cell, which
+  matches the bounty's "for each validator you pick". It fits 3 × 8 h at 15% lost windows. At
+  30% loss, or with 3 × 6 h sessions, the slow Agave validator falls short (e.g. C 14/17 attempted
+  at 3 × 6 h).
+- **B. Vanilla Agave pooled at stratum level** over the 2 chosen + 4 more 4.3.2 validators
+  with the same total quota. It needs fewer hours (≈ 12 vs ≈ 19 continuous h at 15% loss), but
+  the 4 added validators contribute only ≈ 20% of the windows (≤ 6 windows/h together). The
+  claim becomes stratum-level, and its power holds only if every pooled validator follows the
+  same rule. Per-validator statements for `5Us18hLZ` get fewer windows than in A.
+
+**Runner.** `scripts/session.ps1 -Mode dryrun|calibrate|measure -Hours ≤10`:
+- runs a **copy** of `sender.exe` (`run\bin\sender-<sha12>.exe`, hash in the session state
+  and in every run header), so a rebuild during a session cannot change or lock it;
+- blocks idle sleep while it runs;
+- **resumes**: sender crashes are restarted with the remaining time (live sessions first run
+  `sender collect`). After a crash, power loss or reboot, a Startup-folder entry runs `-Resume`
+  at the next logon and continues the same fixed UTC interval. The planner continues the
+  allocation from the ledger (`runner.rs::prior_plan_state`: reservations are fsync'd before
+  any send, joined with `plan.jsonl`), so a restart never re-plans an attempted window and never
+  refills a quota;
+- runs a **pre-flight** check and records it (`data/sessions/<id>/preflight.json`): it warns
+  if the power plan lets the PC sleep or hibernate, if Windows Update waits for a restart, if
+  the default route is **Wi-Fi**, if on battery, if the Windows Time service is not syncing,
+  or if disk space is low. Live modes need a typed "yes";
+- logs every gap with UTC timestamps (`data/sessions/<id>/events.jsonl`: down, sender_down,
+  stopped, resume), and inside a run `gaps.jsonl` (host_stall, slot_feed, rpc_error). Gaps are
+  never filled;
+- caps each live run at the session cap minus everything reserved since the session started;
+- writes **coverage by UTC hour** at the end (`data/sessions/<id>/coverage.md`,
+  `slwlab.merge_dryrun`): covered seconds, clock error and windows per UTC hour.
+
+**Merging chunks.** `make merge SINCE=<stamp>` merges all dry-run and live runs since the stamp,
+by (mode, platform, RPC host) and pooled: per absolute UTC hour and per hour of day (00–23), with
+`GAP` (no coverage) and `THIN` (< 30 min) flags. Hours without data stay empty. Nothing is
+interpolated or borrowed from another hour or platform.
+
+**Crash recovery, tested** (`crates/sender/tests/crash_recovery.rs`, no cluster needed). A
+child process runs the runner's durable write order (plan.jsonl, fsync'd reservation per tx,
+send, sent.jsonl) and is killed abruptly at random points, including inside a window. A power
+loss is simulated on top with torn last lines in the ledger, plan.jsonl and sent.jsonl. After
+recovery, every reservation is intact. No tx appears as sent without a reservation. The
+project ceiling counts the open reservations, and a reserved signature cannot be reserved again
+(no double spend). Payers of unresolved txs stay busy. The allocation continues exactly where
+it stopped. After the reservations are settled, `reconcile` balances wallets against the ledger
+and catches a one-lamport discrepancy. The session script's resume path was tested with a stub
+sender: crash, abrupt kill of the script, a simulated 5-min outage, resume to the fixed end. Not
+tested here: a live run against a real cluster (localnet does not start on Windows; CI only).
 
 ## Verify (no trust in our collector)
 
@@ -106,6 +170,7 @@ Offline, from the committed `data/` alone:
 | X | `exclusion_reason` re-derived from the block (producer, window bounds) |
 | H | no tx marked "not landed" appears in any saved block, and no tx paid by one of our payers appears without a manifest line (no hidden or dropped data) |
 | L | `data/ledger.jsonl`: every measure/calibrate reservation (= every tx sent) has a manifest line and vice versa; landed slot and fee agree |
+| Q | every calibration and confirmatory tx carries a host record and all of them come from one registered machine (platform id, OS, machine id); OS builds and sender hashes are listed |
 
 Online (`--online`, any mainnet `RPC_URL`): **R** each saved block is re-fetched and must have
 the same blockhash, parent and signature order (`--sample K` for a seeded subset); **S** the
@@ -203,6 +268,18 @@ first slot *notification arrives at our machine*, not the leader's real block st
 differ by the provider's propagation delay, which is unknown, possibly variable, and absorbed
 by the calibrated send offset. Real window-hit accuracy is judged in calibration by the slot
 in which our txs actually land (and by `producer_mismatch` exclusions).
+**Platform.** The sending machine is part of this path, so **calibration and every
+confirmatory window run on one machine, the operator's Windows PC**. Every run header
+(`run.json` `host`) and every manifest row (`tx.host`) record the platform id
+(`SLWLAB_PLATFORM` in `.env`), OS, OS build, a machine id (first 16 hex of SHA-256 of the Windows
+MachineGuid) and the SHA-256 of the sender binary that ran (`host.rs`). `live --purpose
+calibrate|measure` refuses to run without a registered platform, or on a machine other than
+the one all calibration rows came from. Measurement also needs calibration rows from that
+machine. An OS update or a rebuilt binary is recorded, not blocked; verifier check Q lists
+both. Dry-runs are exploratory wherever they ran. The PC's default route is Wi-Fi (pre-flight,
+2026-10-23). That adds jitter to our send times, which calibration absorbs into the send
+offset and the analysis treats as arrival noise. It is a property of this path, reported, not
+corrected.
 Unattended runs log every blind period to `<run>/gaps.jsonl`: host sleep or stall, slot-feed
 stall, RPC outage. A silent WebSocket is dropped after 10 s and reconnected, and the slot
 clock is cleared after a host stall of more than 30 s. `clock_hourly.json` (per run, and
@@ -238,6 +315,11 @@ a simulated reference (`analysis/slwlab/sim.py`, labeled SIMULATION everywhere):
   across rules (`analysis/slwlab/stats.py`).
 
 ## What this does NOT separate
+- **Hours the PC was off.** Sessions run in the daytime only (UTC ≈ 05–19), so every
+  measurement covers only the UTC hours a session covered. Night hours, and any load pattern
+  that only exists then, are not measured. Every session records its coverage by UTC hour,
+  and the report lists windows by UTC hour. Hours without coverage are shown as gaps, never
+  filled.
 - **NO_RULE is structurally unreachable for Agave-family validators in the lock-free arms P
   and R** at an affordable sample size. Agave's 4 worker threads interleave our txs (simulated
   ceiling ≈ 0.43). So a half-strength rule needs ≈ 40 usable windows for 90% power, and the
@@ -264,7 +346,8 @@ crates/common    fee math, Alpenglow guard, spend ceiling (Rust)
 crates/sender    planner, clock, tx builder, QUIC sender, spend ledger, CLI (Rust)
 analysis/        parser, candidate rules, stats, simulator, report (Python, pytest)
 scripts/         verify_facts.py (re-derives docs/VERIFIED_FACTS.md from RPC), verify_manifest.py
-                 (independent check of data/), check_no_keys.py, scan_history.py, dryrun24h.ps1
+                 (independent check of data/), check_no_keys.py, scan_history.py, session.ps1
+                 (Windows session runner)
 data/            manifest, raw blocks, snapshots, ledger, logs (committed)
 docs/            BOUNTY, VERIFIED_FACTS, PREREGISTRATION, LOGBOOK, REPORT
 secrets/         payer keypairs (gitignored, never committed)

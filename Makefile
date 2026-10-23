@@ -1,5 +1,5 @@
 PY ?= python
-.PHONY: test rust-test py-test lint facts verify verify-online report report-check secrets-check sim history-scan
+.PHONY: test rust-test py-test lint facts verify verify-online report report-check secrets-check sim history-scan sessions merge
 
 test: rust-test py-test secrets-check
 rust-test:
@@ -27,3 +27,7 @@ sim:               # SIMULATION: ceilings, power, thresholds -> analysis/sim/res
 	cd analysis && $(PY) -m slwlab.simreport --sim sim/results/sim_v1.json --out ../docs/SIMULATION.md
 history-scan:      # before every push: whole git history + memory dir, never prints secrets
 	$(PY) scripts/scan_history.py . $(MEMDIR)
+sessions:          # PLANNING: hours per validator/cell + time-constrained session plan -> docs/SESSIONS.md
+	cd analysis && $(PY) -m slwlab.sessions
+merge:             # EXPLORATORY: merge session chunks since SINCE (e.g. 20261024T000000Z) -> coverage by UTC hour
+	cd analysis && $(PY) -m slwlab.merge_dryrun --since $(SINCE)

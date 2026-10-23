@@ -24,6 +24,10 @@ Offline, from `data/` alone (no trust in the collector):
   X  `exclusion_reason` is re-derived from the block (producer, window bounds), not trusted.
   H  hidden data: no manifest tx marked "not landed" appears in any saved block, and no tx
      paid by one of our payers appears in a saved block without a manifest line.
+  Q  platform: every calibration and confirmatory tx carries a host record (platform id, OS,
+     OS build, machine id, sender binary SHA-256; crates/sender/src/host.rs), the platform is
+     registered, and all of them come from one (platform, OS, machine). OS build and binary
+     hash changes are listed in the summary, not failed.
   L  ledger (`data/ledger.jsonl`, if present): every measure/calibrate reservation has a
      manifest line and vice versa, and the landed fees match.
 Online (`--online`, RPC_URL from env; the key is never printed or stored):
@@ -198,6 +202,33 @@ def check_schedules(lines: list[dict], data_root: pathlib.Path, rep: Report) -> 
             elif who != t["identity"]:
                 bad.append(f"{s}:{who}")
         rep.fail("E", "not the scheduled leader: " + ",".join(bad), window_id=wid) if bad else rep.ok("E")
+
+
+def check_platform(lines: list[dict], rep: Report) -> dict:
+    """Q: calibration and confirmatory windows ran on one registered machine."""
+    keys: Counter = Counter()
+    builds: Counter = Counter()
+    hashes: Counter = Counter()
+    for l in lines:
+        t = l["tx"]
+        if t.get("purpose") not in ORDERING_PURPOSES:
+            continue
+        h = t.get("host")
+        if not h:
+            rep.fail("Q", "no host record", sig=t["sig"])
+            continue
+        if h.get("platform") in (None, "", "unregistered") or h.get("machine_id") in (None, "", "unknown"):
+            rep.fail("Q", f"not a registered platform: {h.get('platform')}/{h.get('machine_id')}", sig=t["sig"])
+            continue
+        keys[(h["platform"], h["os"], h["machine_id"])] += 1
+        builds[h.get("os_build")] += 1
+        hashes[h.get("sender_sha256")] += 1
+        rep.ok("Q")
+    if len(keys) > 1:
+        rep.fail("Q", "calibration/confirmatory txs come from more than one platform",
+                 platforms={"/".join(map(str, k)): n for k, n in sorted(keys.items())})
+    return {"platforms": {"/".join(map(str, k)): n for k, n in sorted(keys.items())},
+            "os_builds": dict(sorted(builds.items())), "sender_sha256": dict(sorted(hashes.items()))}
 
 
 def check_plans(lines: list[dict], data_root: pathlib.Path, rep: Report) -> None:
@@ -458,6 +489,7 @@ def main(argv: list[str] | None = None) -> int:
     summary = {"offline": check_offline(lines, data_root, ledger, rep)}
     check_plans(lines, data_root, rep)
     check_schedules(lines, data_root, rep)
+    summary["platform"] = check_platform(lines, rep)
     url = os.environ.get("RPC_URL", "")
     if a.online:
         if not url:

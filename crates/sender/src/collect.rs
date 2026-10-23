@@ -50,6 +50,9 @@ pub struct SentTx {
     /// land", never "in which order". Ordering analysis must skip them.
     #[serde(default = "default_true")]
     pub ordering_eligible: bool,
+    /// Platform, OS, kernel, region and sender hash of the sending host (host.rs).
+    #[serde(default)]
+    pub host: Option<crate::host::HostInfo>,
     pub reserved_lamports: u64,
     pub blockhash: String,
     pub last_valid_block_height: u64,
@@ -210,14 +213,30 @@ pub fn read_jsonl<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<Vec<T>> {
     if !path.exists() {
         return Ok(vec![]);
     }
-    std::fs::read_to_string(path)?
-        .lines()
-        .filter(|l| !l.trim().is_empty())
-        .enumerate()
-        .map(|(i, l)| {
-            serde_json::from_str(l).with_context(|| format!("{}:{}", path.display(), i + 1))
-        })
-        .collect()
+    let text = std::fs::read_to_string(path)?;
+    let parts: Vec<&str> = text.split_inclusive('\n').collect();
+    let mut out = Vec::with_capacity(parts.len());
+    for (i, l) in parts.iter().enumerate() {
+        if l.trim().is_empty() {
+            continue;
+        }
+        match serde_json::from_str(l.trim_end()) {
+            Ok(v) => out.push(v),
+            // A crash or power loss during the last append leaves a partial line without its
+            // newline. Every append is synced, so only that last line can be torn; skip it.
+            Err(e) if i + 1 == parts.len() && !l.ends_with('\n') => {
+                tracing::warn!(file = %path.display(), bytes = l.len(), error = %e, "torn last line skipped");
+            }
+            Err(e) => {
+                return Err(anyhow::Error::from(e).context(format!(
+                    "{}:{}",
+                    path.display(),
+                    i + 1
+                )));
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// What one pass learned from the chain.
@@ -488,6 +507,7 @@ mod tests {
             n_signatures: 1,
             conflict_account: None,
             ordering_eligible: true,
+            host: None,
             reserved_lamports: 5001,
             blockhash: "h".into(),
             last_valid_block_height: 1,

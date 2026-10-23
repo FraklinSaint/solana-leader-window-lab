@@ -79,6 +79,10 @@ def test_measurements_are_deterministic_dated_and_never_mixed_with_simulation(tm
     assert "SIMULATION reference" not in m and "scheduler model" not in m
     when = section(a, "MEASUREMENT: when (UTC)")
     assert "2026-10-26T07:33:20Z" in when
+    # windows by UTC hour of day: every hour listed, uncovered hours marked, never filled
+    assert "Windows by UTC hour of day" in when
+    assert all(f"| {h:02d} |" in when for h in range(24))
+    assert "not measured" in when
     s = section(a, "SIMULATION reference (not measurements)")
     assert IDENT[:8] not in s and "> SIMULATION." in s
     # order: measurement before simulation, simulation in its own section
