@@ -23,3 +23,6 @@ id.json
 /data/sessions/*/heartbeat
 /data/**/sessions/open.json
 /data/**/sessions/*/heartbeat
+
+# local build/run artifacts (never committed)
+/run/
