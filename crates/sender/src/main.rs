@@ -849,6 +849,8 @@ struct ProcWorker {
     platform: Option<String>,
     st: SessionState,
     ledger: PathBuf,
+    /// The session's events.jsonl, handed to the worker (session::EVENTS_ENV).
+    events: PathBuf,
 }
 
 impl ProcWorker {
@@ -858,6 +860,7 @@ impl ProcWorker {
         if let Some(p) = &self.platform {
             c.env(slwlab_sender::host::PLATFORM_ENV, p);
         }
+        c.env(session::EVENTS_ENV, &self.events);
         let status = tokio::task::block_in_place(|| c.status())
             .with_context(|| format!("starting {}", self.exe.display()))?;
         Ok(status.code().unwrap_or(-1))
@@ -1030,6 +1033,7 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
         platform,
         st: st.clone(),
         ledger: ctx.ledger_path(),
+        events: paths.events(&st.id),
     };
     let outcome = session::supervise(&paths, &st, &mut worker, &stop)?;
     drop(heartbeat);
@@ -1503,6 +1507,7 @@ async fn campaign(
         endpoint: ctx.rpc.endpoint(),
         clock: ctx.clock_params(),
         host: Some(slwlab_sender::host::HostInfo::detect()),
+        session_events: std::env::var_os(session::EVENTS_ENV).map(PathBuf::from),
         ..RunConfig::default()
     };
     tracing::info!(

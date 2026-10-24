@@ -168,7 +168,12 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
   reserved since the session started;
 - **gaps with UTC timestamps**, never filled (`data/sessions/<id>/events.jsonl`): `down` (the
   supervisor was not running: crash, power loss, reboot), `worker_down` (restart pause),
-  `stopped` (Ctrl+C), plus the worker's own `gaps.jsonl` (host_stall, slot_feed, rpc_error);
+  `stopped` (Ctrl+C), `feed_stale` / `feed_recovered` (the worker's staleness gate: no window
+  is prepared or sent while the newest WebSocket slot notification is older than 2 s), plus
+  the worker's own `gaps.jsonl` (host_stall, slot_feed, rpc_error);
+- **logoff ends a session**: signing out of Windows (even when it is followed by sleep) kills
+  the supervisor and its worker without any event (session `20261023T210440Z`). Stay signed
+  in; lock the screen instead (Win+L);
 - **resume**: after a crash or reboot, running the same command continues an interrupted
   **dry-run** session until its fixed end, with a `down` gap from the last heartbeat. Nothing
   starts by itself at logon. A **live** session is never resumed: `sender session --reset`

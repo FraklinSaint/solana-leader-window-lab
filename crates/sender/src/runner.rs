@@ -4,9 +4,11 @@
 //! plan chunk (rolling, overlapping) ──► queue of PlannedWindow
 //! per window, prep_ms before the burst:
 //!   re-predict send time from the live slot clock (logged next to the plan's prediction)
+//!   staleness gate: skip if the WebSocket slot feed is silent > feed::STALE_AFTER_NS
 //!   fresh blockhash ─► pick free payers ─► build + sign all N txs
 //!   getFeeForMessage check of the model fee ─► optional simulateTransaction (CU usage)
 //!   QUIC pre-warm (live, or dry-run --probe-connect: handshake only, no stream)
+//!   staleness gate again (the feed may have died during prep)
 //!   live only: ledger reservation of every tx, fsync'ed BEFORE the first byte is written
 //!   burst at the re-predicted time (DryRunSink | QuicSink | RpcSink)
 //!   live only: sent.jsonl + collector queue
@@ -94,6 +96,9 @@ pub struct RunConfig {
     pub clock: crate::clock::ClockParams,
     /// Sending host (host.rs): run.json header and every manifest row.
     pub host: Option<crate::host::HostInfo>,
+    /// The session's events.jsonl when run under `sender session` (session::EVENTS_ENV).
+    #[serde(skip)]
+    pub session_events: Option<PathBuf>,
 }
 
 /// `stopped_early` of a run ended by Ctrl+C.
@@ -137,6 +142,7 @@ impl Default for RunConfig {
             endpoint: String::new(),
             clock: crate::clock::ClockParams::default(),
             host: None,
+            session_events: None,
         }
     }
 }
@@ -252,6 +258,15 @@ pub struct WindowLog {
     /// "sent" | "dry_run" | "skipped"
     pub outcome: &'static str,
     pub skip_reason: Option<String>,
+    /// Age of the newest WebSocket slot notification at the last staleness check (ms).
+    pub feed_age_ms: Option<i64>,
+}
+
+/// An open slot-feed staleness episode (one `feed_stale` event, one `feed_recovered`).
+#[derive(Debug, Clone)]
+struct StaleEpisode {
+    since_unix_ns: i128,
+    skipped: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -423,6 +438,10 @@ fn ts() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
 }
 
+fn unix_ns_utc(t: i128) -> String {
+    crate::session::utc((t / 1_000_000_000) as i64)
+}
+
 fn b64(bytes: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(bytes)
 }
@@ -471,6 +490,7 @@ pub struct Runner<'a> {
     shared_sink: Option<Pubkey>,
     mode: Mode<'a>,
     collector: Collector,
+    feed_stale: Option<StaleEpisode>,
     quic: Option<TpuClient>,
     watches: Vec<ClockWatch>,
     clock_errs: Vec<f64>,
@@ -607,6 +627,7 @@ impl<'a> Runner<'a> {
             shared_sink: init.shared_sink,
             mode: init.mode,
             watches: vec![],
+            feed_stale: None,
             clock_errs: vec![],
             clock_resolved: 0,
             n_windows: 0,
@@ -934,6 +955,13 @@ impl<'a> Runner<'a> {
         }
         self.check_clock()?;
         self.dump_slot_feed()?;
+        if let Some(ep) = self.feed_stale.take() {
+            self.session_event(
+                "feed_stale_at_end",
+                serde_json::json!({"since": unix_ns_utc(ep.since_unix_ns),
+                    "skipped_windows": ep.skipped, "run_id": self.cfg.run_id}),
+            );
+        }
         self.summary.unresolved = self.collector.pending_len();
         self.summary.clock_prep = clock_stats(&self.clock_errs, self.clock_resolved);
         self.summary.stopped_early = self.stop.clone();
@@ -1082,6 +1110,57 @@ impl<'a> Runner<'a> {
         collect::append_jsonl(&self.run_dir.join("slots.jsonl"), &rows)
     }
 
+    /// Staleness gate: `Some(reason)` if the WebSocket slot feed is stale, i.e. the clock is
+    /// extrapolating. Records the age on the window log and writes one `feed_stale` session
+    /// event per episode, then `feed_recovered` (with the number of skipped windows) once a
+    /// later window passes. Dry-run and live behave the same.
+    fn feed_gate(&mut self, log: &mut WindowLog) -> Option<String> {
+        let now = unix_ns();
+        let (reason, age) = match self.feed.lock() {
+            Ok(s) => (s.stale_reason(now), s.ws_age_ms(now)),
+            Err(_) => (Some("slot feed stale: slot state poisoned".into()), None),
+        };
+        log.feed_age_ms = age;
+        match (&reason, self.feed_stale.as_mut()) {
+            (Some(r), None) => {
+                tracing::warn!(window = %log.window.window_id, reason = %r, "slot feed stale: not sending");
+                self.session_event(
+                    "feed_stale",
+                    serde_json::json!({"window_id": log.window.window_id, "reason": r,
+                        "ws_age_ms": age, "run_id": self.cfg.run_id}),
+                );
+                self.feed_stale = Some(StaleEpisode {
+                    since_unix_ns: now,
+                    skipped: 1,
+                });
+            }
+            (Some(_), Some(ep)) => ep.skipped += 1,
+            (None, Some(_)) => {
+                let ep = self.feed_stale.take().expect("matched Some");
+                tracing::info!(skipped = ep.skipped, "slot feed fresh again");
+                self.session_event(
+                    "feed_recovered",
+                    serde_json::json!({"window_id": log.window.window_id,
+                        "since": unix_ns_utc(ep.since_unix_ns), "skipped_windows": ep.skipped,
+                        "ws_age_ms": age, "run_id": self.cfg.run_id}),
+                );
+            }
+            (None, None) => {}
+        }
+        reason
+    }
+
+    /// Append to the session's events.jsonl (only under `sender session`). Never fatal.
+    fn session_event(&self, kind: &str, fields: serde_json::Value) {
+        let Some(path) = &self.cfg.session_events else {
+            return;
+        };
+        let now = (unix_ns() / 1_000_000_000) as i64;
+        if let Err(e) = crate::session::append_event(path, now, kind, fields) {
+            tracing::warn!(error = %format!("{e:#}"), kind, "could not write session event");
+        }
+    }
+
     fn skip(&mut self, mut log: WindowLog, reason: String) -> Result<()> {
         tracing::info!(window = %log.window.window_id, %reason, "window skipped");
         *self.summary.skips.entry(reason_key(&reason)).or_default() += 1;
@@ -1188,7 +1267,12 @@ impl<'a> Runner<'a> {
             sends: vec![],
             outcome: "skipped",
             skip_reason: None,
+            feed_age_ms: None,
         };
+        // Nothing is prepared on a stale clock: the re-prediction above extrapolated.
+        if let Some(reason) = self.feed_gate(&mut log) {
+            return self.skip(log, reason);
+        }
         let margin_ms = (send_at - unix_ns()) / 1_000_000;
         if margin_ms < 300 {
             return self.skip(
@@ -1335,6 +1419,14 @@ impl<'a> Runner<'a> {
                 rank: t.send_rank,
             })
             .collect();
+
+        // The feed may have died during prep: check again before anything is reserved or sent.
+        if let Some(reason) = self.feed_gate(&mut log) {
+            if let Some(c) = &conn {
+                c.close();
+            }
+            return self.skip(log, reason);
+        }
 
         match &mut self.mode {
             Mode::DryRun { .. } => {
@@ -1627,6 +1719,108 @@ mod tests {
         assert_eq!(written["stopped_early"], INTERRUPTED);
         assert!(written["finished"].as_str().unwrap().ends_with('Z'));
         assert!(run_dir.join("run.json").exists());
+    }
+
+    /// Feed stall: with the last WebSocket notification 3 s old, a window is skipped before
+    /// anything is prepared (no RPC call, no payer, no send) and one `feed_stale` session event
+    /// is written; once notifications flow again the next window passes the gate and a
+    /// `feed_recovered` event counts the skipped windows. Offline.
+    #[tokio::test]
+    async fn stale_slot_feed_blocks_windows_and_logs_session_events() {
+        const MS: i128 = 1_000_000;
+        const SLOT: i128 = 400 * MS;
+        let dir = tempfile::tempdir().unwrap();
+        let events = dir.path().join("events.jsonl");
+        let feed = crate::feed::new_state();
+        let mut runner = Runner::new(RunnerInit {
+            rpc: Rpc::new("http://127.0.0.1:9"),
+            cluster: Cluster::Mainnet,
+            data_root: dir.path().to_path_buf(),
+            cfg: RunConfig {
+                run_id: "dryrun-20261024T120000Z".into(),
+                session_events: Some(events.clone()),
+                ..RunConfig::default()
+            },
+            plan_cfg: PlanConfig::default(),
+            targets: vec![],
+            feed: feed.clone(),
+            pool: PayerPool::new(vec![], HashSet::new(), None, 0),
+            shared_sink: None,
+            mode: Mode::DryRun {
+                probe_connect: false,
+            },
+            prior: PlanState::default(),
+            interrupt: Default::default(),
+        })
+        .unwrap();
+        // 150 notifications, one per 400 ms, the newest 3 s ago; then silence.
+        let now = unix_ns();
+        let last_t = now - 3_000 * MS;
+        for k in 0..150u64 {
+            crate::feed::record(&feed, 1_000 + k, last_t - (149 - k as i128) * SLOT, "ws");
+        }
+        let window = |first_slot: u64, at: i128| PlannedWindow {
+            window_id: format!("{first_slot}-test"),
+            identity: "id".into(),
+            vote_account: "vote".into(),
+            stratum: "Agave".into(),
+            tpu_quic: None,
+            first_slot,
+            n_slots: 4,
+            epoch: 1066,
+            predicted_first_slot_unix_ns: at,
+            send_at_unix_ns: at - 100 * MS,
+            lead_ms: 5_000,
+            design: crate::arms::design(&PlanConfig::default().arm_cfg, Arm::P, 0, 7, None),
+            expected_cost_lamports: 0,
+        };
+        // Predicted ~1.8 s ahead: prep is due at once, and the stale gate must fire.
+        let slot = 1_149 + 12;
+        runner
+            .execute(window(slot, last_t + 12 * SLOT))
+            .await
+            .unwrap();
+        // Still stale: counted in the same episode, no second event.
+        runner
+            .execute(window(slot + 1, last_t + 13 * SLOT))
+            .await
+            .unwrap();
+        // Fresh notifications up to now, then a window ~200 ms ahead: it passes the gate and is
+        // skipped as late (offline: no RPC needed).
+        let mut s = 1_150u64;
+        let mut t = last_t + SLOT;
+        while t <= unix_ns() {
+            crate::feed::record(&feed, s, t, "ws");
+            s += 1;
+            t += SLOT;
+        }
+        let at = unix_ns() + 200 * MS;
+        let s_late = (s - 1) + ((at - (t - SLOT)) / SLOT) as u64;
+        runner.execute(window(s_late, at)).await.unwrap();
+
+        let run_dir = dir.path().join("logs").join("dryrun-20261024T120000Z");
+        let logs: Vec<serde_json::Value> =
+            collect::read_jsonl(&run_dir.join("windows.jsonl")).unwrap();
+        assert_eq!(logs.len(), 3);
+        for l in &logs[..2] {
+            assert_eq!(l["outcome"], "skipped");
+            let r = l["skip_reason"].as_str().unwrap();
+            assert!(
+                r.starts_with("slot feed stale: last WebSocket notification"),
+                "{r}"
+            );
+            assert!(l["feed_age_ms"].as_i64().unwrap() > 2_000);
+            assert!(l["blockhash"].is_null() && l["sends"].as_array().unwrap().is_empty());
+        }
+        let r = logs[2]["skip_reason"].as_str().unwrap();
+        assert!(r.starts_with("late after re-prediction"), "{r}");
+        assert!(logs[2]["feed_age_ms"].as_i64().unwrap() <= 2_000);
+        let ev: Vec<serde_json::Value> = collect::read_jsonl(&events).unwrap();
+        let kinds: Vec<&str> = ev.iter().map(|e| e["event"].as_str().unwrap()).collect();
+        assert_eq!(kinds, ["feed_stale", "feed_recovered"]);
+        assert_eq!(ev[0]["window_id"], format!("{slot}-test"));
+        assert_eq!(ev[1]["skipped_windows"], 2);
+        assert!(ev.iter().all(|e| e["ts"].as_str().unwrap().ends_with('Z')));
     }
 
     #[test]

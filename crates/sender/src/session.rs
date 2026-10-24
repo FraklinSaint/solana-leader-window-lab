@@ -6,7 +6,8 @@
 //! - `<id>/session.json`: header (mode, interval, platform, OS build, machine id, sender SHA-256);
 //! - `<id>/preflight.json`: pre-flight checks and warnings;
 //! - `<id>/events.jsonl`: start, resume, run_start, run_exit, worker_down, down, stopped,
-//!   cap_reached, collect, done, every one with an RFC 3339 UTC timestamp. `down` (supervisor not
+//!   cap_reached, collect, done, and from the worker feed_stale / feed_recovered (runner.rs
+//!   staleness gate), every one with an RFC 3339 UTC timestamp. `down` (supervisor not
 //!   running: crash, power loss, reboot) and `worker_down` (restart pause) are gaps with
 //!   `from`/`to`; inside a run, the worker logs its own gaps to `<run>/gaps.jsonl`;
 //! - `<id>/heartbeat` (git-ignored): unix seconds, rewritten every 30 s, so the next start can
@@ -124,13 +125,21 @@ impl Paths {
 
 /// Append one event (UTC timestamp first). Synced like every other jsonl append.
 pub fn event(p: &Paths, id: &str, now: i64, kind: &str, fields: Value) -> Result<()> {
+    append_event(&p.events(id), now, kind, fields)
+}
+
+/// Set by the supervisor on its worker: the session's `events.jsonl`, so the worker can add
+/// its own events (`feed_stale`, `feed_recovered`). One short line per append.
+pub const EVENTS_ENV: &str = "SLWLAB_SESSION_EVENTS";
+
+pub fn append_event(path: &Path, now: i64, kind: &str, fields: Value) -> Result<()> {
     let mut o = serde_json::Map::new();
     o.insert("ts".into(), json!(utc(now)));
     o.insert("event".into(), json!(kind));
     if let Value::Object(m) = fields {
         o.extend(m);
     }
-    collect::append_jsonl(&p.events(id), &[Value::Object(o)])
+    collect::append_jsonl(path, &[Value::Object(o)])
 }
 
 pub fn read_events(p: &Paths, id: &str) -> Result<Vec<Value>> {

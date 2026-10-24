@@ -9,7 +9,8 @@
 //!   the slot clock is cleared, because the wall clock may have been stepped on resume. The
 //!   runner then waits for fresh notifications before planning.
 //! - `slot_feed`: no slot notification for more than [`FEED_STALL_NS`] (WebSocket down, or
-//!   the 5 s polling fallback).
+//!   the 5 s polling fallback). Same limit as the runner's staleness gate
+//!   ([`feed::STALE_AFTER_NS`], where its measurement is documented).
 //! - `rpc_error`: an RPC call the run loop needs failed after all retries. The loop waits
 //!   and continues instead of exiting.
 
@@ -24,7 +25,7 @@ use std::time::Duration;
 
 pub const HOST_STALL_NS: i128 = 5_000_000_000;
 pub const CLOCK_RESET_NS: i128 = 30_000_000_000;
-pub const FEED_STALL_NS: i128 = 3_000_000_000;
+pub const FEED_STALL_NS: i128 = feed::STALE_AFTER_NS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Gap {
