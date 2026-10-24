@@ -1,0 +1,143 @@
+{
+  "ts": "2026-10-23T16:07:22Z",
+  "cluster": "devnet",
+  "slot": 514301373,
+  "accounts": {
+    "2xYfGpWvBy6ejJbhxQZ9wfmszvkJSqChxutCSSm3b3Ef": [
+      "payer",
+      0
+    ],
+    "3RWUToeemG8CcYibNQuReBwBhTcttceSfhhjeEVLszHq": [
+      "payer",
+      0
+    ],
+    "4CPrkj7xPoPpto51RQT6AKzpxDY1ZC3BZEPoLJyx57bc": [
+      "payer",
+      0
+    ],
+    "4UFDvxJHaJsMcKpeKMr4ELAfJFP6pZkfwYL5E7JDdMCy": [
+      "payer",
+      0
+    ],
+    "4UJGnHtN7MMAKxuXxE2azjskJxxY6qA2GudDsEzDJkCb": [
+      "payer",
+      0
+    ],
+    "4ZdztjYSgEEWviCb7nidLJuB52FPQ4rDQ48feS5ptXQh": [
+      "payer",
+      0
+    ],
+    "5b52seFJp3QjKWiZt6KP4UbkmHx2YkV9RzLYPoS8VAiD": [
+      "payer",
+      0
+    ],
+    "5ePQadBmSk3AWEhrPEacKiipFsfBCuynzoEpeVGJuk2v": [
+      "payer",
+      0
+    ],
+    "5otAkQdC9XjhbnU1qNDMneogC3r6LihKDBA351CDnWSc": [
+      "payer",
+      0
+    ],
+    "67h58f8eQiJX18MXjen28Ht59R4Wp7stoCyrjuQiYTQ3": [
+      "sink",
+      0
+    ],
+    "6Ev24WaPWDUYpb5vUyG8BuJDLFdb7RuoBsfaPV3mbvap": [
+      "payer",
+      0
+    ],
+    "8g6Yc5ZKpLNcjZEMrjHfXAB3StMGeMEVjXsWYitMZv8Y": [
+      "payer",
+      0
+    ],
+    "8qtG2HtRC1YLbUj43WJPx6vkvzmRWGpa1o3RjjVMrpPa": [
+      "payer",
+      0
+    ],
+    "9HyKbH7718jBUH1Rd8Wginb2tfg5SaMSxWKTwsatTSEG": [
+      "master",
+      0
+    ],
+    "9PnvLiCTmHxPr2F8bzfZaEvK5cHChq3SmXV1esGBiSV2": [
+      "payer",
+      0
+    ],
+    "9QgRVdx3t8Eb3LBdu9goUzPTdo3TahafEXsxweL8zSjJ": [
+      "payer",
+      0
+    ],
+    "9fLK6K92h51TLxEAom4YECAiJxR4zWZLmubfPjCMNF9k": [
+      "payer",
+      0
+    ],
+    "B6DxqWMjeSP5iZ8UfbHggabJ5ArSSEFSbe1xevkfJMsu": [
+      "payer",
+      0
+    ],
+    "BZvCCY5V2deUirXpo16WbLpjgDvuKWqbgiWMgDGf6qQ9": [
+      "payer",
+      0
+    ],
+    "C7o2PFCQ9CgaDU44fDqqXzWmbJJmGwSzCYym9fbQznrU": [
+      "payer",
+      0
+    ],
+    "CpU1vPhguTHcECGo5oU3qw2nTxsxf4Wq6nZwsqYj3BYL": [
+      "payer",
+      0
+    ],
+    "DWJpPnnmhoWVJZepFkqHJcFTEu8sjxYmEA43ErrY7P3J": [
+      "payer",
+      0
+    ],
+    "DcaY5tfqD1aYqRseEU2Dy7ycEVMRBA5YdGrBrqZHpSDW": [
+      "payer",
+      0
+    ],
+    "DiGLNnft6y8BtpJ3d5qqRJ4QSmKwpTBXoZjUUCaYaHge": [
+      "payer",
+      0
+    ],
+    "DwrsdqT6MLXzhB1vU4MuEUxSsSnSFoscSrYWRjpaKaXQ": [
+      "payer",
+      0
+    ],
+    "EKcTDdyFDcAHAUuajedjbBY9tZNsNVvv3DQAaAopNkXw": [
+      "payer",
+      0
+    ],
+    "Fak2Aw9Aa145nUC4PNYPg28Nwx6fLUzmPw5F7n8kY672": [
+      "payer",
+      0
+    ],
+    "G58Y5NE64QA4nm94bwn3D6Twetc38YyJCKXfvBweuHmr": [
+      "payer",
+      0
+    ],
+    "GR9wEMaaVrsXZQ3yg9pxZSprTu2fPiHPUQPj2tu8N8yf": [
+      "payer",
+      0
+    ],
+    "Gu41ycRkVE79TovgB7NFKeZ5DZRtV5kpmY9HbcaZrr8c": [
+      "payer",
+      0
+    ],
+    "HDjSkCTJEpHsvA6hKowsYvFS55Cy1k9aish5PVoUGbST": [
+      "payer",
+      0
+    ],
+    "HYuYD9gF7oPLuZ8YjJTsMaFWHLPisCCs7otHninqVM6o": [
+      "payer",
+      0
+    ],
+    "HuNtagANntvkrbZUh4UWKm94qP15ig8jFzCDuiPpwRrr": [
+      "payer",
+      0
+    ],
+    "wQbyRAXCueXndrYR4pVqRsVoTcAE5PP2V7ZVwQt5gvd": [
+      "payer",
+      0
+    ]
+  }
+}

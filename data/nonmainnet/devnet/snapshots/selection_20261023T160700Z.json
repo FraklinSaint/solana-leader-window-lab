@@ -1,0 +1,441 @@
+{
+  "candidates": [
+    {
+      "client_id": "Firedancer",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Firedancer\")",
+        "version=Some(\"26.10.4\")",
+        "not listed by Kobe"
+      ],
+      "identity": "2UWuPRCUZHgDt4PdiarRx8YPBD5gUMaVA5EcPeg1sVzL",
+      "kobe": null,
+      "stake_lamports": 750012476646920,
+      "stratum": "Firedancer",
+      "tpu_quic": "64.130.35.116:9007",
+      "version": "26.10.4",
+      "vote_account": "2f9C9AU8nFRKUub8NHToNiZzcwmYiNeipVuP8akKgRVv",
+      "windows_in_horizon": 737
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.1\")",
+        "not listed by Kobe"
+      ],
+      "identity": "3zvXem8vqvDYos6BKu66FV84tmDdQwgLxYSempy8tSrs",
+      "kobe": null,
+      "stake_lamports": 517328431309511,
+      "stratum": "Agave",
+      "tpu_quic": "38.46.221.182:8002",
+      "version": "4.4.0-beta.1",
+      "vote_account": "8KfPgKfeTp1Pyw1utAoek5bTDqMCt6a3oWrYKn2bETZb",
+      "windows_in_horizon": 473
+    },
+    {
+      "client_id": "Firedancer",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Firedancer\")",
+        "version=Some(\"26.10.3\")",
+        "not listed by Kobe"
+      ],
+      "identity": "5FRJrLMUVSKK63fTm5tSpAfVnwvBbdifknXvgFfgET7e",
+      "kobe": null,
+      "stake_lamports": 1007002877872,
+      "stratum": "Firedancer",
+      "tpu_quic": "185.209.178.221:9007",
+      "version": "26.10.3",
+      "vote_account": "BK2r4FZ6x8MJCaUS92Jsk8h4vhKsEpsXz2w9P3YtjAv4",
+      "windows_in_horizon": 2
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "5HNiQFG5uhpL9Ciodz9hcKsvuecLRfgTAfZedmCXQgFw",
+      "kobe": null,
+      "stake_lamports": 627999823027837,
+      "stratum": "Agave",
+      "tpu_quic": "208.91.110.216:8002",
+      "version": "4.4.0-beta.0",
+      "vote_account": "APsEUZJjrb58KCS6z7rJJAmXB76b9bfAigjDzG242xhr",
+      "windows_in_horizon": 587
+    },
+    {
+      "client_id": "JitoLabs",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"JitoLabs\")",
+        "version=Some(\"4.3.2\")",
+        "not listed by Kobe"
+      ],
+      "identity": "964koDACp6GNSW8uL2J49CTa7kuFSQWPErgKMKK1E9QH",
+      "kobe": null,
+      "stake_lamports": 68034104480,
+      "stratum": "JitoAgave",
+      "tpu_quic": "206.223.226.185:9103",
+      "version": "4.3.2",
+      "vote_account": "DaRwg7fkGs6Dnbh2cwPwmcsottXCuLBafCAJuQKySZq7",
+      "windows_in_horizon": 0
+    },
+    {
+      "client_id": "JitoLabs",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"JitoLabs\")",
+        "version=Some(\"4.4.0-beta.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "97YUjL2EK42M6jG5VA4fKuVxGXDfxsC5Zawd9haLQJGk",
+      "kobe": null,
+      "stake_lamports": 294610828160028,
+      "stratum": "JitoAgave",
+      "tpu_quic": "64.130.58.11:8002",
+      "version": "4.4.0-beta.0",
+      "vote_account": "DSQ5BLBM6UcuWP2SNpmf3TJeMbqbwTFGzVqFGufyNCgk",
+      "windows_in_horizon": 306
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.3.0-rc.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "BrX9Z85BbmXYMjvvuAWU8imwsAqutVQiDg9uNfTGkzrJ",
+      "kobe": null,
+      "stake_lamports": 2000701123808356,
+      "stratum": "Agave",
+      "tpu_quic": "67.209.54.163:8003",
+      "version": "4.3.0-rc.0",
+      "vote_account": "2u83Dx5qPV4QnujjJQv8v2SoqG1ixuAxPK5Jwhtkovd1",
+      "windows_in_horizon": 1934
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "C87LUe6S7qidpLcQi6R6PYYxWNwujJfUWvmP782jPAV9",
+      "kobe": null,
+      "stake_lamports": 50007995001280,
+      "stratum": "Agave",
+      "tpu_quic": "86.54.153.253:8002",
+      "version": "4.4.0-beta.0",
+      "vote_account": "BZvY7GiJnpYzy4gVttGardT9snrx6VJAx2cdUEWgqLQE",
+      "windows_in_horizon": 52
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.1\")",
+        "not listed by Kobe"
+      ],
+      "identity": "CKMqpoZzrqeobgVMsS9Es8UpRUjdhT3tA7CTPoXC3u6i",
+      "kobe": null,
+      "stake_lamports": 1147340388661,
+      "stratum": "Agave",
+      "tpu_quic": "67.213.124.29:8002",
+      "version": "4.4.0-beta.1",
+      "vote_account": "ECuwzjAEg7kPVBmmW7xa6Wz9xkK5pbN8cTn4SCdp5PPp",
+      "windows_in_horizon": 1
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.3.2\")",
+        "not listed by Kobe"
+      ],
+      "identity": "Cw6X5R68muAyGRCb7W8ZSP2YbaRjwMs1t5sBEPkhdwbM",
+      "kobe": null,
+      "stake_lamports": 3711061740453608,
+      "stratum": "Agave",
+      "tpu_quic": "38.246.35.41:8003",
+      "version": "4.3.2",
+      "vote_account": "7AETLyAGJWjp6AWzZqZcP362yv5LQ3nLEdwnXNjdNwwF",
+      "windows_in_horizon": 3496
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "FDQHfbqgSUk94XKFKWu6E8qidL7bwGEXDPzAoTVTXEDm",
+      "kobe": null,
+      "stake_lamports": 211361274086790,
+      "stratum": "Agave",
+      "tpu_quic": "162.19.112.144:25002",
+      "version": "4.4.0-beta.0",
+      "vote_account": "FwR3PbjS5iyqzLiLugrBqKSa5EKZ4vK9SKs7eQXtT59f",
+      "windows_in_horizon": 203
+    },
+    {
+      "client_id": "Firedancer",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Firedancer\")",
+        "version=Some(\"26.10.4\")",
+        "not listed by Kobe"
+      ],
+      "identity": "JDHmpeiTjYbHkaShE29EdNLtuRRYR5zKuJUmBK5jee2G",
+      "kobe": null,
+      "stake_lamports": 750004388484840,
+      "stratum": "Firedancer",
+      "tpu_quic": "198.13.138.116:9007",
+      "version": "26.10.4",
+      "vote_account": "B6kMs74PL2invrEmeyZSXiH4Rim3VmHRDJBuUcsNAoGE",
+      "windows_in_horizon": 701
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "ShFtNd4pzXiC7T7mr7gg2hn33X5BSskQRBpErKPai98",
+      "kobe": null,
+      "stake_lamports": 480033658749255,
+      "stratum": "Agave",
+      "tpu_quic": "108.171.206.218:8002",
+      "version": "4.4.0-beta.0",
+      "vote_account": "shfttEZqZQTYtvAPkScZVh98BSVZYpUvpBQM5ks3LGq",
+      "windows_in_horizon": 456
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.3.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "deepEMPe2gRjCPQ4E1VzmbDTNXt7skZie7vJbWKnpUH",
+      "kobe": null,
+      "stake_lamports": 308402189600,
+      "stratum": "Agave",
+      "tpu_quic": "84.32.220.51:8003",
+      "version": "4.3.0",
+      "vote_account": "deepPy86gApSci6B3QHsncudzQBMNX8f6Wwwsz64bUz",
+      "windows_in_horizon": 0
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.1\")",
+        "not listed by Kobe"
+      ],
+      "identity": "dv1ZAGvdsz5hHLwWXsVnM94hWf1pjbKVau1QVkaMJ92",
+      "kobe": null,
+      "stake_lamports": 38978756429444763,
+      "stratum": "Agave",
+      "tpu_quic": "109.94.99.153:8003",
+      "version": "4.4.0-beta.1",
+      "vote_account": "5ZWgXcyqrrNpQHCme5SdC5hCeYb2o3fEJhF7Gok3bTVN",
+      "windows_in_horizon": 28711
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.1\")",
+        "not listed by Kobe"
+      ],
+      "identity": "dv2eQHeP4RFrJZ6UeiZWoc3XTtmtZCUKxxCApCDcRNV",
+      "kobe": null,
+      "stake_lamports": 38986550392394939,
+      "stratum": "Agave",
+      "tpu_quic": "198.13.130.39:8003",
+      "version": "4.4.0-beta.1",
+      "vote_account": "i7NyKBMJCA9bLM2nsGyAGCKHECuR2L5eh4GqFciuwNT",
+      "windows_in_horizon": 28901
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.1\")",
+        "not listed by Kobe"
+      ],
+      "identity": "dv3qDFk1DTF36Z62bNvrCXe9sKATA6xvVy6A798xxAS",
+      "kobe": null,
+      "stake_lamports": 38988744350285730,
+      "stratum": "Agave",
+      "tpu_quic": "64.130.41.138:8003",
+      "version": "4.4.0-beta.1",
+      "vote_account": "vgcDar2pryHvMgPkKaZfh8pQy4BJxv7SpwUG7zinWjG",
+      "windows_in_horizon": 28889
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.1\")",
+        "not listed by Kobe"
+      ],
+      "identity": "dv4ACNkpYPcE3aKmYDqZm9G5EB3J4MRoeE7WNDRBVJB",
+      "kobe": null,
+      "stake_lamports": 38986250449058723,
+      "stratum": "Agave",
+      "tpu_quic": "64.130.33.238:8003",
+      "version": "4.4.0-beta.1",
+      "vote_account": "23AoPQc3EPkfLWb14cKiWNahh1H9rtb3UBk8gWseohjF",
+      "windows_in_horizon": 28817
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "piNepRbvYaC33td5tdPVuWo9WwH6TE731AWanLCwFPP",
+      "kobe": null,
+      "stake_lamports": 31290834415520,
+      "stratum": "Agave",
+      "tpu_quic": "192.200.108.158:8002",
+      "version": "4.4.0-beta.0",
+      "vote_account": "PiNEr6WcnMfiZivpJJbyaS45vx9TTC1qE19Y8Z8S6ts",
+      "windows_in_horizon": 28
+    }
+  ],
+  "cluster": "devnet",
+  "epoch": 1190,
+  "horizon_end_slot": 514944000,
+  "min_windows": 40,
+  "notes": [
+    "REQUIRED stratum JitoAgave: only 1 of 2 eligible",
+    "upside stratum HarmonicAgave: only 0 of 1 eligible",
+    "upside stratum HarmonicFiredancer: only 0 of 1 eligible",
+    "upside stratum BamAgave: only 0 of 1 eligible",
+    "upside stratum Rakurai: only 0 of 1 eligible"
+  ],
+  "picked": [
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.1\")",
+        "not listed by Kobe"
+      ],
+      "identity": "dv2eQHeP4RFrJZ6UeiZWoc3XTtmtZCUKxxCApCDcRNV",
+      "kobe": null,
+      "stake_lamports": 38986550392394939,
+      "stratum": "Agave",
+      "tpu_quic": "198.13.130.39:8003",
+      "version": "4.4.0-beta.1",
+      "vote_account": "i7NyKBMJCA9bLM2nsGyAGCKHECuR2L5eh4GqFciuwNT",
+      "windows_in_horizon": 28901
+    },
+    {
+      "client_id": "Agave",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Agave\")",
+        "version=Some(\"4.4.0-beta.1\")",
+        "not listed by Kobe"
+      ],
+      "identity": "dv3qDFk1DTF36Z62bNvrCXe9sKATA6xvVy6A798xxAS",
+      "kobe": null,
+      "stake_lamports": 38988744350285730,
+      "stratum": "Agave",
+      "tpu_quic": "64.130.41.138:8003",
+      "version": "4.4.0-beta.1",
+      "vote_account": "vgcDar2pryHvMgPkKaZfh8pQy4BJxv7SpwUG7zinWjG",
+      "windows_in_horizon": 28889
+    },
+    {
+      "client_id": "JitoLabs",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"JitoLabs\")",
+        "version=Some(\"4.4.0-beta.0\")",
+        "not listed by Kobe"
+      ],
+      "identity": "97YUjL2EK42M6jG5VA4fKuVxGXDfxsC5Zawd9haLQJGk",
+      "kobe": null,
+      "stake_lamports": 294610828160028,
+      "stratum": "JitoAgave",
+      "tpu_quic": "64.130.58.11:8002",
+      "version": "4.4.0-beta.0",
+      "vote_account": "DSQ5BLBM6UcuWP2SNpmf3TJeMbqbwTFGzVqFGufyNCgk",
+      "windows_in_horizon": 306
+    },
+    {
+      "client_id": "Firedancer",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Firedancer\")",
+        "version=Some(\"26.10.4\")",
+        "not listed by Kobe"
+      ],
+      "identity": "2UWuPRCUZHgDt4PdiarRx8YPBD5gUMaVA5EcPeg1sVzL",
+      "kobe": null,
+      "stake_lamports": 750012476646920,
+      "stratum": "Firedancer",
+      "tpu_quic": "64.130.35.116:9007",
+      "version": "26.10.4",
+      "vote_account": "2f9C9AU8nFRKUub8NHToNiZzcwmYiNeipVuP8akKgRVv",
+      "windows_in_horizon": 737
+    },
+    {
+      "client_id": "Firedancer",
+      "confidence": "medium",
+      "evidence": [
+        "gossip clientId=Some(\"Firedancer\")",
+        "version=Some(\"26.10.4\")",
+        "not listed by Kobe"
+      ],
+      "identity": "JDHmpeiTjYbHkaShE29EdNLtuRRYR5zKuJUmBK5jee2G",
+      "kobe": null,
+      "stake_lamports": 750004388484840,
+      "stratum": "Firedancer",
+      "tpu_quic": "198.13.138.116:9007",
+      "version": "26.10.4",
+      "vote_account": "B6kMs74PL2invrEmeyZSXiH4Rim3VmHRDJBuUcsNAoGE",
+      "windows_in_horizon": 701
+    }
+  ],
+  "quotas": {
+    "Agave": 2,
+    "BamAgave": 1,
+    "Firedancer": 2,
+    "HarmonicAgave": 1,
+    "HarmonicFiredancer": 1,
+    "JitoAgave": 2,
+    "Rakurai": 1
+  },
+  "raw": {
+    "cluster_nodes": "cluster_nodes_20261023T160700Z.json.gz",
+    "kobe_validators": "kobe_validators_20261023T160700Z.json.gz",
+    "vote_accounts": "vote_accounts_20261023T160700Z.json.gz"
+  },
+  "slot": 514301286,
+  "ts": "20261023T160700Z"
+}

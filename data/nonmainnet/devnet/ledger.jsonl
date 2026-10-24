@@ -1,0 +1,15 @@
+{"kind":"run_start","run_id":"live-20261023T141750Z","cap_lamports":2000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T14:17:50.914835Z"}
+{"kind":"run_start","run_id":"collect-20261023T141752Z","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T14:17:52.493038Z"}
+{"kind":"run_start","run_id":"sweep-20261023T141753Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T14:17:53.443606Z"}
+{"kind":"run_start","run_id":"sweep-20261023T141803Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T14:18:04.364516Z"}
+{"kind":"run_start","run_id":"sweep-20261023T141803Z","cap_lamports":200000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T14:18:04.368802Z"}
+{"kind":"run_start","run_id":"live-20261023T160725Z","cap_lamports":2000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:25.585314Z"}
+{"kind":"run_start","run_id":"collect-20261023T160727Z","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:27.268081Z"}
+{"kind":"run_start","run_id":"sweep-20261023T160727Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:28.354265Z"}
+{"kind":"run_start","run_id":"sweep-20261023T160728Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:29.433369Z"}
+{"kind":"run_start","run_id":"sweep-20261023T160728Z","cap_lamports":200000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:29.437039Z"}
+{"kind":"run_start","run_id":"live-20261023T160739Z","cap_lamports":2000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:39.846272Z"}
+{"kind":"run_start","run_id":"collect-20261023T160742Z","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:42.592556Z"}
+{"kind":"run_start","run_id":"sweep-20261023T160743Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:43.696860Z"}
+{"kind":"run_start","run_id":"sweep-20261023T160748Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:48.834700Z"}
+{"kind":"run_start","run_id":"sweep-20261023T160748Z","cap_lamports":200000,"hard_ceiling_lamports":50000000,"ts":"2026-10-23T16:07:48.838475Z"}
