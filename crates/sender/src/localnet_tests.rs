@@ -208,6 +208,7 @@ async fn localnet_end_to_end() {
             },
             prior: Default::default(),
             interrupt: Default::default(),
+            urgent: Default::default(),
         })
         .unwrap();
         let s = runner.run_fixed(windows).await.unwrap();

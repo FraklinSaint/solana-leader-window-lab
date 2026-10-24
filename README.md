@@ -158,9 +158,11 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
   whether Windows Update or servicing is waiting for a restart (registry, `reg query`);
 - **session header** `data/sessions/<id>/session.json`: mode, fixed UTC interval, platform,
   OS build, machine id, sender SHA-256;
-- **no idle sleep**: `SetThreadExecutionState` through `crates/winsys`, the only crate with
-  `unsafe` code (three Windows API calls behind safe functions; the workspace forbids
-  `unsafe` everywhere else);
+- **no idle sleep**: `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)` through
+  `crates/winsys`, the only crate with `unsafe` code (four Windows API calls behind safe
+  functions; the workspace forbids `unsafe` everywhere else), held by the supervisor for the
+  whole session and logged as a `keep_awake` event. It blocks **idle** sleep only. A sleep,
+  sign-out or shutdown chosen by the user or by Windows still happens;
 - **supervised worker**: the binary runs itself as `sender dry-run` (or `sender live` with every
   live guard: `CONFIRM_LIVE=yes`, `--max-spend-lamports`, prereg, platform gate) for the time
   left, and restarts it 30 s after a crash. A live worker is followed by `sender collect`
@@ -168,12 +170,34 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
   reserved since the session started;
 - **gaps with UTC timestamps**, never filled (`data/sessions/<id>/events.jsonl`): `down` (the
   supervisor was not running: crash, power loss, reboot), `worker_down` (restart pause),
-  `stopped` (Ctrl+C), `feed_stale` / `feed_recovered` (the worker's staleness gate: no window
-  is prepared or sent while the newest WebSocket slot notification is older than 2 s), plus
-  the worker's own `gaps.jsonl` (host_stall, slot_feed, rpc_error);
-- **logoff ends a session**: signing out of Windows (even when it is followed by sleep) kills
-  the supervisor and its worker without any event (session `20261023T210440Z`). Stay signed
-  in; lock the screen instead (Win+L);
+  `stopped` (Ctrl+C, console close, shutdown), `console_close` / `shutdown` (written the moment
+  Windows announces it), `abnormal_end` (see below), `feed_stale` / `feed_recovered` (the
+  worker's staleness gate: no window is prepared or sent while the newest WebSocket slot
+  notification is older than 2 s), plus the worker's own `gaps.jsonl` (host_stall, slot_feed,
+  rpc_error);
+- **what can and cannot be caught** (Windows, console app):
+  - console window closed (`CTRL_CLOSE_EVENT`): caught. Windows ends the process about 5 s
+    later. The supervisor logs `console_close` at once, the worker stops without its usual
+    waits and writes `summary.json` (`stopped_early: console closed or system shutdown`), and
+    the supervisor logs `stopped` if it is still alive;
+  - system shutdown (`CTRL_SHUTDOWN_EVENT`): handled the same way, but Windows delivers it to a
+    console process only if user32.dll and gdi32.dll are not loaded. `sender.exe` imports
+    neither (checked in its PE import table); pre-flight records `ui_dlls_loaded` at run time
+    and warns if either is present;
+  - **sign-out cannot be caught**: Windows sends `CTRL_LOGOFF_EVENT` to services only and ends
+    interactive processes without notice. That ended session `20261023T210440Z` (sign-out, then
+    sleep). Stay signed in during a session; lock the screen (Win+L) instead. Power loss and a
+    forced kill cannot be caught either;
+  - every end that could not be logged is recorded afterwards: the next `sender session` (or
+    `--reset`) first appends one `abnormal_end` event (last heartbeat in UTC, last event) to an
+    open session whose heartbeat is stale and whose last event is not `stopped`. A start is
+    refused while the open session's heartbeat is fresh (< 90 s): a second supervisor would
+    start a second worker;
+- **`--reset`** closes the open session: it appends `reset` (after `abnormal_end` if the
+  supervisor died), moves `open.json` to `<id>/state.json` and deletes the git-ignored
+  heartbeat file. It does not delete or change anything else: `session.json`, `preflight*.json`,
+  `events.jsonl` (append only) and the run directories under `logs/` stay as they are. No
+  `coverage.json` is written for a reset session (only a session that reaches its end gets one);
 - **resume**: after a crash or reboot, running the same command continues an interrupted
   **dry-run** session until its fixed end, with a `down` gap from the last heartbeat. Nothing
   starts by itself at logon. A **live** session is never resumed: `sender session --reset`
@@ -277,6 +301,12 @@ only: `data/manifest.jsonl` (MEASUREMENT), `data/exploratory/calibration_manifes
   the OS releases the lock if the holder crashes.
 - **Keys** come only from `./secrets` (gitignored, mounted read-only except in the `keys`
   service) or env. Secret bytes are never logged. CI runs gitleaks and a keypair-pattern check.
+- **One cluster per secrets dir** (`keys.rs::guard_secrets_cluster`). Every command checks it
+  right after reading the genesis hash, before any key is read. A secrets dir is bound to one
+  cluster by a `CLUSTER` file (written by `init-payers`). A dir bound to another cluster is
+  refused: devnet keys never run against mainnet, and the reverse. An unbound dir with keys is
+  accepted only if its folder is named after this cluster (`secrets/devnet`, then bound).
+  Otherwise the operator has to write the marker by hand.
 - **Budgets by purpose** (`crates/common/src/limits.rs`): calibration ≤ 5M, confirmatory ≤ 38M,
   funding/sweep/retry reserve ≤ 5M, total ≤ 48M lamports, under the 50M compile-time hard
   ceiling. The planner plans only within its purpose's remaining budget, and fund/sweep refuse
@@ -419,7 +449,7 @@ a simulated reference (`analysis/slwlab/sim.py`, labeled SIMULATION everywhere):
 ```
 crates/common    fee math, Alpenglow guard, spend ceiling (Rust)
 crates/sender    planner, clock, tx builder, QUIC sender, spend ledger, sessions, CLI (Rust)
-crates/winsys    the only unsafe code: keep-awake, free RAM, default-route adapter (Windows API)
+crates/winsys    the only unsafe code: keep-awake, free RAM, default-route adapter, loaded UI DLLs
 analysis/        parser, candidate rules, stats, simulator, report (Python, pytest)
 scripts/         verify_facts.py (re-derives docs/VERIFIED_FACTS.md from RPC), verify_manifest.py
                  (independent check of data/), check_no_keys.py, scan_history.py

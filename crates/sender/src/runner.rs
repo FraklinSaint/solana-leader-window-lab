@@ -104,6 +104,10 @@ pub struct RunConfig {
 /// `stopped_early` of a run ended by Ctrl+C.
 pub const INTERRUPTED: &str = "interrupted (Ctrl+C)";
 
+/// `stopped_early` of a run ended by a console close or system shutdown. Windows ends the
+/// process a few seconds after the event (about 5 s for a close), so `finish` skips its waits.
+pub const CLOSING: &str = "console closed or system shutdown";
+
 /// Manifest name of the RPC comparison path. Helius routes `sendTransaction` through its
 /// staked connections by default (docs: "Staked Connections (default)"; stated for paid
 /// plans, unstated for the free plan, which calibration checks). Other endpoints: "rpc".
@@ -474,6 +478,8 @@ pub struct RunnerInit<'a> {
     pub prior: PlanState,
     /// Set by the first Ctrl+C: stop planning, drop windows not yet started, write summary.json.
     pub interrupt: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Set (with `interrupt`) on a console close or system shutdown: finish without waiting.
+    pub urgent: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 pub struct Runner<'a> {
@@ -508,6 +514,7 @@ pub struct Runner<'a> {
     /// Windows skipped before any reservation; their quota goes back to the plan state.
     released: Vec<PlannedWindow>,
     interrupt: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    urgent: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Arms simulated at least once in this run.
     simulated_arms: std::collections::BTreeSet<Arm>,
 }
@@ -640,6 +647,7 @@ impl<'a> Runner<'a> {
             schedules_saved: std::collections::BTreeSet::new(),
             released: vec![],
             interrupt: init.interrupt.clone(),
+            urgent: init.urgent.clone(),
             simulated_arms: Default::default(),
             data_root: init.data_root,
         })
@@ -663,6 +671,14 @@ impl<'a> Runner<'a> {
 
     fn interrupted(&self) -> bool {
         self.interrupt.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    fn urgent(&self) -> bool {
+        self.urgent.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    fn stop_reason(&self) -> String {
+        if self.urgent() { CLOSING } else { INTERRUPTED }.into()
     }
 
     /// `None` if interrupted while warming up.
@@ -703,7 +719,7 @@ impl<'a> Runner<'a> {
     pub async fn run_fixed(mut self, windows: Vec<PlannedWindow>) -> Result<RunSummary> {
         self.write_run_json()?;
         if self.wait_for_clock().await?.is_none() {
-            self.stop = Some(INTERRUPTED.into());
+            self.stop = Some(self.stop_reason());
             return self.finish().await;
         }
         self.summary.windows_planned = windows.len();
@@ -724,7 +740,7 @@ impl<'a> Runner<'a> {
             self.cfg.clock,
         ));
         if self.wait_for_clock().await?.is_none() {
-            self.stop = Some(INTERRUPTED.into());
+            self.stop = Some(self.stop_reason());
             return self.finish().await;
         }
         let deadline = unix_ns() + i128::from(self.cfg.duration_secs) * 1_000_000_000;
@@ -734,7 +750,7 @@ impl<'a> Runner<'a> {
         let mut planning_done = false;
         while self.stop.is_none() {
             if self.interrupted() {
-                self.stop = Some(INTERRUPTED.into());
+                self.stop = Some(self.stop_reason());
                 break;
             }
             if unix_ns() > deadline + 60_000_000_000 {
@@ -936,7 +952,10 @@ impl<'a> Runner<'a> {
         if let Some(w) = self.watchdog.take() {
             w.abort();
         }
-        if self.mode.is_live() {
+        if self.urgent() {
+            // A few seconds left: no collect pass, no clock wait. The ledger is already durable;
+            // `sender collect` resolves what is open.
+        } else if self.mode.is_live() {
             let end = Instant::now() + Duration::from_secs(240);
             while self.collector.pending_len() > 0 && Instant::now() < end {
                 self.poll_collector(Duration::from_secs(60)).await?;
@@ -1703,6 +1722,7 @@ mod tests {
             },
             prior: PlanState::default(),
             interrupt: interrupt.clone(),
+            urgent: Default::default(),
         })
         .unwrap();
         interrupt.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -1719,6 +1739,51 @@ mod tests {
         assert_eq!(written["stopped_early"], INTERRUPTED);
         assert!(written["finished"].as_str().unwrap().ends_with('Z'));
         assert!(run_dir.join("run.json").exists());
+    }
+
+    /// Console close / shutdown: Windows allows a few seconds, so the run must stop and write
+    /// summary.json at once, even with clock watches open. Offline.
+    #[tokio::test]
+    async fn console_close_finishes_within_the_windows_grace_period() {
+        let dir = tempfile::tempdir().unwrap();
+        let interrupt: std::sync::Arc<std::sync::atomic::AtomicBool> = Default::default();
+        let urgent: std::sync::Arc<std::sync::atomic::AtomicBool> = Default::default();
+        let mut runner = Runner::new(RunnerInit {
+            rpc: Rpc::new("http://127.0.0.1:9"),
+            cluster: Cluster::Mainnet,
+            data_root: dir.path().to_path_buf(),
+            cfg: RunConfig {
+                run_id: "dryrun-20261024T130000Z".into(),
+                ..RunConfig::default()
+            },
+            plan_cfg: PlanConfig::default(),
+            targets: vec![],
+            feed: crate::feed::new_state(),
+            pool: PayerPool::new(vec![], HashSet::new(), None, 0),
+            shared_sink: None,
+            mode: Mode::DryRun {
+                probe_connect: false,
+            },
+            prior: PlanState::default(),
+            interrupt: interrupt.clone(),
+            urgent: urgent.clone(),
+        })
+        .unwrap();
+        // an unresolved clock watch would hold a normal finish for up to 15 s
+        runner.watches.push(ClockWatch {
+            window_id: "w".into(),
+            first_slot: 1,
+            predicted_plan: 0,
+            predicted_prep: None,
+        });
+        urgent.store(true, std::sync::atomic::Ordering::SeqCst);
+        interrupt.store(true, std::sync::atomic::Ordering::SeqCst);
+        let t0 = Instant::now();
+        let summary = runner.run().await.unwrap();
+        assert!(t0.elapsed() < Duration::from_secs(2), "{:?}", t0.elapsed());
+        assert_eq!(summary.stopped_early.as_deref(), Some(CLOSING));
+        let run_dir = dir.path().join("logs").join("dryrun-20261024T130000Z");
+        assert!(run_dir.join("summary.json").exists());
     }
 
     /// Feed stall: with the last WebSocket notification 3 s old, a window is skipped before
@@ -1751,6 +1816,7 @@ mod tests {
             },
             prior: PlanState::default(),
             interrupt: Default::default(),
+            urgent: Default::default(),
         })
         .unwrap();
         // 150 notifications, one per 400 ms, the newest 3 s ago; then silence.

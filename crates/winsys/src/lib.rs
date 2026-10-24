@@ -1,4 +1,4 @@
-//! Three Windows API calls behind safe functions. This crate holds the only `unsafe` code in the
+//! Four Windows API calls behind safe functions. This crate holds the only `unsafe` code in the
 //! workspace (every other crate has `unsafe_code = "forbid"`). On other OSes every function is
 //! a no-op that returns `None`.
 //!
@@ -7,6 +7,9 @@
 //! - [`memory`]: `GlobalMemoryStatusEx` (total and available physical memory).
 //! - [`default_route_adapter`]: `GetBestInterface` + `GetAdaptersAddresses`, the adapter that
 //!   carries traffic to the internet and its interface type (Wi-Fi or not).
+//! - [`ui_dlls_loaded`]: `GetModuleHandleW`, whether user32.dll / gdi32.dll are loaded in this
+//!   process. Windows does not deliver `CTRL_SHUTDOWN_EVENT` to a console process that has
+//!   loaded either, so the session records it.
 
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -90,6 +93,11 @@ pub fn default_route_adapter() -> Option<Adapter> {
     sys::default_route_adapter()
 }
 
+/// Which of user32.dll and gdi32.dll are loaded in this process now (`None` off Windows).
+pub fn ui_dlls_loaded() -> Option<Vec<&'static str>> {
+    sys::ui_dlls_loaded()
+}
+
 #[cfg(windows)]
 mod sys {
     use super::{Adapter, Memory};
@@ -97,10 +105,26 @@ mod sys {
         GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST,
         GAA_FLAG_SKIP_UNICAST, GetAdaptersAddresses, GetBestInterface, IP_ADAPTER_ADDRESSES_LH,
     };
+    use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::System::Power::{
         ES_CONTINUOUS, ES_SYSTEM_REQUIRED, SetThreadExecutionState,
     };
     use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+
+    pub fn ui_dlls_loaded() -> Option<Vec<&'static str>> {
+        let mut out = vec![];
+        for name in ["user32.dll", "gdi32.dll"] {
+            let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+            // SAFETY: `wide` is a NUL-terminated UTF-16 string that outlives the call;
+            // GetModuleHandleW only reads it and returns null if the module is not loaded. The
+            // handle is not used (no reference count is taken, nothing to free).
+            let h = unsafe { GetModuleHandleW(wide.as_ptr()) };
+            if !h.is_null() {
+                out.push(name);
+            }
+        }
+        Some(out)
+    }
 
     pub fn keep_awake(on: bool) -> bool {
         let flags = if on {
@@ -206,6 +230,9 @@ mod sys {
     pub fn default_route_adapter() -> Option<Adapter> {
         None
     }
+    pub fn ui_dlls_loaded() -> Option<Vec<&'static str>> {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -224,6 +251,9 @@ mod tests {
         let a = default_route_adapter().expect("adapter");
         assert!(a.index > 0);
         assert!(!a.description.is_empty());
+        // kernel32 is always loaded; the answer for user32/gdi32 is just a list
+        let ui = ui_dlls_loaded().expect("ui dlls");
+        assert!(ui.iter().all(|n| n.ends_with(".dll")));
     }
 
     #[test]

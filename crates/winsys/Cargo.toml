@@ -1,6 +1,6 @@
 [package]
 name = "slwlab-winsys"
-description = "The only unsafe code in the workspace: three Windows API calls behind safe functions"
+description = "The only unsafe code in the workspace: four Windows API calls behind safe functions"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -22,6 +22,7 @@ windows-sys = { version = "0.61.2", features = [
     "Win32_NetworkManagement_IpHelper",
     "Win32_NetworkManagement_Ndis",
     "Win32_Networking_WinSock",
+    "Win32_System_LibraryLoader",
     "Win32_System_Power",
     "Win32_System_SystemInformation",
 ] }

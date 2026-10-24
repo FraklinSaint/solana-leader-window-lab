@@ -459,6 +459,14 @@ async fn real_main(cli: Cli) -> Result<()> {
     );
     let genesis = rpc.genesis_hash().await.context("getGenesisHash")?;
     let cluster = Cluster::from_genesis(&genesis);
+    // Before anything touches a key: refuse another cluster's secrets dir (keys.rs).
+    keys::guard_secrets_cluster(&cli.g.secrets_dir, &cluster.name())?;
+    if let Ok(m) = std::env::var("MASTER_KEYPAIR")
+        && let Some(parent) = Path::new(&m).parent()
+        && parent.join(keys::CLUSTER_MARKER).exists()
+    {
+        keys::guard_secrets_cluster(parent, &cluster.name())?;
+    }
     let ctx = Ctx {
         data_root: cluster.data_root(&cli.g.data_dir),
         g: cli.g,
@@ -582,6 +590,8 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
         }
         Cmd::Collect => collect_all(ctx).await,
         Cmd::InitPayers { count } => {
+            // New keys belong to this cluster only.
+            keys::bind_secrets_cluster(&ctx.g.secrets_dir, &ctx.cluster.name())?;
             let pks = keys::init_payers(&ctx.payers_dir(), count)?;
             for (i, p) in pks.iter().enumerate() {
                 println!("payer_{i:03} {p}");
@@ -911,9 +921,79 @@ impl Worker for ProcWorker {
     }
 }
 
+type RunFlags = (
+    std::sync::Arc<std::sync::atomic::AtomicBool>,
+    std::sync::Arc<std::sync::atomic::AtomicBool>,
+);
+
+/// Console close (`CTRL_CLOSE_EVENT`) and system shutdown (`CTRL_SHUTDOWN_EVENT`) as a stop.
+/// The supervisor logs `console_close` / `shutdown` to the session's events.jsonl at once, then
+/// stops like Ctrl+C; a worker (interrupt + urgent flags) stops without its usual waits. tokio
+/// keeps the OS handler thread parked, so the process lives until Windows ends it: about 5 s
+/// after a close. What cannot be caught: a sign-out (Windows sends `CTRL_LOGOFF_EVENT` to
+/// services only and ends interactive processes without notice), power loss, a forced kill;
+/// and `CTRL_SHUTDOWN_EVENT` reaches a console process only if it has not loaded user32.dll or
+/// gdi32.dll (pre-flight records whether it has). Those ends are recorded afterwards as
+/// `abnormal_end` (session.rs).
+#[cfg(windows)]
+fn spawn_close_listeners(
+    supervisor: Option<(std::sync::Arc<session::Stop>, PathBuf)>,
+    run: Option<RunFlags>,
+) {
+    use tokio::signal::windows::{ctrl_close, ctrl_shutdown};
+    let (Ok(mut close), Ok(mut shutdown)) = (ctrl_close(), ctrl_shutdown()) else {
+        tracing::warn!("could not listen for console close / system shutdown");
+        return;
+    };
+    tokio::spawn(async move {
+        let (kind, reason) = tokio::select! {
+            _ = close.recv() => ("console_close", "console window closed"),
+            _ = shutdown.recv() => ("shutdown", "system shutdown"),
+        };
+        if let Some((stop, events)) = &supervisor {
+            // Logged first: Windows may end the process before the orderly `stopped`.
+            let _ = session::append_event(
+                events,
+                chrono::Utc::now().timestamp(),
+                kind,
+                serde_json::json!({"detail": "stopping; Windows ends the process a few seconds after this event"}),
+            );
+            stop.request(reason);
+        }
+        if let Some((interrupt, urgent)) = &run {
+            urgent.store(true, std::sync::atomic::Ordering::SeqCst);
+            interrupt.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        eprintln!("{reason}: stopping now");
+    });
+}
+
+#[cfg(not(windows))]
+fn spawn_close_listeners(
+    _supervisor: Option<(std::sync::Arc<session::Stop>, PathBuf)>,
+    _run: Option<RunFlags>,
+) {
+}
+
 async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
     let paths = session::Paths::new(&ctx.data_root);
     let now = chrono::Utc::now().timestamp();
+    // First: a session whose supervisor vanished (sign-out, power loss, kill) gets its
+    // `abnormal_end`, whatever is asked next (resume, new session or --reset).
+    if let Some(ev) = session::record_abnormal_end(&paths, now)? {
+        println!(
+            "the open session ended abnormally: last heartbeat {}, last event {} (abnormal_end recorded)",
+            ev["last_heartbeat"].as_str().unwrap_or("none"),
+            ev["last_event"].as_str().unwrap_or("none"),
+        );
+    }
+    if let Some((id, age)) = session::maybe_running(&paths, now)? {
+        bail!(
+            "session {id} may still be running (heartbeat {age} s ago): stop it with Ctrl+C in its \
+             window, or, if it died, wait until its heartbeat is {} s old",
+            session::DOWN_AFTER_SECS
+        );
+    }
     if a.reset {
         match session::reset(&paths, now)? {
             Some(id) => println!("session {id} closed"),
@@ -1003,16 +1083,25 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
     if !awake.active {
         println!("WARNING: could not block idle sleep on this OS");
     }
+    session::event(
+        &paths,
+        &st.id,
+        chrono::Utc::now().timestamp(),
+        "keep_awake",
+        serde_json::json!({"active": awake.active, "request": "ES_CONTINUOUS | ES_SYSTEM_REQUIRED",
+            "blocks": "idle sleep only; not a sleep or sign-out requested by the user or Windows"}),
+    )?;
     let heartbeat = session::Heartbeat::start(paths.heartbeat(&st.id));
-    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop = std::sync::Arc::new(session::Stop::default());
     {
         let stop = stop.clone();
         tokio::spawn(async move {
             if tokio::signal::ctrl_c().await.is_ok() {
-                stop.store(true, std::sync::atomic::Ordering::SeqCst);
+                stop.request("Ctrl+C");
             }
         });
     }
+    spawn_close_listeners(Some((stop.clone(), paths.events(&st.id))), None);
     let g = &ctx.g;
     let mut worker = ProcWorker {
         exe: std::env::current_exe()?,
@@ -1537,8 +1626,11 @@ async fn campaign(
     // First Ctrl+C: stop planning, drop windows not yet started, finish and write
     // summary.json (live: the bounded collect pass included). Second Ctrl+C: exit at once;
     // the ledger is durable before every send, and `sender collect` resolves what is open.
+    // Console close / shutdown: the same, without the waits (Windows allows a few seconds).
     let interrupt = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let urgent = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     {
+        spawn_close_listeners(None, Some((interrupt.clone(), urgent.clone())));
         let flag = interrupt.clone();
         tokio::spawn(async move {
             let mut presses = 0u32;
@@ -1558,6 +1650,7 @@ async fn campaign(
     }
     let runner = Runner::new(RunnerInit {
         interrupt,
+        urgent,
         rpc: ctx.rpc.clone(),
         cluster: ctx.cluster.clone(),
         data_root: ctx.data_root.clone(),

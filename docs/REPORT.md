@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | missing | 0 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `5fe1ab62a804ab1190081ecf7a4ddb9837fb66cc2c995bc283e4af7cd8aa56c2` | 78 |
+| `docs/LOGBOOK.md` | `fc469a1dd72e860e94651b86f1542413e4931e821dc2665cdf158d5536920bc7` | 80 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -151,4 +151,4 @@ Counts: failure 15, surprise 17, rate limit 1, env 2, limitation 2, correction 3
 | 2026-10-24T14:06:00Z | 4 | failure | EXPLORATORY dry-run session `20261023T210440Z` (run `dryrun-20261023T210442Z`, sender `b29c5229c221`, planned 2026-10-23 21:04:41Z to 2026-10-24 05:04:41Z) ended abnormally after 43 min. Last window 21:47:29Z, last heartbeat 21:47:12Z. There is no `run_exit` or `stopped` event, no `summary.json` and no `state.json` (`open.json` is still there), and no restart followed. Before that: 294 windows executed, 0 skipped, no `gaps.jsonl` (no host stall, feed stall or `rpc_error`), largest gap between windows 35.2 s, check O 294/294. Window-start error at prep time: median 79.1 ms, p95 253.7 ms, max 599.1 ms (n = 294, all WebSocket). Cause, from the Windows System log (read-only): at 21:47:38Z Winlogon 7002 (user logoff) and Kernel-Power 187 (`winlogon.exe` called SetSuspendState), at 21:47:39Z Kernel-Power 42 (sleep, reason Application API). Wake at 2026-10-24 08:46:16Z (Power-Troubleshooter 1). No reboot: uptime continuous since 2026-10-23 10:14:33Z. The logoff ended the supervisor and its worker together, and neither logs a logoff or console close (only Ctrl+C is handled). What started the logoff is not in any log readable without admin. The same logoff-and-sleep sequence also appears at 2026-10-23 14:21:13Z and 16:22:34Z, and at 2026-10-24 08:49:08Z. Correction: `slots.jsonl` ends at 21:34:50Z only because it is written by the 30-min checkpoint and at a clean finish; `clock.jsonl` shows WebSocket notifications until 21:47:30Z, so the feed did not stall. The session data is committed unchanged as exploratory. The session is neither resumed nor reset (operator decides). |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: c88ee7640575da65928c1113b3dc8cc7ebd0d82cccd5e6d96943b986a87a790f -->
+<!-- report-sha256: 961df25aae23812dd481e11a2254774a5d717e9dfda49c71b261797bd5f4cc0e -->

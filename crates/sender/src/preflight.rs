@@ -200,6 +200,16 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
             pending.join(", ")
         ));
     }
+    // CTRL_SHUTDOWN_EVENT is not delivered to a console process that loaded user32/gdi32.
+    let ui = slwlab_winsys::ui_dlls_loaded();
+    if let Some(l) = &ui
+        && !l.is_empty()
+    {
+        w.push(format!(
+            "shutdown: {} loaded in this process, so Windows will not send it CTRL_SHUTDOWN_EVENT;              a shutdown ends the session without notice (recorded later as abnormal_end)",
+            l.join(" and ")
+        ));
+    }
     let info = json!({
         "sleep_after_secs": sleep.map(|(ac, dc)| json!({"ac": ac, "dc": dc})),
         "hibernate_after_secs": hib.map(|(ac, dc)| json!({"ac": ac, "dc": dc})),
@@ -212,6 +222,8 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
         },
         "platform": platform,
         "restart_pending": pending,
+        "ui_dlls_loaded": ui,
+        "shutdown_event_deliverable": ui.as_ref().map(|l| l.is_empty()),
     });
     Preflight { info, warnings: w }
 }

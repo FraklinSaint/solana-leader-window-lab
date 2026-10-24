@@ -15,6 +15,14 @@
 //! - `<id>/coverage.json` + `coverage.md`: per UTC hour of the session, seconds covered by a live
 //!   worker minus in-run gaps, gap seconds by kind, windows and clock error. Never filled.
 //!
+//! Ends that cannot be logged at the time: Windows terminates interactive processes at sign-out
+//! without notice (`CTRL_LOGOFF_EVENT` goes to services only), and nothing runs at power loss or
+//! after a forced kill. So the first thing `sender session` (and `--reset`) does is
+//! [`record_abnormal_end`]: an open session whose heartbeat is stale and whose last event is not
+//! `stopped` gets one `abnormal_end` event with its last heartbeat. A console close or system
+//! shutdown is logged at once (`console_close`, `shutdown`) and then stopped as gracefully as the
+//! few seconds Windows grants allow.
+//!
 //! Resume rules: a dry-run session is continued by running the same command again (after a
 //! crash or reboot), until its fixed end. A live session (calibrate / measure) is never resumed:
 //! the operator closes it with `--reset` and starts a new one, which continues the allocation
@@ -154,6 +162,100 @@ fn write_json(path: &Path, v: &impl Serialize) -> Result<()> {
     std::fs::write(&tmp, serde_json::to_vec_pretty(v)?)?;
     std::fs::rename(&tmp, path)?;
     Ok(())
+}
+
+/// Stop request shared by the signal listeners and the supervisor loop; the first reason wins.
+#[derive(Debug, Default)]
+pub struct Stop {
+    flag: AtomicBool,
+    reason: std::sync::Mutex<Option<String>>,
+}
+
+impl Stop {
+    pub fn request(&self, reason: &str) {
+        if let Ok(mut r) = self.reason.lock() {
+            r.get_or_insert_with(|| reason.to_string());
+        }
+        self.flag.store(true, Ordering::SeqCst);
+    }
+    pub fn is_set(&self) -> bool {
+        self.flag.load(Ordering::SeqCst)
+    }
+    pub fn flag(&self) -> &AtomicBool {
+        &self.flag
+    }
+    pub fn reason(&self) -> String {
+        self.reason
+            .lock()
+            .ok()
+            .and_then(|r| r.clone())
+            .unwrap_or_else(|| "Ctrl+C".into())
+    }
+}
+
+/// Last heartbeat of a session (unix seconds), if one was written.
+pub fn last_heartbeat(p: &Paths, id: &str) -> Option<i64> {
+    std::fs::read_to_string(p.heartbeat(id))
+        .ok()
+        .and_then(|t| t.trim().parse().ok())
+}
+
+/// Events after which an open session is not abnormal: the supervisor said why it stopped,
+/// or the abnormal end is already recorded.
+const ORDERLY_LAST: [&str; 3] = ["stopped", "abnormal_end", "reset"];
+
+fn open_state(p: &Paths) -> Result<Option<SessionState>> {
+    if !p.open().exists() {
+        return Ok(None);
+    }
+    let st = serde_json::from_slice(&std::fs::read(p.open())?)
+        .with_context(|| p.open().display().to_string())?;
+    Ok(Some(st))
+}
+
+/// The open session's supervisor may still be running: its heartbeat is newer than
+/// [`DOWN_AFTER_SECS`] and it has not logged `stopped`. Returns (id, heartbeat age).
+pub fn maybe_running(p: &Paths, now: i64) -> Result<Option<(String, i64)>> {
+    let Some(st) = open_state(p)? else {
+        return Ok(None);
+    };
+    let Some(hb) = last_heartbeat(p, &st.id) else {
+        return Ok(None);
+    };
+    let last = read_events(p, &st.id)?;
+    let last = last.last().and_then(|e| e["event"].as_str()).unwrap_or("");
+    Ok((now - hb <= DOWN_AFTER_SECS && !ORDERLY_LAST.contains(&last)).then_some((st.id, now - hb)))
+}
+
+/// Run first by `sender session` and `--reset`: if the open session's supervisor died without
+/// saying so (sign-out, power loss, forced kill, crash), append one `abnormal_end` event with
+/// the last heartbeat (UTC). Returns the event, or `None` if there is nothing to record
+/// (no open session, a fresh heartbeat, or an orderly or already recorded last event).
+pub fn record_abnormal_end(p: &Paths, now: i64) -> Result<Option<Value>> {
+    let Some(st) = open_state(p)? else {
+        return Ok(None);
+    };
+    let hb = last_heartbeat(p, &st.id);
+    if hb.is_some_and(|t| now - t <= DOWN_AFTER_SECS) {
+        return Ok(None);
+    }
+    let evs = read_events(p, &st.id)?;
+    let last = evs.last();
+    let last_kind = last.and_then(|e| e["event"].as_str()).unwrap_or("");
+    if ORDERLY_LAST.contains(&last_kind) {
+        return Ok(None);
+    }
+    let fields = json!({
+        "last_heartbeat": hb.map(utc),
+        "secs_since_heartbeat": hb.map(|t| now - t),
+        "last_event": last_kind,
+        "last_event_ts": last.map(|e| e["ts"].clone()),
+        "session_end": st.end_utc,
+        "detail": "the supervisor ended without a stopped or done event: sign-out, power loss, \
+                   forced kill or crash (the cause is not recorded by the sender)",
+    });
+    event(p, &st.id, now, "abnormal_end", fields.clone())?;
+    Ok(Some(fields))
 }
 
 /// What the operator asked for.
@@ -343,19 +445,20 @@ pub enum Outcome {
 }
 
 /// Keep a worker running until the session's end; restart it after a crash.
-pub fn supervise(
-    p: &Paths,
-    st: &SessionState,
-    w: &mut dyn Worker,
-    stop: &AtomicBool,
-) -> Result<Outcome> {
+pub fn supervise(p: &Paths, st: &SessionState, w: &mut dyn Worker, stop: &Stop) -> Result<Outcome> {
     let mut n = read_events(p, &st.id)?
         .iter()
         .filter(|e| e["event"] == "run_exit")
         .count();
     loop {
-        if stop.load(Ordering::SeqCst) {
-            event(p, &st.id, w.now(), "stopped", json!({"detail": "Ctrl+C"}))?;
+        if stop.is_set() {
+            event(
+                p,
+                &st.id,
+                w.now(),
+                "stopped",
+                json!({"detail": stop.reason()}),
+            )?;
             return Ok(Outcome::Stopped);
         }
         let t0 = w.now();
@@ -386,12 +489,12 @@ pub fn supervise(
             "run_exit",
             json!({"run": n, "exit_code": code, "from": utc(t0), "to": utc(t1), "ran_secs": t1 - t0}),
         )?;
-        if stop.load(Ordering::SeqCst) {
-            event(p, &st.id, t1, "stopped", json!({"detail": "Ctrl+C"}))?;
+        if stop.is_set() {
+            event(p, &st.id, t1, "stopped", json!({"detail": stop.reason()}))?;
             return Ok(Outcome::Stopped);
         }
         if code != 0 {
-            let resumed = w.pause(RESTART_PAUSE_SECS, stop);
+            let resumed = w.pause(RESTART_PAUSE_SECS, stop.flag());
             if let Some(c) = w.after_crash()? {
                 event(p, &st.id, w.now(), "collect", json!({"exit_code": c}))?;
             }
@@ -405,7 +508,7 @@ pub fn supervise(
                        "detail": format!("worker exit {code}, restart pause")}),
             )?;
             if !resumed {
-                event(p, &st.id, t2, "stopped", json!({"detail": "Ctrl+C"}))?;
+                event(p, &st.id, t2, "stopped", json!({"detail": stop.reason()}))?;
                 return Ok(Outcome::Stopped);
             }
         }
@@ -735,7 +838,7 @@ mod tests {
             collects: 0,
             cap: None,
         };
-        let stop = AtomicBool::new(false);
+        let stop = Stop::default();
         // emulate the power loss: run one crash cycle and one more run by hand
         let n0 = w.run(st.end_unix - clock.get()).unwrap();
         assert_eq!(n0, 3);
@@ -815,7 +918,7 @@ mod tests {
             cap: None,
         };
         assert_eq!(
-            supervise(&p, &st, &mut w, &AtomicBool::new(false)).unwrap(),
+            supervise(&p, &st, &mut w, &Stop::default()).unwrap(),
             Outcome::Done
         );
         assert_eq!(w.runs, vec![3600, 2970, 2370, 1770, 1170, 570]);
@@ -842,7 +945,7 @@ mod tests {
             collects: 0,
             cap: Some(500),
         };
-        supervise(&p, &st, &mut w, &AtomicBool::new(false)).unwrap();
+        supervise(&p, &st, &mut w, &Stop::default()).unwrap();
         assert_eq!(
             w.collects, 1,
             "a crashed live worker is followed by collect"
@@ -879,14 +982,86 @@ mod tests {
             cap: Some(0),
         };
         assert_eq!(
-            supervise(&p, &st, &mut w, &AtomicBool::new(false)).unwrap(),
+            supervise(&p, &st, &mut w, &Stop::default()).unwrap(),
             Outcome::Done
         );
         assert!(w.runs.is_empty());
         assert!(events(&p, &st.id).contains(&"cap_reached".to_string()));
-        let stop = AtomicBool::new(true);
+        let stop = Stop::default();
+        stop.request("console window closed");
+        stop.request("Ctrl+C"); // the first reason wins
         w.cap = None;
         assert_eq!(supervise(&p, &st, &mut w, &stop).unwrap(), Outcome::Stopped);
+        let last = read_events(&p, &st.id).unwrap().pop().unwrap();
+        assert_eq!(last["event"], "stopped");
+        assert_eq!(last["detail"], "console window closed");
+    }
+
+    /// A supervisor killed without notice (sign-out, power loss): the next start records one
+    /// `abnormal_end` with the last heartbeat before anything else, and only once.
+    #[test]
+    fn dead_session_gets_one_abnormal_end_with_its_last_heartbeat() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let Start::New(st) = open_or_resume(&p, &req(SessionMode::Dryrun, 8 * 3600), T0).unwrap()
+        else {
+            panic!("new")
+        };
+        event(&p, &st.id, T0 + 1, "run_start", json!({"run": 1})).unwrap();
+        let hb = T0 + 2_551; // last heartbeat 42 min in, then the process is gone
+        std::fs::write(p.heartbeat(&st.id), hb.to_string()).unwrap();
+        // still within DOWN_AFTER_SECS: it may be running, so nothing is written
+        assert!(record_abnormal_end(&p, hb + 60).unwrap().is_none());
+        assert_eq!(
+            maybe_running(&p, hb + 60).unwrap(),
+            Some((st.id.clone(), 60))
+        );
+        let later = hb + 11 * 3600;
+        assert_eq!(maybe_running(&p, later).unwrap(), None);
+        let ev = record_abnormal_end(&p, later).unwrap().unwrap();
+        assert_eq!(ev["last_heartbeat"], utc(hb));
+        assert_eq!(ev["last_event"], "run_start");
+        assert!(
+            record_abnormal_end(&p, later + 5).unwrap().is_none(),
+            "recorded once"
+        );
+        let all = read_events(&p, &st.id).unwrap();
+        let last = all.last().unwrap();
+        assert_eq!(last["event"], "abnormal_end");
+        assert_eq!(last["ts"], utc(later));
+        assert!(last["last_heartbeat"].as_str().unwrap().ends_with('Z'));
+        // --reset afterwards closes it; the run data is not touched
+        assert_eq!(reset(&p, later + 10).unwrap(), Some(st.id.clone()));
+        assert!(p.dir(&st.id).join("state.json").exists() && !p.open().exists());
+    }
+
+    #[test]
+    fn orderly_stop_is_not_abnormal() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let Start::New(st) = open_or_resume(&p, &req(SessionMode::Dryrun, 3600), T0).unwrap()
+        else {
+            panic!("new")
+        };
+        event(&p, &st.id, T0 + 5, "stopped", json!({"detail": "Ctrl+C"})).unwrap();
+        std::fs::write(p.heartbeat(&st.id), (T0 + 5).to_string()).unwrap();
+        assert!(record_abnormal_end(&p, T0 + 5_000).unwrap().is_none());
+        assert_eq!(
+            maybe_running(&p, T0 + 10).unwrap(),
+            None,
+            "stopped: not running"
+        );
+        // no heartbeat at all (killed in its first seconds): still recorded
+        let dir2 = tempfile::tempdir().unwrap();
+        let p2 = Paths::new(dir2.path());
+        let Start::New(st2) = open_or_resume(&p2, &req(SessionMode::Dryrun, 3600), T0).unwrap()
+        else {
+            panic!("new")
+        };
+        let ev = record_abnormal_end(&p2, T0 + 100).unwrap().unwrap();
+        assert!(ev["last_heartbeat"].is_null());
+        assert_eq!(ev["last_event"], "start");
+        assert_eq!(read_events(&p2, &st2.id).unwrap().len(), 2);
     }
 
     #[test]
