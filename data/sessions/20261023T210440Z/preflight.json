@@ -1,0 +1,42 @@
+{
+  "host": {
+    "arch": "x86_64",
+    "machine_id": "5efa0640ec933a8f",
+    "os": "windows",
+    "os_build": "10.0.17763.9376",
+    "platform": "unregistered",
+    "sender_sha256": "b29c5229c22196b59f9a40a08da7a6616634ebd4d3efd92f0b270d58d792616c"
+  },
+  "info": {
+    "clock": {
+      "local_minus_server_ms": -33.73265266418457,
+      "round_trip_ms": 2.834796905517578,
+      "server": "time.cloudflare.com"
+    },
+    "hibernate_after_secs": {
+      "ac": 0,
+      "dc": 0
+    },
+    "memory": {
+      "available_bytes": 3219099648,
+      "total_bytes": 8539340800
+    },
+    "network": {
+      "description": "TP-Link Wireless USB Adapter",
+      "if_type": 71,
+      "name": "Беспроводная сеть",
+      "wifi": true
+    },
+    "platform": null,
+    "restart_pending": [],
+    "sleep_after_secs": {
+      "ac": 0,
+      "dc": 0
+    }
+  },
+  "ts": "2026-10-23T21:04:41Z",
+  "warnings": [
+    "network: the default route uses Wi-Fi (TP-Link Wireless USB Adapter); Ethernet gives steadier send timing",
+    "platform: SLWLAB_PLATFORM is not set (required for calibration and confirmatory sessions)"
+  ]
+}
