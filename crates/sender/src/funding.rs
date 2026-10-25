@@ -429,44 +429,80 @@ pub fn recommended_payer_target(payers: usize, rent_min: u64, required: u64, bud
     (rent_min + budget.div_ceil(n) + worst_fee).max(required)
 }
 
-/// Pre-flight for a live run or session: every payer can send one transaction, and the
-/// lamports the payers can spend (balance minus rent-exempt minimum) cover the planned spend
-/// `budget`. The error names the `fund` command that fixes it.
+/// A live start the payers cannot carry. The worker exits with `session::EXIT_FINAL` on it, and
+/// the supervisor ends the session instead of restarting a worker that would refuse again.
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+pub struct PayersInsufficient(pub String);
+
+/// Fewest payers that must each hold `required` lamports: a window sends N = 6 txs from N
+/// distinct payers, and payers with unresolved txs are busy, so twice that is the floor.
+pub const MIN_USABLE_PAYERS: usize = 12;
+
+/// What the pre-flight found; `poor` payers are skipped by the payer pool, not refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PayerCheck {
+    pub usable: usize,
+    pub poor: Vec<(String, u64)>,
+}
+
+impl PayerCheck {
+    pub fn warning(&self, required: u64) -> Option<String> {
+        (!self.poor.is_empty()).then(|| {
+            format!(
+                "{} of {} payers hold less than {required} lamports (rent-exempt minimum + worst-case fee) \
+                 and are skipped by the payer pool: {}",
+                self.poor.len(),
+                self.usable + self.poor.len(),
+                self.poor
+                    .iter()
+                    .map(|(k, b)| format!("{k} ({b})"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })
+    }
+}
+
+/// Pre-flight for a live run or session. It refuses (with [`PayersInsufficient`]) only when
+/// fewer than [`MIN_USABLE_PAYERS`] payers can send a transaction (balance >= `required`), or
+/// when the usable payers cannot spend `budget` (balance minus the rent-exempt minimum); the
+/// payer pool skips the poor ones anyway, so they are reported, not refused. The error names the
+/// `fund` command that fixes it.
 pub fn preflight_payers(
     balances: &[(String, u64)],
     rent_min: u64,
     required: u64,
     budget: u64,
-) -> Result<()> {
-    check_payers_funded(balances, required)?;
-    let spendable: u64 = balances
-        .iter()
-        .map(|(_, b)| b.saturating_sub(rent_min))
-        .sum();
-    ensure!(
-        spendable >= budget,
-        "the {} payers can spend {spendable} lamports (balance minus the {rent_min} rent-exempt minimum) but this run plans to spend up to {budget}. Fund them first: `sender fund --payer-target-lamports {}` (with --live, CONFIRM_LIVE=yes and --max-spend-lamports)",
-        balances.len(),
-        recommended_payer_target(balances.len(), rent_min, required, budget)
-    );
-    Ok(())
+) -> Result<PayerCheck> {
+    let (ok, poor): (Vec<_>, Vec<_>) = balances.iter().cloned().partition(|(_, b)| *b >= required);
+    let fix = recommended_payer_target(balances.len(), rent_min, required, budget);
+    if ok.len() < MIN_USABLE_PAYERS {
+        return Err(PayersInsufficient(format!(
+            "only {} of {} payers hold the required {required} lamports (rent-exempt minimum + worst-case fee); at least {MIN_USABLE_PAYERS} are needed. Fund them first: `sender fund --payer-target-lamports {fix}` (with --live, CONFIRM_LIVE=yes and --max-spend-lamports)",
+            ok.len(),
+            balances.len()
+        ))
+        .into());
+    }
+    let spendable: u64 = ok.iter().map(|(_, b)| b.saturating_sub(rent_min)).sum();
+    if spendable < budget {
+        return Err(PayersInsufficient(format!(
+            "the {} usable payers can spend {spendable} lamports (balance minus the {rent_min} rent-exempt minimum) but this run plans to spend up to {budget}. Fund them first: `sender fund --payer-target-lamports {fix}` (with --live, CONFIRM_LIVE=yes and --max-spend-lamports)",
+            ok.len()
+        ))
+        .into());
+    }
+    Ok(PayerCheck {
+        usable: ok.len(),
+        poor,
+    })
 }
 
-/// Refuse to start when any payer holds less than `required`.
-pub fn check_payers_funded(balances: &[(String, u64)], required: u64) -> Result<()> {
-    let low: Vec<String> = balances
-        .iter()
-        .filter(|(_, b)| *b < required)
-        .map(|(k, b)| format!("{k} ({b})"))
-        .collect();
-    ensure!(
-        low.is_empty(),
-        "{} of {} payers hold less than the required {required} lamports (rent-exempt minimum + worst-case fee): {}. Run `sender fund`.",
-        low.len(),
-        balances.len(),
-        low.join(", ")
-    );
-    Ok(())
+/// Worst-case fee of one transaction of any arm (what `required_payer_balance` adds to the
+/// rent-exempt minimum), times the txs of one window: an upper bound of a window's cost.
+pub fn worst_window_cost(lps: u64, cfg: &crate::arms::ArmConfig) -> u64 {
+    required_payer_balance(lps, 0, cfg) * cfg.n as u64
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -939,35 +975,68 @@ mod tests {
         let mut short = exact.clone();
         short[0].1 -= 1;
         assert!(preflight_payers(&short, rent, required, 5_000_000).is_err());
-        // a zero budget needs only the per-payer minimum
+        // a zero budget needs only the usable payers
         assert!(preflight_payers(&funded(required), rent, required, 0).is_ok());
-        // the per-payer check still comes first
-        let mut one_empty = funded(2_000_000);
-        one_empty[3].1 = 0;
-        let e = preflight_payers(&one_empty, rent, required, 1_000)
-            .unwrap_err()
-            .to_string();
-        assert!(e.contains("1 of 32 payers") && e.contains("P3"), "{e}");
     }
 
     #[test]
-    fn payer_preflight_names_every_underfunded_payer() {
-        let required = required_payer_balance(5_000, 650_240, &crate::arms::ArmConfig::default());
-        // dearest arm: R, 200_000 micro-lamports x 8_000 CU = 1_600 on top of the base fee
-        assert_eq!(required, 650_240 + 5_000 + 1_600);
-        let ok = vec![("P1".to_string(), required), ("P2".to_string(), 700_000)];
-        assert!(check_payers_funded(&ok, required).is_ok());
-        let bad = vec![
-            ("P1".to_string(), required),
-            ("P2".to_string(), required - 1),
-            ("P3".to_string(), 0),
-        ];
-        let e = check_payers_funded(&bad, required).unwrap_err().to_string();
+    fn poor_payers_are_warned_about_not_refused() {
+        let (rent, required) = (650_240, 656_840);
+        // the 10-25 calibration end state: 5 of 32 payers a few hundred lamports under the floor
+        let mut b: Vec<(String, u64)> = (0..32).map(|i| (format!("P{i}"), 953_715)).collect();
+        for p in b.iter_mut().take(5) {
+            p.1 = 655_298;
+        }
+        let c = preflight_payers(&b, rent, required, 4_000_000).unwrap();
+        assert_eq!((c.usable, c.poor.len()), (27, 5));
+        let w = c.warning(required).unwrap();
         assert!(
-            e.contains("2 of 3 payers") && e.contains("P2") && e.contains("P3"),
-            "{e}"
+            w.contains("5 of 32 payers") && w.contains("P0 (655298)"),
+            "{w}"
         );
-        assert!(!e.contains("P1"), "{e}");
+        // 20 of 32 poor: the 12 usable payers still carry a run that fits their balances
+        let mut b: Vec<(String, u64)> = (0..32).map(|i| (format!("P{i}"), 953_715)).collect();
+        for p in b.iter_mut().take(20) {
+            p.1 = 0;
+        }
+        let c = preflight_payers(&b, rent, required, 12 * 300_000).unwrap();
+        assert_eq!((c.usable, c.poor.len()), (12, 20));
+        // ... but not a run that needs more than they can spend
+        let e = preflight_payers(&b, rent, required, 12 * 303_476 + 1).unwrap_err();
+        assert!(e.downcast_ref::<PayersInsufficient>().is_some(), "{e}");
+    }
+
+    #[test]
+    fn fewer_than_twelve_usable_payers_refuse_with_the_final_error() {
+        let (rent, required) = (650_240, 656_840);
+        let mut b: Vec<(String, u64)> = (0..32).map(|i| (format!("P{i}"), 953_715)).collect();
+        for p in b.iter_mut().take(21) {
+            p.1 = required - 1;
+        }
+        let e = preflight_payers(&b, rent, required, 1_000).unwrap_err();
+        let m = e.to_string();
+        assert!(
+            e.downcast_ref::<PayersInsufficient>().is_some(),
+            "the supervisor keys on this type: {m}"
+        );
+        assert!(
+            m.contains("only 11 of 32 payers") && m.contains("at least 12"),
+            "{m}"
+        );
+        assert!(m.contains("`sender fund --payer-target-lamports"), "{m}");
+        assert_eq!(MIN_USABLE_PAYERS, 12);
+    }
+
+    #[test]
+    fn worst_window_cost_bounds_every_arm() {
+        let cfg = crate::arms::ArmConfig::default();
+        // dearest arm R: 200_000 micro-lamports x 8_000 CU = 1_600 on top of the 5,000 base fee
+        assert_eq!(
+            required_payer_balance(5_000, 650_240, &cfg),
+            650_240 + 5_000 + 1_600
+        );
+        // 6 txs per window
+        assert_eq!(worst_window_cost(5_000, &cfg), 6 * 6_600);
     }
 
     #[test]

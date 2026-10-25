@@ -46,6 +46,9 @@ pub const MIN_LEFT_SECS: i64 = 120;
 pub const DOWN_AFTER_SECS: i64 = 90;
 pub const HEARTBEAT_SECS: u64 = 30;
 pub const RESTART_PAUSE_SECS: u64 = 30;
+/// Exit code of a worker that refused to start for a reason a restart cannot change (too few
+/// funded payers). The supervisor ends the session on it instead of restarting the worker.
+pub const EXIT_FINAL: i32 = 3;
 /// An hour is THIN when less than this share of the session's part of it was covered.
 pub const THIN_SHARE: f64 = 0.5;
 
@@ -271,6 +274,18 @@ pub fn worker_args(st: &SessionState, left_secs: i64, cap_left: Option<u64>) -> 
             "--max-spend-lamports".into(),
             cap_left.unwrap_or(0).to_string(),
         ]);
+        // Pacing comes from the session (fixed start, end and whole cap), never from this
+        // worker's start, so a restarted worker continues the same curve (planner::Pace).
+        if let Some(cap) = st.max_spend_lamports {
+            a.extend([
+                "--pace-start-unix".into(),
+                st.start_unix.to_string(),
+                "--pace-end-unix".into(),
+                st.end_unix.to_string(),
+                "--pace-cap-lamports".into(),
+                cap.to_string(),
+            ]);
+        }
         if !st.offsets.is_empty() {
             let o: Vec<String> = st.offsets.iter().map(i64::to_string).collect();
             a.extend(["--offsets".into(), o.join(",")]);
@@ -452,6 +467,11 @@ pub trait Worker {
     fn cap_left(&mut self) -> Result<Option<u64>> {
         Ok(None)
     }
+    /// Live: worst-case cost of one window. A session whose `cap_left` is below it cannot send
+    /// another window; 0 = unknown (dry-run).
+    fn window_cost_bound(&self) -> u64 {
+        0
+    }
     fn now(&self) -> i64 {
         chrono::Utc::now().timestamp()
     }
@@ -521,6 +541,33 @@ pub fn supervise(p: &Paths, st: &SessionState, w: &mut dyn Worker, stop: &Stop) 
         if stop.is_set() {
             event(p, &st.id, t1, "stopped", json!({"detail": stop.reason()}))?;
             return Ok(Outcome::Stopped);
+        }
+        if code == EXIT_FINAL {
+            event(
+                p,
+                &st.id,
+                t1,
+                "worker_refused",
+                json!({"exit_code": code,
+                       "detail": "the worker refused to start (too few funded payers); not restarted. Fund the payers, then start a new session"}),
+            )?;
+            return Ok(Outcome::Done);
+        }
+        if code == 0
+            && st.mode.is_live()
+            && let Some(cap) = w.cap_left()?
+            && cap < w.window_cost_bound()
+        {
+            // The worker ended normally and less than one window can still be sent: a
+            // restarted worker could only plan nothing (or refuse at its start-up check).
+            event(
+                p,
+                &st.id,
+                t1,
+                "cap_reached",
+                json!({"cap_left": cap, "window_cost_bound": w.window_cost_bound()}),
+            )?;
+            return Ok(Outcome::Done);
         }
         if code != 0 {
             let resumed = w.pause(RESTART_PAUSE_SECS, stop.flag());
@@ -622,6 +669,46 @@ pub fn session_runs(data_root: &Path, st: &SessionState) -> Vec<PathBuf> {
     out
 }
 
+/// Skip counts per reason, summed over the `summary.json` of the session's runs (digits in a
+/// reason are folded to `#`, as in the run summary). Windows skipped at planning and at
+/// execution are both in there.
+fn skips_by_reason(runs: &[PathBuf]) -> std::collections::BTreeMap<String, u64> {
+    let mut out = std::collections::BTreeMap::new();
+    for d in runs {
+        let Ok(b) = std::fs::read(d.join("summary.json")) else {
+            continue;
+        };
+        let Ok(v) = serde_json::from_slice::<Value>(&b) else {
+            continue;
+        };
+        for (k, n) in v["skips"].as_object().into_iter().flatten() {
+            *out.entry(k.clone()).or_insert(0) += n.as_u64().unwrap_or(0);
+        }
+    }
+    out
+}
+
+/// Lamports reserved in the ledger per UTC hour (key: hour start, unix seconds) during the
+/// session, calibrate and measure only. It is the basis of the spend cap and of the pacing
+/// (an upper bound: expired reservations count).
+fn reserved_by_hour(ledger: &Path, st: &SessionState) -> std::collections::BTreeMap<i64, u64> {
+    let mut out = std::collections::BTreeMap::new();
+    let entries: Vec<Value> = collect::read_jsonl(ledger).unwrap_or_default();
+    for e in entries.iter().filter(|e| e["kind"] == "reserve") {
+        if !matches!(e["purpose"].as_str(), Some("calibrate" | "measure")) {
+            continue;
+        }
+        let Some(t) = e["ts"].as_str().and_then(parse_utc) else {
+            continue;
+        };
+        if t < st.start_unix || t > st.end_unix + 3600 {
+            continue;
+        }
+        *out.entry(t - t.rem_euclid(3600)).or_insert(0) += e["amount"].as_u64().unwrap_or(0);
+    }
+    out
+}
+
 /// Coverage by UTC hour from the session's events and runs. Hours without coverage stay in the
 /// table with zero seconds and flag GAP; nothing is interpolated.
 pub fn coverage(p: &Paths, data_root: &Path, st: &SessionState) -> Result<Value> {
@@ -654,6 +741,8 @@ pub fn coverage(p: &Paths, data_root: &Path, st: &SessionState) -> Result<Value>
             ));
         }
     }
+    let skips = skips_by_reason(&runs);
+    let reserved = reserved_by_hour(&data_root.join("ledger.jsonl"), st);
     let covered = subtract(
         &union(worker.clone()),
         &run_gaps.iter().map(|g| (g.1, g.2)).collect::<Vec<_>>(),
@@ -697,6 +786,7 @@ pub fn coverage(p: &Paths, data_root: &Path, st: &SessionState) -> Result<Value>
             "hour_utc": key, "session_secs": span, "covered_secs": cov, "blind_secs": blind,
             "windows_executed": c.map(|c| c["windows_executed"].clone()).unwrap_or(json!(0)),
             "windows_skipped": c.map(|c| c["windows_skipped"].clone()).unwrap_or(json!(0)),
+            "reserved_lamports": reserved.get(&h0).copied().unwrap_or(0),
             "clock_err": c.map(|c| c["err"].clone()).unwrap_or(Value::Null),
             "flag": flag,
         }));
@@ -710,6 +800,9 @@ pub fn coverage(p: &Paths, data_root: &Path, st: &SessionState) -> Result<Value>
                    window-start prediction error at prep time (see sender clock-report).",
         "runs": runs.iter().filter_map(|d| d.file_name()?.to_str().map(str::to_string)).collect::<Vec<_>>(),
         "covered_secs_total": overlap(&covered, st.start_unix, st.end_unix),
+        "reserved_lamports_total": reserved.values().sum::<u64>(),
+        "max_spend_lamports": st.max_spend_lamports,
+        "skips_by_reason": skips,
         "network": std::fs::read(p.dir(&st.id).join("network.json"))
             .ok()
             .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
@@ -722,8 +815,8 @@ pub fn coverage_md(c: &Value) -> String {
     let mut s = format!(
         "# Session {} ({}) coverage by UTC hour (EXPLORATORY)\n\n{} to {}. Covered {:.1} h. \
          Hours flagged GAP had no coverage; nothing is filled.\n\n\
-         | hour (UTC) | session min | covered min | blind (min, by kind) | windows | median abs clock err (ms) | flag |\n\
-         |---|---|---|---|---|---|---|\n",
+         | hour (UTC) | session min | covered min | blind (min, by kind) | windows | reserved lamports | median abs clock err (ms) | flag |\n\
+         |---|---|---|---|---|---|---|---|\n",
         c["session"].as_str().unwrap_or(""),
         c["mode"].as_str().unwrap_or(""),
         c["start"].as_str().unwrap_or(""),
@@ -745,15 +838,35 @@ pub fn coverage_md(c: &Value) -> String {
             .map(|x| format!("{x:.0}"))
             .unwrap_or_else(|| "–".into());
         s += &format!(
-            "| {} | {:.0} | {:.0} | {} | {} | {} | {} |\n",
+            "| {} | {:.0} | {:.0} | {} | {} | {} | {} | {} |\n",
             h["hour_utc"].as_str().unwrap_or(""),
             h["session_secs"].as_f64().unwrap_or(0.0) / 60.0,
             h["covered_secs"].as_f64().unwrap_or(0.0) / 60.0,
             blind,
             h["windows_executed"],
+            h["reserved_lamports"],
             err,
             h["flag"].as_str().unwrap_or("")
         );
+    }
+    s += &format!(
+        "\nReserved in the ledger during the session: {} lamports (cap {}). Per hour above; expired \
+         reservations count, so this is an upper bound of the fees paid.\n",
+        c["reserved_lamports_total"],
+        c["max_spend_lamports"]
+            .as_u64()
+            .map_or("none".to_string(), |x| x.to_string()),
+    );
+    if let Some(m) = c["skips_by_reason"].as_object().filter(|m| !m.is_empty()) {
+        s += "\n## Windows skipped, by reason\n\n| reason | count |\n|---|---|\n";
+        let mut rows: Vec<(&String, u64)> = m
+            .iter()
+            .map(|(k, v)| (k, v.as_u64().unwrap_or(0)))
+            .collect();
+        rows.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+        for (k, n) in rows {
+            s += &format!("| {k} | {n} |\n");
+        }
     }
     s + &network_md(&c["network"])
 }
@@ -853,6 +966,7 @@ mod tests {
         runs: Vec<i64>,
         collects: usize,
         cap: Option<u64>,
+        bound: u64,
     }
 
     impl Worker for Fake<'_> {
@@ -874,6 +988,9 @@ mod tests {
         }
         fn cap_left(&mut self) -> Result<Option<u64>> {
             Ok(self.cap)
+        }
+        fn window_cost_bound(&self) -> u64 {
+            self.bound
         }
         fn now(&self) -> i64 {
             self.clock.get()
@@ -901,7 +1018,9 @@ mod tests {
             s,
             concat!(
                 "live --purpose calibrate --duration-secs 1800 ",
-                "--max-spend-lamports 4000000 --offsets -300,-100,0,100"
+                "--max-spend-lamports 4000000 ",
+                "--pace-start-unix 1792828800 --pace-end-unix 1792832400 ",
+                "--pace-cap-lamports 1000000 --offsets -300,-100,0,100"
             )
         );
         // a dry-run session sends nothing live: no cap, no offsets
@@ -915,6 +1034,108 @@ mod tests {
             worker_args(&d, 60, None).join(" "),
             "dry-run --duration-secs 60"
         );
+    }
+
+    #[test]
+    fn worker_exit_zero_with_less_than_one_window_left_ends_the_session() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let clock = Cell::new(T0);
+        let Start::New(st) =
+            open_or_resume(&p, &req(SessionMode::Calibrate, 3 * 3600), T0).unwrap()
+        else {
+            panic!()
+        };
+        // the worker ends normally after 20 min with 30,000 lamports left; one window can cost
+        // up to 39,600: no restart, the session is done
+        let mut w = Fake {
+            clock: &clock,
+            codes: vec![0],
+            run_secs: 1200,
+            runs: vec![],
+            collects: 0,
+            cap: Some(30_000),
+            bound: 39_600,
+        };
+        assert!(matches!(
+            supervise(&p, &st, &mut w, &Stop::default()).unwrap(),
+            Outcome::Done
+        ));
+        assert_eq!(w.runs.len(), 1, "no restart: {:?}", w.runs);
+        let ev = events(&p, &st.id);
+        assert!(ev.contains(&"cap_reached".to_string()), "{ev:?}");
+        assert!(!ev.contains(&"worker_down".to_string()), "{ev:?}");
+        // with enough left, a worker that ends normally is started again for the time left
+        let clock = Cell::new(T0);
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let Start::New(st) =
+            open_or_resume(&p, &req(SessionMode::Calibrate, 3 * 3600), T0).unwrap()
+        else {
+            panic!()
+        };
+        let mut w = Fake {
+            clock: &clock,
+            codes: vec![0, 0],
+            run_secs: 3600,
+            runs: vec![],
+            collects: 0,
+            cap: Some(500_000),
+            bound: 39_600,
+        };
+        supervise(&p, &st, &mut w, &Stop::default()).unwrap();
+        assert!(w.runs.len() >= 2, "{:?}", w.runs);
+    }
+
+    #[test]
+    fn a_refusing_worker_is_never_restarted() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let clock = Cell::new(T0);
+        let Start::New(st) =
+            open_or_resume(&p, &req(SessionMode::Calibrate, 3 * 3600), T0).unwrap()
+        else {
+            panic!()
+        };
+        // every start would be refused with the final code: exactly one start, no pause loop
+        let mut w = Fake {
+            clock: &clock,
+            codes: vec![EXIT_FINAL; 50],
+            run_secs: 1,
+            runs: vec![],
+            collects: 0,
+            cap: Some(500_000),
+            bound: 39_600,
+        };
+        assert!(matches!(
+            supervise(&p, &st, &mut w, &Stop::default()).unwrap(),
+            Outcome::Done
+        ));
+        assert_eq!(w.runs.len(), 1, "{:?}", w.runs);
+        assert_eq!(w.collects, 0);
+        let ev = events(&p, &st.id);
+        assert!(ev.contains(&"worker_refused".to_string()), "{ev:?}");
+        assert!(!ev.contains(&"worker_down".to_string()), "{ev:?}");
+        assert_eq!(clock.get(), T0 + 1, "no restart pause");
+        // an ordinary crash (exit 1) is still restarted after the pause
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let clock = Cell::new(T0);
+        let Start::New(st) = open_or_resume(&p, &req(SessionMode::Calibrate, 3600), T0).unwrap()
+        else {
+            panic!()
+        };
+        let mut w = Fake {
+            clock: &clock,
+            codes: vec![1, 1],
+            run_secs: 10,
+            runs: vec![],
+            collects: 0,
+            cap: Some(500_000),
+            bound: 0,
+        };
+        supervise(&p, &st, &mut w, &Stop::default()).unwrap();
+        assert!(w.runs.len() > 2);
     }
 
     fn events(p: &Paths, id: &str) -> Vec<String> {
@@ -944,6 +1165,7 @@ mod tests {
             runs: vec![],
             collects: 0,
             cap: None,
+            bound: 0,
         };
         let stop = Stop::default();
         // emulate the power loss: run one crash cycle and one more run by hand
@@ -1023,6 +1245,7 @@ mod tests {
             runs: vec![],
             collects: 0,
             cap: None,
+            bound: 0,
         };
         assert_eq!(
             supervise(&p, &st, &mut w, &Stop::default()).unwrap(),
@@ -1051,6 +1274,7 @@ mod tests {
             runs: vec![],
             collects: 0,
             cap: Some(500),
+            bound: 0,
         };
         supervise(&p, &st, &mut w, &Stop::default()).unwrap();
         assert_eq!(
@@ -1087,6 +1311,7 @@ mod tests {
             runs: vec![],
             collects: 0,
             cap: Some(0),
+            bound: 0,
         };
         assert_eq!(
             supervise(&p, &st, &mut w, &Stop::default()).unwrap(),
@@ -1194,6 +1419,74 @@ mod tests {
         .unwrap();
         assert_eq!(reserved_since(&ledger, T0).unwrap(), 500);
     }
+    #[test]
+    fn coverage_reports_skips_by_reason_and_reserved_lamports_per_hour() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let p = Paths::new(root);
+        let Start::New(st) =
+            open_or_resume(&p, &req(SessionMode::Calibrate, 3 * 3600), T0).unwrap()
+        else {
+            panic!()
+        };
+        for (off, skips) in [
+            (
+                5,
+                r#"{"pacing: # + # > # (plus one window)": 40, "planning budget: # + # > #": 2}"#,
+            ),
+            (4000, r#"{"pacing: # + # > # (plus one window)": 10}"#),
+        ] {
+            let d = root.join("logs").join(format!("live-{}", stamp(T0 + off)));
+            std::fs::create_dir_all(&d).unwrap();
+            std::fs::write(d.join("summary.json"), format!(r#"{{"skips": {skips}}}"#)).unwrap();
+        }
+        std::fs::write(
+            root.join("ledger.jsonl"),
+            concat!(
+                r#"{"kind":"reserve","purpose":"calibrate","amount":1000,"ts":"2026-10-24T08:10:00Z"}"#,
+                "
+",
+                r#"{"kind":"reserve","purpose":"calibrate","amount":500,"ts":"2026-10-24T08:50:00Z"}"#,
+                "
+",
+                r#"{"kind":"reserve","purpose":"calibrate","amount":2000,"ts":"2026-10-24T09:30:00Z"}"#,
+                "
+",
+                r#"{"kind":"reserve","purpose":"fund","amount":9999,"ts":"2026-10-24T09:31:00Z"}"#,
+                "
+",
+                r#"{"kind":"landed","fee":50,"ts":"2026-10-24T09:32:00Z"}"#,
+                "
+",
+                r#"{"kind":"reserve","purpose":"calibrate","amount":7,"ts":"2026-10-24T06:00:00Z"}"#,
+                "
+"
+            ),
+        )
+        .unwrap();
+        let c = coverage(&p, root, &st).unwrap();
+        assert_eq!(
+            c["skips_by_reason"]["pacing: # + # > # (plus one window)"], 50,
+            "{c}"
+        );
+        assert_eq!(c["skips_by_reason"]["planning budget: # + # > #"], 2);
+        let h = c["hours"].as_array().unwrap();
+        assert_eq!(h[0]["reserved_lamports"], 1500, "08:00 hour");
+        assert_eq!(h[1]["reserved_lamports"], 2000, "09:00 hour, fund excluded");
+        assert_eq!(h[2]["reserved_lamports"], 0);
+        assert_eq!(c["reserved_lamports_total"], 3500);
+        let md = coverage_md(&c);
+        assert!(
+            md.contains("reserved lamports") && md.contains("| 1500 |"),
+            "{md}"
+        );
+        assert!(md.contains("Windows skipped, by reason"), "{md}");
+        assert!(
+            md.contains("| pacing: # + # > # (plus one window) | 50 |"),
+            "{md}"
+        );
+    }
+
     #[test]
     fn network_section_in_the_coverage_report() {
         // no record: a stated absence, not a missing section

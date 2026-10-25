@@ -172,6 +172,14 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
   left, and restarts it 30 s after a crash. A live worker is followed by `sender collect`
   before the restart, and each live worker may reserve only the session cap minus everything
   reserved since the session started;
+- **spend pacing** (live sessions): cumulative reserved spend may not run ahead of the straight
+  line from 0 at the session's start to its `--max-spend-lamports` at the session's end, plus one
+  window (`planner.rs` `Pace`; skip reason `pacing`). The line comes from the session (fixed start,
+  end and cap, handed to every worker as `--pace-*`) and the ledger (lamports reserved since the
+  session start), never from a worker's own start, so a restarted worker continues the same curve.
+  Without it the whole budget is spent in the first minutes (calibration 2026-10-25: 4.7M in 23
+  minutes of a 3 h session). When a worker ends normally and less than the worst-case cost of one
+  window is left, the session ends as done (event `cap_reached`);
 - **gaps with UTC timestamps**, never filled (`data/sessions/<id>/events.jsonl`): `down` (the
   supervisor was not running: crash, power loss, reboot), `worker_down` (restart pause),
   `stopped` (Ctrl+C, console close, shutdown), `console_close` / `shutdown` (written the moment
@@ -216,8 +224,9 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
   Unfunded dry-run payers give `AccountNotFound`, so the real numbers come from funded (devnet,
   calibration) runs; a live run stops if usage reaches the CU or the 32 KiB loaded-data limit;
 - **coverage by UTC hour** at the end (`data/sessions/<id>/coverage.{json,md}`): seconds with a
-  running worker minus its gaps, gap seconds by kind, windows and clock error per hour; hours
-  with no coverage are flagged GAP.
+  running worker minus its gaps, gap seconds by kind, windows, lamports reserved in the ledger
+  and clock error per hour, and the skip counts per reason of the session's runs; hours with no
+  coverage are flagged GAP.
 
 The binary is the same file for the whole session (Windows keeps a running executable locked,
 so a rebuild fails until the session ends), and its hash is in the session header and in every
@@ -249,9 +258,14 @@ it. A target of 700,000 leaves ≈ 49,760 per payer: ≈ 9 transactions, so 32 p
 48 windows, nowhere near a budget of millions. So `live` and `session --mode calibrate|measure`
 check **before they start**, and refuse to start if either fails:
 
-1. every payer holds at least rent minimum + the worst-case fee of one transaction;
-2. the lamports all payers can spend (Σ balance − rent minimum) are at least the run's planned
+1. at least 12 payers hold rent minimum + the worst-case fee of one transaction (a window needs
+   6 distinct payers, and payers with unresolved txs are busy). Poorer payers are reported as a
+   warning and skipped by the payer pool, not refused;
+2. the lamports those payers can spend (Σ balance − rent minimum) are at least the run's planned
    spend: its budget, which is the purpose's remaining budget capped by `--max-spend-lamports`.
+
+A refusal exits with code 3 (`session::EXIT_FINAL`): a supervisor never restarts a worker that
+ended that way (event `worker_refused`).
 
 The error prints the command that fixes it, `sender fund --payer-target-lamports N`, with
 

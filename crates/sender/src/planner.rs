@@ -10,6 +10,31 @@ use slwlab_common::guard;
 use slwlab_common::limits::PLANNED_SPEND_BUDGET_LAMPORTS;
 use std::collections::{BTreeMap, HashMap};
 
+/// Spend pacing for a live session: cumulative spend may not run ahead of the straight line
+/// from 0 at the session's start to its cap at the session's end (plus one window). All of it
+/// comes from the session (fixed start, end and cap) and the ledger (`spent_before`: lamports
+/// reserved since the session started), never from the start of the worker, so a restarted
+/// worker continues the same curve.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Pace {
+    pub start_unix: i64,
+    pub end_unix: i64,
+    /// The whole session's spend cap (`--max-spend-lamports` of the session), not what is left.
+    pub cap_lamports: u64,
+    /// Reserved in the ledger since `start_unix`, by earlier workers of this session and by
+    /// this one before it started.
+    pub spent_before: u64,
+}
+
+impl Pace {
+    /// Cumulative spend allowed at `at_unix_ns` on the straight line.
+    pub fn allowed(&self, at_unix_ns: i128) -> u64 {
+        let len = i128::from((self.end_unix - self.start_unix).max(1)) * 1_000_000_000;
+        let done = (at_unix_ns - i128::from(self.start_unix) * 1_000_000_000).clamp(0, len);
+        (i128::from(self.cap_lamports) * done / len) as u64
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanConfig {
     pub campaign_seed: u64,
@@ -35,6 +60,10 @@ pub struct PlanConfig {
     /// longer planned. When unset, arms rotate in balanced blocks (dry-runs, calibration).
     #[serde(default)]
     pub quotas: Option<BTreeMap<String, BTreeMap<Arm, usize>>>,
+    /// Live sessions only: spend over time (see [`Pace`]). None = no pacing (dry-runs, a bare
+    /// `live` run).
+    #[serde(default)]
+    pub pace: Option<Pace>,
 }
 
 impl Default for PlanConfig {
@@ -52,6 +81,7 @@ impl Default for PlanConfig {
             arm_cfg: ArmConfig::default(),
             mainnet_guard: true,
             quotas: None,
+            pace: None,
         }
     }
 }
@@ -274,6 +304,18 @@ pub fn plan_windows(
                 state.spent, cfg.budget_lamports
             )));
             continue;
+        }
+        if let Some(p) = &cfg.pace {
+            // One window of slack: the first window of a session starts at once, and the curve
+            // never runs more than one window ahead.
+            let allowed = p.allowed(send_at);
+            if p.spent_before + state.spent + cost > allowed + cost {
+                skips.push(skip(format!(
+                    "pacing: {} + {cost} > {allowed} (plus one window)",
+                    p.spent_before + state.spent
+                )));
+                continue;
+            }
         }
         state.spent += cost;
         state.per_validator.insert(leader.clone(), k + 1);
@@ -570,5 +612,173 @@ mod tests {
             serde_json::to_string(&a).unwrap(),
             serde_json::to_string(&b).unwrap()
         );
+    }
+
+    // ---- pacing -------------------------------------------------------------------------
+
+    const SESSION_START_NS: i128 = 1_000_000_000_000_000_000; // fit().t0_ns
+    const FIRST_SLOT: u64 = 460_100_000;
+
+    /// A dense schedule: the target leads one 4-slot window out of two, for `slots` slots.
+    fn dense(first: u64, slots: u64) -> Vec<String> {
+        leaders(first, &["tgt", "x"], (slots / 8) as usize)
+    }
+
+    fn paced_cfg(budget: u64, hours: i64, spent_before: u64) -> PlanConfig {
+        PlanConfig {
+            campaign_seed: 5,
+            mainnet_guard: false,
+            budget_lamports: budget,
+            pace: Some(Pace {
+                start_unix: 1_000_000_000,
+                end_unix: 1_000_000_000 + hours * 3600,
+                cap_lamports: budget,
+                spent_before,
+            }),
+            ..PlanConfig::default()
+        }
+    }
+
+    fn plan_span(first: u64, slots: u64, cfg: &PlanConfig) -> (Vec<PlannedWindow>, PlanState) {
+        let l = dense(first, slots);
+        // planned long before the session starts, so no window is too late
+        let now = SESSION_START_NS - 600_000_000_000;
+        let mut st = PlanState::default();
+        let (p, _) = plan_windows(first, &l, &[target("tgt")], &fit(), now, cfg, None, &mut st);
+        (p, st)
+    }
+
+    /// Spend of the planned windows per interval of `step_s` seconds from the session start.
+    fn spend_per(p: &[PlannedWindow], step_s: i128, n: usize) -> Vec<u64> {
+        let mut v = vec![0u64; n];
+        for w in p {
+            let i = ((w.send_at_unix_ns - SESSION_START_NS) / (step_s * 1_000_000_000)) as usize;
+            v[i.min(n - 1)] += w.expected_cost_lamports;
+        }
+        v
+    }
+
+    fn assert_even(per_hour: &[u64], budget: u64) {
+        let want = budget as f64 / per_hour.len() as f64;
+        for (h, s) in per_hour.iter().enumerate() {
+            assert!(
+                (*s as f64 - want).abs() <= 0.15 * want,
+                "hour {h}: {s} vs {want:.0} ({per_hour:?})"
+            );
+        }
+        assert!(per_hour.iter().sum::<u64>() <= budget, "{per_hour:?}");
+    }
+
+    #[test]
+    fn pace_line_is_straight_and_clamped() {
+        let p = Pace {
+            start_unix: 1_000,
+            end_unix: 1_000 + 10_000,
+            cap_lamports: 1_000_000,
+            spent_before: 0,
+        };
+        let at = |s: i128| p.allowed(s * 1_000_000_000);
+        assert_eq!(at(500), 0, "before the session");
+        assert_eq!(at(1_000), 0);
+        assert_eq!(at(6_000), 500_000);
+        assert_eq!(at(11_000), 1_000_000);
+        assert_eq!(at(99_000), 1_000_000, "after the session");
+    }
+
+    #[test]
+    fn pacing_spreads_a_3_hour_budget_evenly() {
+        let slots = 3 * 3600 * 1_000_000_000 / 212_000_000 + 40;
+        let (p, st) = plan_span(FIRST_SLOT, slots, &paced_cfg(4_700_000, 3, 0));
+        let per_hour = spend_per(&p, 3600, 3);
+        assert_even(&per_hour, 4_700_000);
+        assert!(
+            st.spent <= 4_700_000 && st.spent >= 4_700_000 - 100_000,
+            "{}",
+            st.spent
+        );
+        // without pacing the same budget is gone in the first minutes
+        let flat = PlanConfig {
+            pace: None,
+            ..paced_cfg(4_700_000, 3, 0)
+        };
+        let (q, _) = plan_span(FIRST_SLOT, slots, &flat);
+        let early = spend_per(&q, 3600, 3);
+        assert!(early[0] as f64 > 0.95 * 4_700_000.0, "{early:?}");
+    }
+
+    #[test]
+    fn pacing_spreads_an_8_hour_budget_evenly() {
+        let slots = 8 * 3600 * 1_000_000_000 / 212_000_000 + 40;
+        let (p, _) = plan_span(FIRST_SLOT, slots, &paced_cfg(9_500_000, 8, 0));
+        assert_even(&spend_per(&p, 3600, 8), 9_500_000);
+    }
+
+    #[test]
+    fn a_restarted_worker_continues_the_curve() {
+        let hours = 3;
+        let budget = 4_700_000;
+        let total_slots = 3 * 3600 * 1_000_000_000 / 212_000_000 + 40;
+        // worker 1 runs for the first 1.5 h, then the supervisor restarts it
+        let split = (total_slots / 2) / 4 * 4;
+        let (p1, st1) = plan_span(FIRST_SLOT, split, &paced_cfg(budget, hours, 0));
+        // worker 2: fresh PlanState, but spent_before comes from the ledger (reserved since
+        // the session start), as `session::reserved_since` gives it
+        let cfg2 = paced_cfg(budget - st1.spent, hours, st1.spent);
+        let cfg2 = PlanConfig {
+            pace: Some(Pace {
+                cap_lamports: budget,
+                ..cfg2.pace.clone().unwrap()
+            }),
+            ..cfg2
+        };
+        let (p2, _) = plan_span(FIRST_SLOT + split, total_slots - split, &cfg2);
+        let all: Vec<PlannedWindow> = p1.iter().chain(p2.iter()).cloned().collect();
+        assert_even(&spend_per(&all, 3600, 3), budget);
+        // a worker that forgot the session (spent_before = 0, own start) front-loads
+        let cfg_bad = paced_cfg(budget - st1.spent, hours, 0);
+        let cfg_bad = PlanConfig {
+            pace: Some(Pace {
+                cap_lamports: budget,
+                ..cfg_bad.pace.clone().unwrap()
+            }),
+            ..cfg_bad
+        };
+        let (bad, _) = plan_span(FIRST_SLOT + split, total_slots - split, &cfg_bad);
+        let half_hour = |v: &[PlannedWindow]| spend_per(v, 1800, 6)[3];
+        assert!(
+            half_hour(&bad) > 2 * half_hour(&p2),
+            "restart must not reset the curve"
+        );
+    }
+
+    #[test]
+    fn a_tiny_budget_never_overspends() {
+        let slots = 3 * 3600 * 1_000_000_000 / 212_000_000 + 40;
+        for budget in [10_000, 31_000, 50_000, 100_000] {
+            let (p, st) = plan_span(FIRST_SLOT, slots, &paced_cfg(budget, 3, 0));
+            let spent: u64 = p.iter().map(|w| w.expected_cost_lamports).sum();
+            assert!(spent <= budget && st.spent == spent, "{budget}: {spent}");
+        }
+        let (none, _) = plan_span(FIRST_SLOT, slots, &paced_cfg(10_000, 3, 0));
+        assert!(none.is_empty(), "no window fits a 10,000 lamport budget");
+    }
+
+    #[test]
+    fn pacing_skips_are_reported_with_their_own_reason() {
+        let slots = 600 * 1_000_000_000 / 212_000_000;
+        let l = dense(FIRST_SLOT, slots);
+        let cfg = paced_cfg(4_700_000, 3, 0);
+        let now = SESSION_START_NS - 600_000_000_000;
+        let (_, skips) = plan_windows(
+            FIRST_SLOT,
+            &l,
+            &[target("tgt")],
+            &fit(),
+            now,
+            &cfg,
+            None,
+            &mut PlanState::default(),
+        );
+        assert!(skips.iter().any(|s| s.reason.starts_with("pacing: ")));
     }
 }

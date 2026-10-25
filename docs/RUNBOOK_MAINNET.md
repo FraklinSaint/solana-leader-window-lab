@@ -55,7 +55,7 @@ differs from the one you want to keep for the whole project.
 (Get-FileHash $S -Algorithm SHA256).Hash.ToLower()
 ```
 
-Expect: `ee7c9c7a7e29104999f91a5f76a704fa7a9df7b2dc0b221e725ae3019396f352`
+Expect: `0ff8a9f24164aec28ae631573611a4a4e97539b3eb6be0ba82d3abbc52949566`
 STOP: any other value. Do not rebuild in the middle of a runbook: the hash is written into
 every session header and every manifest row, and Windows locks the file while a session runs.
 
@@ -237,7 +237,7 @@ usable-window rate. 300,000 is the smoke share of the 5,000,000 calibration budg
 
 Expect, in order: `WARNING: ...` lines (Wi-Fi, `PendingFileRenameOperations is set (N
 entries ...)`, `platform` only if unset), then
-`starting calibrate session <id> until <UTC end> (sender ee7c9c7a7e29)`, then the worker
+`starting calibrate session <id> until <UTC end> (sender 0ff8a9f24164)`, then the worker
 runs about 20 min silently apart from log lines on stderr, then
 `session <id> done; coverage by UTC hour: data\sessions\<id>\coverage.md`.
 Do not touch the PC except Win+L.
@@ -315,12 +315,22 @@ Remove-Item Env:CONFIRM_LIVE
 ```
 
 Expect: same start lines as S6 (`starting calibrate session <id> until <UTC end> (sender
-ee7c9c7a7e29)`), then up to 3 h running, ending with `session <id> done; coverage by UTC hour:
+0ff8a9f24164)`), then up to 3 h running, ending with `session <id> done; coverage by UTC hour:
 data\sessions\<id>\coverage.md`. At the end the supervisor runs `sender collect` itself
 (`collect` event in `events.jsonl`).
 The session ends at its fixed UTC end even when the budget is used up earlier; whether the
 planner runs out of budget before 3 h is **unverified**. Spend stops at the cap in any case.
 STOP: same refusals as S6; Ctrl+C once at any sign of trouble, then S9.
+
+**With the pacing build (rebuilt after 2026-10-25):** the spend follows a straight line over the
+session, so S7 spends about 4,700,000 / 3 = 1,567,000 lamports per UTC hour (roughly 50 windows an
+hour) instead of finishing in the first 25 minutes, and the smoke run spreads its 300,000 over its
+20 minutes (about 9 windows, one every 2 minutes). Check `coverage.md` after each session: the
+`reserved lamports` column should be about the same in every full hour (within ±15 %), the
+`Windows skipped, by reason` table shows `pacing: # + # > # (plus one window)` as the big count, and the
+total stays at or below the cap. STOP: one hour holds more than 1.5x the average, or the
+reserved total is above `--max-spend-lamports`. If a worker ends normally with less than one
+window's worst-case cost left (39,600), the session ends as done (event `cap_reached`).
 
 ## S8) Afterwards
 
@@ -443,6 +453,12 @@ recovery. The next start first appends `abnormal_end` (last heartbeat, last even
 **The PC restarts:** same as above. After the restart: sign in, run A1-A3 again (new window,
 env clean), check `RebootRequired`/`RebootPending` are False (a restart that Windows still
 wants is a refusal), then the common recovery. Windows Update stays paused.
+
+**A worker exits with code 3 (`worker_refused` in `events.jsonl`):** fewer than 12 payers hold the
+rent minimum plus one worst-case fee, or the usable payers cannot spend the budget. The supervisor
+does not restart it (no loop) and the session ends as done. Run the `sender fund` command printed in
+the error (dry-run first), then start a new session. Payers a few hundred lamports under the floor
+no longer stop a session: they are listed as a WARNING and skipped.
 
 **You stop it with a single Ctrl+C:** the worker stops planning, drops windows not yet started,
 writes its `summary.json` (live: after a bounded collect pass) and the supervisor prints

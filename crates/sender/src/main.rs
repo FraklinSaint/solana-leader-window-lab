@@ -280,6 +280,16 @@ enum Cmd {
         /// Every k-th window goes through RPC sendTransaction (path comparison).
         #[arg(long)]
         rpc_every: Option<usize>,
+        /// Set by `sender session` for its workers: the session's start (unix s). Spend is paced
+        /// along the line from 0 at this time to the cap at `--pace-end-unix` (planner::Pace).
+        #[arg(long, requires_all = ["pace_end_unix", "pace_cap_lamports"])]
+        pace_start_unix: Option<i64>,
+        /// Set by `sender session`: the session's fixed end (unix s).
+        #[arg(long, requires_all = ["pace_start_unix", "pace_cap_lamports"])]
+        pace_end_unix: Option<i64>,
+        /// Set by `sender session`: the whole session's spend cap, not what is left of it.
+        #[arg(long, requires_all = ["pace_start_unix", "pace_end_unix"])]
+        pace_cap_lamports: Option<u64>,
     },
     /// Resolve every open reservation and every sent tx missing from the manifests.
     Collect,
@@ -421,11 +431,17 @@ fn init_tracing(log_file: Option<&Path>) -> Result<()> {
 async fn main() {
     let cli = Cli::parse();
     if let Err(e) = real_main(cli).await {
+        // Too few funded payers: a restart cannot help, so the supervisor must not retry.
+        let code = if e.downcast_ref::<funding::PayersInsufficient>().is_some() {
+            session::EXIT_FINAL
+        } else {
+            1
+        };
         let e = redact(&format!("{e:#}")).into_owned();
         // Also into the run log, so refused live attempts are auditable.
         tracing::error!(error = %e, "exiting with error");
         eprintln!("error: {e}");
-        std::process::exit(1);
+        std::process::exit(code);
     }
 }
 
@@ -531,6 +547,7 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
                 Mode::DryRun { probe_connect },
                 None,
                 None,
+                None,
             )
             .await
         }
@@ -540,6 +557,9 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
             purpose,
             prereg,
             rpc_every,
+            pace_start_unix,
+            pace_end_unix,
+            pace_cap_lamports,
         } => {
             let auth = live::authorize(
                 true,
@@ -589,6 +609,10 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
                 },
                 prereg,
                 Some(&auth),
+                pace_start_unix
+                    .zip(pace_end_unix)
+                    .zip(pace_cap_lamports)
+                    .map(|((s, e), c)| (s, e, c)),
             )
             .await
         }
@@ -865,6 +889,8 @@ struct ProcWorker {
     ledger: PathBuf,
     /// The session's events.jsonl, handed to the worker (session::EVENTS_ENV).
     events: PathBuf,
+    /// Worst-case cost of one window (live): below this much cap left, the session is over.
+    window_cost_bound: u64,
 }
 
 impl ProcWorker {
@@ -891,6 +917,9 @@ impl Worker for ProcWorker {
             return Ok(None);
         }
         self.child(&["collect".into()]).map(Some)
+    }
+    fn window_cost_bound(&self) -> u64 {
+        self.window_cost_bound
     }
     fn cap_left(&mut self) -> Result<Option<u64>> {
         let Some(max) = self
@@ -1000,6 +1029,7 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
         SessionMode::Calibrate => Some(Purpose::Calibrate),
         SessionMode::Measure => Some(Purpose::Measure),
     };
+    let mut window_cost_bound = 0;
     if let Some(purpose) = purpose {
         // The worker repeats every check; failing here avoids opening a session that cannot run.
         slwlab_sender::host::require_platform(platform.as_deref())?;
@@ -1033,19 +1063,20 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
         let pks: Vec<String> = payers.iter().map(|p| p.pubkey().to_string()).collect();
         let bal = ctx.rpc.balances(&pks).await?;
         let rent_min = ctx.rpc.min_rent(0).await?;
-        let required = funding::required_payer_balance(
-            lamports_per_signature(&ctx.rpc).await?,
-            rent_min,
-            &ArmConfig::default(),
-        );
+        let lps = lamports_per_signature(&ctx.rpc).await?;
+        let required = funding::required_payer_balance(lps, rent_min, &ArmConfig::default());
+        window_cost_bound = funding::worst_window_cost(lps, &ArmConfig::default());
         let budget = purpose_budget(&ledger_commitment(&ctx.ledger_path())?, purpose)
             .min(a.max_spend_lamports.unwrap_or(0));
-        funding::preflight_payers(
+        let check = funding::preflight_payers(
             &pks.into_iter().zip(bal).collect::<Vec<_>>(),
             rent_min,
             required,
             budget,
         )?;
+        if let Some(w) = check.warning(required) {
+            println!("WARNING: {w}");
+        }
     }
     let req = session::Request {
         mode: a.mode,
@@ -1137,6 +1168,7 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
         st: st.clone(),
         ledger: ctx.ledger_path(),
         events: paths.events(&st.id),
+        window_cost_bound,
     };
     let outcome = session::supervise(&paths, &st, &mut worker, &stop);
     net_stop.request("session end");
@@ -1520,6 +1552,7 @@ async fn campaign(
     mode: Mode<'_>,
     prereg: Option<String>,
     auth: Option<&LiveAuth>,
+    pace: Option<(i64, i64, u64)>,
 ) -> Result<()> {
     let a = &run.plan;
     let sel = latest_selection(ctx, a.selection.as_ref())?;
@@ -1566,7 +1599,7 @@ async fn campaign(
                     ..ArmConfig::default()
                 },
             );
-            funding::preflight_payers(
+            let check = funding::preflight_payers(
                 &pks.iter()
                     .cloned()
                     .zip(bal.iter().copied())
@@ -1577,6 +1610,9 @@ async fn campaign(
                     .budget_lamports
                     .min(auth.map(|x| x.cap()).unwrap_or(0)),
             )?;
+            if let Some(w) = check.warning(required) {
+                tracing::warn!("{w}");
+            }
             let sink = if arms_has_c {
                 let s = keys::read_keypair(&ctx.sink_path())
                     .context("Arm C needs secrets/sink.json (sender init-payers)")?
@@ -1622,6 +1658,27 @@ async fn campaign(
         // Never plan beyond what this run may spend.
         let cap_left = auth.map(|x| x.cap()).unwrap_or(0);
         plan_cfg.budget_lamports = plan_cfg.budget_lamports.min(cap_left);
+        // A session's workers pace their spend along the session's own line; `spent_before` is
+        // what the ledger holds since the session started, so a restart keeps the curve.
+        plan_cfg.pace = pace
+            .map(|(start_unix, end_unix, cap_lamports)| {
+                Ok::<_, anyhow::Error>(slwlab_sender::planner::Pace {
+                    start_unix,
+                    end_unix,
+                    cap_lamports,
+                    spent_before: session::reserved_since(&ctx.ledger_path(), start_unix)?,
+                })
+            })
+            .transpose()?;
+        if let Some(p) = &plan_cfg.pace {
+            tracing::info!(
+                start_unix = p.start_unix,
+                end_unix = p.end_unix,
+                cap = p.cap_lamports,
+                spent_before = p.spent_before,
+                "spend pacing on"
+            );
+        }
     }
     let state = warm_clock(ctx).await?;
     let cfg = RunConfig {
@@ -1993,4 +2050,82 @@ fn clock_report(ctx: &Ctx, since: &str, until: Option<&str>, out: &Path) -> Resu
     std::fs::write(out, serde_json::to_vec_pretty(&report)?)?;
     println!("{} runs -> {}", dirs.len(), out.display());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    fn parse(args: &[String]) -> Result<Cli, clap::Error> {
+        Cli::try_parse_from(std::iter::once("sender".to_string()).chain(args.iter().cloned()))
+    }
+
+    #[test]
+    fn the_args_a_live_session_gives_its_worker_parse_with_the_pacing_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = session::Request {
+            mode: SessionMode::Calibrate,
+            secs: 3 * 3600,
+            host: slwlab_sender::host::HostInfo {
+                platform: "t".into(),
+                os: "windows".into(),
+                arch: "x86_64".into(),
+                os_build: "1".into(),
+                machine_id: "m".into(),
+                sender_sha256: "s".into(),
+                network_type: "wifi".into(),
+            },
+            max_spend_lamports: Some(4_700_000),
+            prereg: None,
+            allocation: None,
+            offsets: vec![-300, -100, 0, 100],
+        };
+        let session::Start::New(st) =
+            session::open_or_resume(&session::Paths::new(dir.path()), &req, 1_792_828_800).unwrap()
+        else {
+            panic!("new session")
+        };
+        let args = session::worker_args(&st, 10_000, Some(4_000_000));
+        let Cmd::Live {
+            pace_start_unix,
+            pace_end_unix,
+            pace_cap_lamports,
+            max_spend_lamports,
+            ..
+        } = parse(&args)
+            .expect("the worker must understand the supervisor")
+            .cmd
+        else {
+            panic!("not a live command")
+        };
+        assert_eq!(pace_start_unix, Some(st.start_unix));
+        assert_eq!(pace_end_unix, Some(st.end_unix));
+        // the whole session cap paces the curve, not what is left of it
+        assert_eq!(pace_cap_lamports, Some(4_700_000));
+        assert_eq!(max_spend_lamports, Some(4_000_000));
+    }
+
+    #[test]
+    fn the_three_pace_flags_come_together_and_a_bare_live_run_has_none() {
+        let base: Vec<String> = [
+            "live",
+            "--purpose",
+            "calibrate",
+            "--max-spend-lamports",
+            "1",
+        ]
+        .map(String::from)
+        .to_vec();
+        let Cmd::Live {
+            pace_cap_lamports, ..
+        } = parse(&base).unwrap().cmd
+        else {
+            panic!()
+        };
+        assert_eq!(pace_cap_lamports, None);
+        let mut one = base.clone();
+        one.extend(["--pace-start-unix".to_string(), "1".to_string()]);
+        assert!(parse(&one).is_err(), "a lone pace flag is refused");
+    }
 }
