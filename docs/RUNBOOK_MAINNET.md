@@ -55,7 +55,7 @@ differs from the one you want to keep for the whole project.
 (Get-FileHash $S -Algorithm SHA256).Hash.ToLower()
 ```
 
-Expect: `0ff8a9f24164aec28ae631573611a4a4e97539b3eb6be0ba82d3abbc52949566`
+Expect: `903525409e18f5ad4aedfaffcdc2fb60e3b63ff0fc596ae834769469e4687317`
 STOP: any other value. Do not rebuild in the middle of a runbook: the hash is written into
 every session header and every manifest row, and Windows locks the file while a session runs.
 
@@ -67,6 +67,9 @@ every session header and every manifest row, and Windows locks the file while a 
   a live start when `RebootRequired` or `RebootPending` exists (`preflight.rs`
   `enforce_refusals`); `PendingFileRenameOperations` alone only warns.
 - All other apps closed (free RAM >= 2 GiB or a warning; 3.3 of 8 GiB free was seen on 10-25).
+- At least 10 GB free on C: (`Get-PSDrive C`). The pre-flight refuses a live start under 5 GB and
+  warns under 10 GB; a running session stops before its next reservation under 1 GB. Delete
+  `target\debug` after any test run (it grows to 14 GB).
 - Plugged in (AC). The pre-flight warns if the PC sleeps or hibernates after N s idle on AC.
 - Wi-Fi: PC next to the router, TP-Link USB adapter on 2.4 GHz ch 13. The pre-flight warns
   below signal quality 60 %; power saving must stay at Maximum Performance (AC index 0).
@@ -237,7 +240,7 @@ usable-window rate. 300,000 is the smoke share of the 5,000,000 calibration budg
 
 Expect, in order: `WARNING: ...` lines (Wi-Fi, `PendingFileRenameOperations is set (N
 entries ...)`, `platform` only if unset), then
-`starting calibrate session <id> until <UTC end> (sender 0ff8a9f24164)`, then the worker
+`starting calibrate session <id> until <UTC end> (sender 903525409e18)`, then the worker
 runs about 20 min silently apart from log lines on stderr, then
 `session <id> done; coverage by UTC hour: data\sessions\<id>\coverage.md`.
 Do not touch the PC except Win+L.
@@ -315,7 +318,7 @@ Remove-Item Env:CONFIRM_LIVE
 ```
 
 Expect: same start lines as S6 (`starting calibrate session <id> until <UTC end> (sender
-0ff8a9f24164)`), then up to 3 h running, ending with `session <id> done; coverage by UTC hour:
+903525409e18)`), then up to 3 h running, ending with `session <id> done; coverage by UTC hour:
 data\sessions\<id>\coverage.md`. At the end the supervisor runs `sender collect` itself
 (`collect` event in `events.jsonl`).
 The session ends at its fixed UTC end even when the budget is used up earlier; whether the
@@ -453,6 +456,10 @@ recovery. The next start first appends `abnormal_end` (last heartbeat, last even
 **The PC restarts:** same as above. After the restart: sign in, run A1-A3 again (new window,
 env clean), check `RebootRequired`/`RebootPending` are False (a restart that Windows still
 wants is a refusal), then the common recovery. Windows Update stays paused.
+
+**The session ends FAILED (`crash_limit` in `events.jsonl`):** the worker crashed a sixth time within
+an hour. Read the last `run.log.jsonl` under `data\logs\live-*`, fix the cause, then
+`sender session --reset`, `sender collect`, `sender reconcile --since <snapshot>` and start a new session.
 
 **A worker exits with code 3 (`worker_refused` in `events.jsonl`):** fewer than 12 payers hold the
 rent minimum plus one worst-case fee, or the usable payers cannot spend the budget. The supervisor

@@ -20,6 +20,14 @@ use std::net::UdpSocket;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const MIN_FREE_RAM: u64 = 2 * 1024 * 1024 * 1024;
+const GIB: u64 = 1024 * 1024 * 1024;
+/// Free disk space under which a live start is refused, under which it only warns, and under
+/// which a running live session stops before its next reservation (runner.rs). The ledger,
+/// the manifests and the saved blocks are written to the data volume; a full disk must stop
+/// the run before a send, never in the middle of one.
+pub const MIN_FREE_DISK: u64 = 5 * GIB;
+pub const WARN_FREE_DISK: u64 = 10 * GIB;
+pub const STOP_FREE_DISK: u64 = GIB;
 pub const MAX_CLOCK_OFFSET_MS: f64 = 50.0;
 /// Windows' Wi-Fi signal quality (0..=100) below which the pre-flight warns (60 is about
 /// -70 dBm).
@@ -183,6 +191,47 @@ pub fn clock_offset(server: &str) -> Result<(f64, f64), String> {
     best.ok_or(last_err)
 }
 
+/// A live start refused by the pre-flight (restart pending, too little disk). The process
+/// exits with `session::EXIT_FINAL`, so a supervisor does not restart a worker that would be
+/// refused again.
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+pub struct StartRefused(pub String);
+
+/// (warning, refusal) for the free space of the data volume. An unreadable value is a warning,
+/// never a refusal.
+pub fn disk_verdict(free: Option<u64>) -> (Option<String>, Option<String>) {
+    let gb = |b: u64| b as f64 / GIB as f64;
+    match free {
+        None => (
+            Some("disk: could not read the free space of the data volume".into()),
+            None,
+        ),
+        Some(f) if f < MIN_FREE_DISK => {
+            let m = format!(
+                "disk: only {:.1} GB free on the data volume (a live start needs {:.0} GB)",
+                gb(f),
+                gb(MIN_FREE_DISK)
+            );
+            (Some(m.clone()), Some(m))
+        }
+        Some(f) if f < WARN_FREE_DISK => (
+            Some(format!(
+                "disk: {:.1} GB free on the data volume; a live session stops below {:.0} GB",
+                gb(f),
+                gb(STOP_FREE_DISK)
+            )),
+            None,
+        ),
+        Some(_) => (None, None),
+    }
+}
+
+/// The disk refusal for the volume of `data_dir`, if any.
+pub fn disk_refusal(data_dir: &std::path::Path) -> Option<String> {
+    disk_verdict(slwlab_winsys::disk_free_bytes(data_dir)).1
+}
+
 pub struct Preflight {
     pub info: Value,
     pub warnings: Vec<String>,
@@ -191,7 +240,7 @@ pub struct Preflight {
     pub refusals: Vec<String>,
 }
 
-pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
+pub fn run(platform: Option<&str>, ntp_server: &str, data_dir: &std::path::Path) -> Preflight {
     let mut w = vec![];
     let mut refusals = vec![];
     let sleep = power_timeout(STANDBYIDLE);
@@ -297,6 +346,10 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
             pending.file_renames.len()
         ));
     }
+    let disk_free = slwlab_winsys::disk_free_bytes(data_dir);
+    let (disk_warning, disk_refused) = disk_verdict(disk_free);
+    w.extend(disk_warning);
+    refusals.extend(disk_refused);
     // CTRL_SHUTDOWN_EVENT is not delivered to a console process that loaded user32/gdi32.
     let ui = slwlab_winsys::ui_dlls_loaded();
     if let Some(l) = &ui
@@ -323,6 +376,7 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
         "platform": platform,
         "restart_pending": pending.blocking,
         "pending_file_rename_operations": pending.file_renames,
+        "disk_free_bytes": disk_free,
         "ui_dlls_loaded": ui,
         "shutdown_event_deliverable": ui.as_ref().map(|l| l.is_empty()),
     });
@@ -337,11 +391,12 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
 /// warns (the warnings were already shown).
 pub fn enforce_refusals(refusals: &[String], live: bool) -> anyhow::Result<()> {
     if live && !refusals.is_empty() {
-        anyhow::bail!(
-            "pre-flight refuses a live start: {}. Restart Windows, check that RebootRequired and \
-             RebootPending are gone, then start again (a dry-run only warns)",
+        return Err(StartRefused(format!(
+            "pre-flight refuses a live start: {}. Fix it (restart Windows and check that RebootRequired \
+             and RebootPending are gone; free disk space), then start again (a dry-run only warns)",
             refusals.join("; ")
-        );
+        ))
+        .into());
     }
     Ok(())
 }
@@ -378,6 +433,29 @@ mod tests {
     }
 
     #[test]
+    fn disk_thresholds_refuse_warn_and_stay_quiet() {
+        let g = |x: f64| Some((x * GIB as f64) as u64);
+        // under 5 GB: refused (and warned)
+        let (w, r) = disk_verdict(g(4.9));
+        assert!(w.is_some() && r.is_some());
+        assert!(r.unwrap().contains("4.9 GB free"));
+        // 5 to 10 GB: warning only
+        let (w, r) = disk_verdict(g(5.0));
+        assert!(w.is_some() && r.is_none(), "exactly 5 GB passes");
+        let (w, r) = disk_verdict(g(9.9));
+        assert!(w.is_some() && r.is_none());
+        // 10 GB and more: nothing
+        assert_eq!(disk_verdict(g(10.0)), (None, None));
+        // unreadable: a warning, not a refusal
+        let (w, r) = disk_verdict(None);
+        assert!(w.is_some() && r.is_none());
+        // the refusal is the final error the supervisor keys on
+        let e = enforce_refusals(&["disk: only 4.9 GB free".to_string()], true).unwrap_err();
+        assert!(e.downcast_ref::<StartRefused>().is_some());
+        assert!(enforce_refusals(&["disk: only 4.9 GB free".to_string()], false).is_ok());
+    }
+
+    #[test]
     fn pending_renames_parse() {
         let out = concat!(
             "Session Manager\r\n",
@@ -397,7 +475,11 @@ mod tests {
     #[test]
     #[ignore]
     fn on_this_machine() {
-        let p = run(Some("check"), "time.cloudflare.com");
+        let p = run(
+            Some("check"),
+            "time.cloudflare.com",
+            std::path::Path::new("."),
+        );
         println!("{}", serde_json::to_string_pretty(&p.info).unwrap());
         for w in &p.warnings {
             println!("WARNING: {w}");

@@ -432,7 +432,10 @@ async fn main() {
     let cli = Cli::parse();
     if let Err(e) = real_main(cli).await {
         // Too few funded payers: a restart cannot help, so the supervisor must not retry.
-        let code = if e.downcast_ref::<funding::PayersInsufficient>().is_some() {
+        let code = if e.downcast_ref::<funding::PayersInsufficient>().is_some()
+            || e.downcast_ref::<slwlab_sender::preflight::StartRefused>()
+                .is_some()
+        {
             session::EXIT_FINAL
         } else {
             1
@@ -580,10 +583,9 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
                     "--purpose measure requires --prereg <commit of the prereg-v1 tag>"
                 );
             }
-            slwlab_sender::preflight::enforce_refusals(
-                &slwlab_sender::preflight::restart_refusals(),
-                true,
-            )?;
+            let mut refusals = slwlab_sender::preflight::restart_refusals();
+            refusals.extend(slwlab_sender::preflight::disk_refusal(&ctx.data_root));
+            slwlab_sender::preflight::enforce_refusals(&refusals, true)?;
             // Calibration and confirmatory windows: one registered Linux platform (host.rs).
             let here = slwlab_sender::host::HostInfo::detect();
             slwlab_sender::host::gate_live(
@@ -1087,7 +1089,7 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
         allocation: a.allocation.as_ref().map(|p| p.display().to_string()),
         offsets: a.offsets.clone(),
     };
-    let pf = slwlab_sender::preflight::run(platform.as_deref(), &a.ntp_server);
+    let pf = slwlab_sender::preflight::run(platform.as_deref(), &a.ntp_server, &ctx.data_root);
     for w in &pf.warnings {
         println!("WARNING: {w}");
     }
@@ -1199,6 +1201,26 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
                 st.id,
                 md.display()
             );
+        }
+        session::Outcome::Failed => {
+            if st.mode.is_live() {
+                let c = worker.child(&["collect".into()])?;
+                session::event(
+                    &paths,
+                    &st.id,
+                    chrono::Utc::now().timestamp(),
+                    "collect",
+                    serde_json::json!({"exit_code": c, "detail": "end of failed session"}),
+                )?;
+            }
+            let md = session::fail(&paths, &ctx.data_root, &st, chrono::Utc::now().timestamp())?;
+            println!(
+                "session {} FAILED: the worker crashed more than {} times within an hour (see events.jsonl and the run logs); coverage: {}",
+                st.id,
+                session::MAX_CRASHES_PER_HOUR,
+                md.display()
+            );
+            bail!("session {} failed: worker crash loop", st.id)
         }
         session::Outcome::Stopped if st.mode.is_live() => println!(
             "live session {} stopped. It will not resume: `sender session --reset`, then a new \

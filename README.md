@@ -155,8 +155,12 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
   and printed as warnings: sleep and hibernate timeouts (`powercfg`), free RAM, the
   default-route adapter and its type (**Wi-Fi**, Ethernet, VPN; on Wi-Fi band, channel, signal
   quality, RSSI, PHY, power-saving mode: warnings only, never a refusal), the clock offset against an NTP server
-  (SNTP, `--ntp-server`, default time.cloudflare.com), the platform id (`SLWLAB_PLATFORM`), and
-  whether Windows Update or servicing is waiting for a restart (registry, `reg query`);
+  (SNTP, `--ntp-server`, default time.cloudflare.com), the platform id (`SLWLAB_PLATFORM`),
+  whether Windows Update or servicing is waiting for a restart (registry, `reg query`), and the
+  free space of the data volume: a live start is refused under 5 GB, warned about under 10 GB,
+  and a running live session stops before its next reservation under 1 GB (fail closed: the
+  ledger line is written before the first byte of a window is sent, and a ledger write that
+  fails aborts the run before any send);
 - **session header** `data/sessions/<id>/session.json`: mode, fixed UTC interval, platform,
   network type, OS build, machine id, sender SHA-256;
 - **network path record** (Wi-Fi limitation): `rtt.jsonl` (RTT to the RPC endpoint every 5 s),
@@ -169,9 +173,15 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
   sign-out or shutdown chosen by the user or by Windows still happens;
 - **supervised worker**: the binary runs itself as `sender dry-run` (or `sender live` with every
   live guard: `CONFIRM_LIVE=yes`, `--max-spend-lamports`, prereg, platform gate) for the time
-  left, and restarts it 30 s after a crash. A live worker is followed by `sender collect`
+  left, and restarts it 30 s after a crash, at most 5 times within an hour (a sixth crash ends
+  the session as failed, event `crash_limit`). A live worker is followed by `sender collect`
   before the restart, and each live worker may reserve only the session cap minus everything
   reserved since the session started;
+- **dead connection check** (live, QUIC): each window opens its connection at prep time; just
+  before the reservations the runner looks whether the peer has dropped it. If so it reconnects once
+  when at least 400 ms remain before the burst, otherwise the window is given up with no
+  reservation and no fee (`summary.json`: `conn_dead_reconnected`, `conn_dead_skipped`; session
+  event `conn_dead`). Burst timing, send order and everything after the reservations are unchanged;
 - **spend pacing** (live sessions): cumulative reserved spend may not run ahead of the straight
   line from 0 at the session's start to its `--max-spend-lamports` at the session's end, plus one
   window (`planner.rs` `Pace`; skip reason `pacing`). The line comes from the session (fixed start,

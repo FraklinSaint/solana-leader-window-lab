@@ -49,6 +49,10 @@ pub const RESTART_PAUSE_SECS: u64 = 30;
 /// Exit code of a worker that refused to start for a reason a restart cannot change (too few
 /// funded payers). The supervisor ends the session on it instead of restarting the worker.
 pub const EXIT_FINAL: i32 = 3;
+/// A worker that crashes (any other non-zero exit) more often than this within an hour is not
+/// restarted again: the session ends as failed.
+pub const MAX_CRASHES_PER_HOUR: usize = 5;
+const CRASH_WINDOW_SECS: i64 = 3600;
 /// An hour is THIN when less than this share of the session's part of it was covered.
 pub const THIN_SHARE: f64 = 0.5;
 
@@ -491,6 +495,25 @@ pub trait Worker {
 pub enum Outcome {
     Done,
     Stopped,
+    /// The worker crashed more than [`MAX_CRASHES_PER_HOUR`] times within an hour.
+    Failed,
+}
+
+/// Crashes (exit codes other than 0 and [`EXIT_FINAL`]) that ended within the last hour.
+fn recent_crashes(p: &Paths, id: &str, now: i64) -> Result<usize> {
+    Ok(read_events(p, id)?
+        .iter()
+        .filter(|e| e["event"] == "run_exit")
+        .filter(|e| {
+            !matches!(e["exit_code"].as_i64(), Some(0)) && e["exit_code"] != json!(EXIT_FINAL)
+        })
+        .filter(|e| {
+            e["to"]
+                .as_str()
+                .and_then(parse_utc)
+                .is_some_and(|t| t > now - CRASH_WINDOW_SECS)
+        })
+        .count())
 }
 
 /// Keep a worker running until the session's end; restart it after a crash.
@@ -549,7 +572,7 @@ pub fn supervise(p: &Paths, st: &SessionState, w: &mut dyn Worker, stop: &Stop) 
                 t1,
                 "worker_refused",
                 json!({"exit_code": code,
-                       "detail": "the worker refused to start (too few funded payers); not restarted. Fund the payers, then start a new session"}),
+                       "detail": "the worker refused to start (too few funded payers, a restart is pending, or too little free disk; see its run.log); not restarted. Fix that, then start a new session"}),
             )?;
             return Ok(Outcome::Done);
         }
@@ -568,6 +591,22 @@ pub fn supervise(p: &Paths, st: &SessionState, w: &mut dyn Worker, stop: &Stop) 
                 json!({"cap_left": cap, "window_cost_bound": w.window_cost_bound()}),
             )?;
             return Ok(Outcome::Done);
+        }
+        if code != 0 && recent_crashes(p, &st.id, t1)? > MAX_CRASHES_PER_HOUR {
+            // A crash loop is not a session: resolve what is open, then end it as failed.
+            if let Some(c) = w.after_crash()? {
+                event(p, &st.id, w.now(), "collect", json!({"exit_code": c}))?;
+            }
+            event(
+                p,
+                &st.id,
+                w.now(),
+                "crash_limit",
+                json!({"crashes_within_an_hour": recent_crashes(p, &st.id, t1)?,
+                       "max": MAX_CRASHES_PER_HOUR, "last_exit_code": code,
+                       "detail": "the worker crashed too often; the session ends as failed"}),
+            )?;
+            return Ok(Outcome::Failed);
         }
         if code != 0 {
             let resumed = w.pause(RESTART_PAUSE_SECS, stop.flag());
@@ -915,6 +954,21 @@ No network record (the session ended before it was written).
 
 /// Write coverage, log `done` and close the session.
 pub fn finish(p: &Paths, data_root: &Path, st: &SessionState, now: i64) -> Result<PathBuf> {
+    finish_as(p, data_root, st, now, "done")
+}
+
+/// Like [`finish`] for a session that ended as failed (crash loop): same coverage, event `failed`.
+pub fn fail(p: &Paths, data_root: &Path, st: &SessionState, now: i64) -> Result<PathBuf> {
+    finish_as(p, data_root, st, now, "failed")
+}
+
+fn finish_as(
+    p: &Paths,
+    data_root: &Path,
+    st: &SessionState,
+    now: i64,
+    kind: &str,
+) -> Result<PathBuf> {
     let c = coverage(p, data_root, st)?;
     write_json(&p.dir(&st.id).join("coverage.json"), &c)?;
     std::fs::write(p.dir(&st.id).join("coverage.md"), coverage_md(&c))?;
@@ -922,7 +976,7 @@ pub fn finish(p: &Paths, data_root: &Path, st: &SessionState, now: i64) -> Resul
         p,
         &st.id,
         now,
-        "done",
+        kind,
         json!({"covered_secs": c["covered_secs_total"]}),
     )?;
     close(p, st)?;
@@ -1085,6 +1139,69 @@ mod tests {
         };
         supervise(&p, &st, &mut w, &Stop::default()).unwrap();
         assert!(w.runs.len() >= 2, "{:?}", w.runs);
+    }
+
+    #[test]
+    fn a_crash_loop_ends_the_session_as_failed_after_five_restarts() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let clock = Cell::new(T0);
+        let Start::New(st) =
+            open_or_resume(&p, &req(SessionMode::Calibrate, 3 * 3600), T0).unwrap()
+        else {
+            panic!()
+        };
+        // every start crashes after 10 s: 5 restarts are allowed, the 6th crash ends it
+        let mut w = Fake {
+            clock: &clock,
+            codes: vec![1; 50],
+            run_secs: 10,
+            runs: vec![],
+            collects: 0,
+            cap: Some(500_000),
+            bound: 0,
+        };
+        assert_eq!(
+            supervise(&p, &st, &mut w, &Stop::default()).unwrap(),
+            Outcome::Failed
+        );
+        assert_eq!(w.runs.len(), 6, "{:?}", w.runs);
+        assert_eq!(w.collects, 6, "open reservations are resolved each time");
+        let ev = events(&p, &st.id);
+        assert_eq!(
+            ev.iter().filter(|e| *e == "worker_down").count(),
+            5,
+            "{ev:?}"
+        );
+        assert!(ev.contains(&"crash_limit".to_string()), "{ev:?}");
+        // the failed session is closed like a finished one, with its own event
+        let md = fail(&p, dir.path(), &st, clock.get()).unwrap();
+        assert!(md.exists());
+        assert!(events(&p, &st.id).contains(&"failed".to_string()));
+        assert!(!p.open().exists());
+        // crashes spread over the day are not a loop: 3 an hour never trips the cap
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let clock = Cell::new(T0);
+        let Start::New(st) =
+            open_or_resume(&p, &req(SessionMode::Calibrate, 10 * 3600), T0).unwrap()
+        else {
+            panic!()
+        };
+        let mut w = Fake {
+            clock: &clock,
+            codes: vec![1; 50],
+            run_secs: 1200,
+            runs: vec![],
+            collects: 0,
+            cap: Some(500_000),
+            bound: 0,
+        };
+        assert_eq!(
+            supervise(&p, &st, &mut w, &Stop::default()).unwrap(),
+            Outcome::Done
+        );
+        assert!(w.runs.len() > 20, "{}", w.runs.len());
     }
 
     #[test]

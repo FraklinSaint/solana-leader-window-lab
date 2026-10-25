@@ -330,6 +330,11 @@ pub struct RunSummary {
     /// simulateTransaction results per arm: CU consumed and loaded-accounts data size against
     /// the tx's limits (at least one simulation per arm per run).
     pub simulation_by_arm: BTreeMap<String, SimArmStats>,
+    /// Windows whose QUIC connection (opened at prep) was already dead before the burst and was
+    /// replaced in time / windows skipped because it was dead and there was no time left. Both
+    /// happen before any reservation: no fee, no byte sent.
+    pub conn_dead_reconnected: usize,
+    pub conn_dead_skipped: usize,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -391,6 +396,64 @@ pub struct PathStats {
 }
 
 /// Collapse numbers so skip reasons aggregate ("lead 812 ms < min 3000" -> "lead # ms < min #").
+/// What became of a window's QUIC connection when it was checked just before the reservations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConnFate {
+    Alive,
+    Reconnected,
+    Skipped,
+}
+
+impl ConnFate {
+    fn name(self) -> &'static str {
+        match self {
+            ConnFate::Alive => "alive",
+            ConnFate::Reconnected => "reconnected",
+            ConnFate::Skipped => "skipped",
+        }
+    }
+
+    fn record(self, s: &mut RunSummary) {
+        match self {
+            ConnFate::Alive => {}
+            ConnFate::Reconnected => s.conn_dead_reconnected += 1,
+            ConnFate::Skipped => s.conn_dead_skipped += 1,
+        }
+    }
+}
+
+/// Reconnecting needs at least this long before the burst; the new handshake must be done
+/// `RECONNECT_MARGIN_MS` before it.
+const RECONNECT_MIN_LEFT_MS: i64 = 400;
+const RECONNECT_MARGIN_MS: i64 = 150;
+
+/// A dead connection is replaced once, if there is time (the handshake gets what is left minus
+/// the margin, at most the normal 1 s); otherwise, or if that one try fails, the window is
+/// given up (`None`). A live connection is returned untouched. Nothing is ever re-sent here:
+/// this runs before the first reservation.
+async fn revive<C, F, Fut>(
+    conn: C,
+    dead: impl Fn(&C) -> bool,
+    ms_left: i64,
+    reconnect: F,
+) -> (Option<C>, ConnFate)
+where
+    F: FnOnce(Duration) -> Fut,
+    Fut: std::future::Future<Output = Option<C>>,
+{
+    if !dead(&conn) {
+        return (Some(conn), ConnFate::Alive);
+    }
+    if ms_left < RECONNECT_MIN_LEFT_MS {
+        return (None, ConnFate::Skipped);
+    }
+    let budget = (ms_left - RECONNECT_MARGIN_MS).clamp(1, 1_000) as u64;
+    match reconnect(Duration::from_millis(budget)).await {
+        Some(c) => (Some(c), ConnFate::Reconnected),
+        None => (None, ConnFate::Skipped),
+    }
+}
+
 fn reason_key(r: &str) -> String {
     let mut out = String::new();
     let mut in_num = false;
@@ -1193,11 +1256,16 @@ impl<'a> Runner<'a> {
     }
 
     async fn connect(&self, addr: &str) -> Result<TpuConnection> {
+        self.connect_within(addr, Duration::from_millis(1_000))
+            .await
+    }
+
+    async fn connect_within(&self, addr: &str, within: Duration) -> Result<TpuConnection> {
         let quic = self.quic.as_ref().context("no QUIC client")?;
         let addr: SocketAddr = addr.parse().with_context(|| format!("tpuQuic {addr}"))?;
-        tokio::time::timeout(Duration::from_millis(1_000), quic.connect(addr))
+        tokio::time::timeout(within, quic.connect(addr))
             .await
-            .context("QUIC handshake timed out (1 s)")?
+            .with_context(|| format!("QUIC handshake timed out ({} ms)", within.as_millis()))?
     }
 
     async fn execute(&mut self, mut w: PlannedWindow) -> Result<()> {
@@ -1447,6 +1515,72 @@ impl<'a> Runner<'a> {
             return self.skip(log, reason);
         }
 
+        if self.mode.is_live() {
+            // Fail closed on a full disk: nothing is reserved or sent while the data volume
+            // cannot take the ledger line, the manifest and the saved blocks.
+            if let Some(free) = slwlab_winsys::disk_free_bytes(&self.data_root)
+                && free < crate::preflight::STOP_FREE_DISK
+            {
+                if let Some(c) = &conn {
+                    c.close();
+                }
+                self.stop = Some("free disk space below 1 GB".into());
+                self.session_event(
+                    "disk_low",
+                    serde_json::json!({"free_bytes": free, "run_id": self.cfg.run_id,
+                        "window_id": log.window.window_id}),
+                );
+                return self.skip(
+                    log,
+                    "free disk space below 1 GB: stopping before any new reservation or send"
+                        .into(),
+                );
+            }
+            // The connection was opened at prep time, about 1.5 s ago. A peer that dropped it
+            // since (its connection table was full) would fail every tx of the window. Look
+            // before anything is reserved: replace it if the burst is still far enough away,
+            // otherwise give the window up for free. Nothing after this point changes.
+            if path == Some(PathKind::Quic)
+                && let Some(c) = conn.take()
+            {
+                let ms_left = ((send_at - unix_ns()) / 1_000_000) as i64;
+                let addr = w.tpu_quic.clone();
+                let this = &*self;
+                let (c, fate) = revive(
+                    c,
+                    |c| c.close_reason().is_some(),
+                    ms_left,
+                    |budget| async move {
+                        let a = addr.as_deref()?;
+                        this.connect_within(a, budget).await.ok()
+                    },
+                )
+                .await;
+                conn = c;
+                fate.record(&mut self.summary);
+                if fate != ConnFate::Alive {
+                    self.session_event(
+                        "conn_dead",
+                        serde_json::json!({"fate": fate.name(), "window_id": log.window.window_id,
+                            "ms_before_burst": ms_left, "run_id": self.cfg.run_id}),
+                    );
+                    tracing::warn!(window = %log.window.window_id, fate = fate.name(), ms_left,
+                        "QUIC connection was dead before the burst");
+                }
+                match (fate, &conn) {
+                    (ConnFate::Reconnected, Some(c)) => log.connect = Some(c.info.clone()),
+                    (ConnFate::Skipped, _) => {
+                        return self.skip(
+                            log,
+                            "QUIC connection dead before the burst: window given up before any reservation"
+                                .into(),
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         match &mut self.mode {
             Mode::DryRun { .. } => {
                 if let Some(c) = &conn {
@@ -1653,6 +1787,95 @@ mod tests {
             assert_eq!(v.len(), 8);
             assert!(v.iter().all(|&n| (1..=997).contains(&n)));
         }
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct Conn {
+        id: u32,
+        dead: bool,
+    }
+
+    #[tokio::test]
+    async fn a_live_connection_is_left_alone() {
+        let calls = std::cell::Cell::new(0);
+        let (c, fate) = revive(
+            Conn { id: 1, dead: false },
+            |c| c.dead,
+            1_500,
+            |_| async {
+                calls.set(calls.get() + 1);
+                Some(Conn { id: 2, dead: false })
+            },
+        )
+        .await;
+        assert_eq!(
+            (c, fate),
+            (Some(Conn { id: 1, dead: false }), ConnFate::Alive)
+        );
+        assert_eq!(calls.get(), 0, "no reconnect for a live connection");
+    }
+
+    #[tokio::test]
+    async fn a_dead_connection_is_replaced_once_when_there_is_time() {
+        let budgets = std::cell::RefCell::new(vec![]);
+        let reconnect = |b: Duration| {
+            budgets.borrow_mut().push(b.as_millis());
+            async { Some(Conn { id: 2, dead: false }) }
+        };
+        let (c, fate) = revive(Conn { id: 1, dead: true }, |c| c.dead, 1_500, reconnect).await;
+        assert_eq!(
+            (c, fate),
+            (Some(Conn { id: 2, dead: false }), ConnFate::Reconnected)
+        );
+        // the handshake never gets more than the usual second, nor the margin before the burst
+        let reconnect = |b: Duration| {
+            budgets.borrow_mut().push(b.as_millis());
+            async { Some(Conn { id: 3, dead: false }) }
+        };
+        revive(Conn { id: 1, dead: true }, |c| c.dead, 600, reconnect).await;
+        assert_eq!(*budgets.borrow(), vec![1_000, 450]);
+    }
+
+    #[tokio::test]
+    async fn a_dead_connection_with_no_time_or_a_failed_retry_gives_the_window_up() {
+        let calls = std::cell::Cell::new(0);
+        // too close to the burst: not even tried
+        let (c, fate) = revive(
+            Conn { id: 1, dead: true },
+            |c| c.dead,
+            399,
+            |_| async {
+                calls.set(calls.get() + 1);
+                Some(Conn { id: 2, dead: false })
+            },
+        )
+        .await;
+        assert_eq!((c, fate, calls.get()), (None, ConnFate::Skipped, 0));
+        // time enough, but the one retry fails: exactly one attempt, then skipped
+        let (c, fate) = revive(
+            Conn { id: 1, dead: true },
+            |c| c.dead,
+            1_500,
+            |_| async {
+                calls.set(calls.get() + 1);
+                None
+            },
+        )
+        .await;
+        assert_eq!((c, fate, calls.get()), (None, ConnFate::Skipped, 1));
+    }
+
+    #[test]
+    fn the_counters_follow_the_fate() {
+        let mut s = RunSummary::default();
+        ConnFate::Alive.record(&mut s);
+        ConnFate::Reconnected.record(&mut s);
+        ConnFate::Reconnected.record(&mut s);
+        ConnFate::Skipped.record(&mut s);
+        assert_eq!((s.conn_dead_reconnected, s.conn_dead_skipped), (2, 1));
+        let j = serde_json::to_value(&s).unwrap();
+        assert_eq!(j["conn_dead_reconnected"], 2);
+        assert_eq!(j["conn_dead_skipped"], 1);
     }
 
     #[test]

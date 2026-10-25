@@ -552,6 +552,35 @@ mod tests {
     }
 
     #[test]
+    fn a_failed_reservation_write_returns_an_error_and_leaves_nothing_on_disk() {
+        // Fail closed: the runner reserves every tx of a window before it sends the first
+        // one and propagates this error with `?`, so a reservation that cannot be written
+        // means no send. Simulated by swapping the append handle for a read-only one (a full
+        // disk or a revoked handle fails the write the same way).
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ledger.jsonl");
+        let mut l = Ledger::open(&path, "run", 1_000_000).unwrap();
+        l.reserve("sig-ok", 5_000, 100, Purpose::Calibrate, Some("w"))
+            .unwrap();
+        let before = std::fs::read(&path).unwrap();
+        l.file = File::open(&path).unwrap(); // read-only
+        let e = l
+            .reserve("sig-lost", 5_000, 100, Purpose::Calibrate, Some("w"))
+            .unwrap_err();
+        assert!(matches!(e, LedgerError::Io(_)), "{e:?}");
+        assert_eq!(std::fs::read(&path).unwrap(), before, "no line written");
+        // the in-memory books keep the failed amount as reserved (they never undercount), so
+        // the cap check stays conservative for whatever the caller does next
+        assert_eq!(l.totals().reserved_run, 10_000);
+        // and every further write fails too, none succeeds half-way
+        assert!(
+            l.reserve("sig-next", 1, 100, Purpose::Calibrate, Some("w"))
+                .is_err()
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
+
+    #[test]
     fn cap_above_ceiling_rejected() {
         let d = tempfile::tempdir().unwrap();
         assert!(matches!(

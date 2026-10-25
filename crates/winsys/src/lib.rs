@@ -1,4 +1,4 @@
-//! Five Windows API calls behind safe functions. This crate holds the only `unsafe` code in the
+//! Six Windows API calls behind safe functions. This crate holds the only `unsafe` code in the
 //! workspace (every other crate has `unsafe_code = "forbid"`). On other OSes every function is
 //! a no-op that returns `None`.
 //!
@@ -154,6 +154,12 @@ pub fn wifi_link() -> Option<WifiLink> {
     sys::wifi_link()
 }
 
+/// Bytes free to the calling user on the volume that holds `path` (`None` off Windows or on
+/// failure). A path that does not exist yet is fine as long as its volume does.
+pub fn disk_free_bytes(path: &std::path::Path) -> Option<u64> {
+    sys::disk_free_bytes(path)
+}
+
 /// Which of user32.dll and gdi32.dll are loaded in this process now (`None` off Windows).
 pub fn ui_dlls_loaded() -> Option<Vec<&'static str>> {
     sys::ui_dlls_loaded()
@@ -173,6 +179,7 @@ mod sys {
         WlanQueryInterface, wlan_interface_state_connected, wlan_intf_opcode_channel_number,
         wlan_intf_opcode_current_connection, wlan_intf_opcode_rssi,
     };
+    use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
     use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::System::Power::{
         ES_CONTINUOUS, ES_SYSTEM_REQUIRED, SetThreadExecutionState,
@@ -193,6 +200,31 @@ mod sys {
             }
         }
         Some(out)
+    }
+
+    pub fn disk_free_bytes(path: &std::path::Path) -> Option<u64> {
+        use std::os::windows::ffi::OsStrExt;
+        // The nearest existing ancestor: a data directory that is not created yet still has a
+        // volume.
+        let mut dir = path;
+        while !dir.exists() {
+            dir = dir.parent()?;
+            if dir.as_os_str().is_empty() {
+                dir = std::path::Path::new(".");
+            }
+        }
+        let wide: Vec<u16> = dir
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let mut avail = 0u64;
+        let mut total = 0u64;
+        let mut free = 0u64;
+        // SAFETY: `wide` is a NUL-terminated UTF-16 path that outlives the call; the three
+        // out-pointers are valid, writable u64s on this stack frame. Returns 0 on failure.
+        let ok = unsafe { GetDiskFreeSpaceExW(wide.as_ptr(), &mut avail, &mut total, &mut free) };
+        (ok != 0).then_some(avail)
     }
 
     pub fn keep_awake(on: bool) -> bool {
@@ -388,6 +420,9 @@ mod sys {
     pub fn wifi_link() -> Option<WifiLink> {
         None
     }
+    pub fn disk_free_bytes(_path: &std::path::Path) -> Option<u64> {
+        None
+    }
     pub fn keep_awake(_on: bool) -> bool {
         false
     }
@@ -412,6 +447,10 @@ mod tests {
         let k = KeepAwake::start();
         assert!(k.active);
         drop(k);
+        let free = disk_free_bytes(std::path::Path::new(".")).expect("disk");
+        assert!(free > 0);
+        // a path that does not exist yet reports its volume
+        assert!(disk_free_bytes(std::path::Path::new("no-such-dir/sub/x")).is_some());
         let m = memory().expect("memory");
         assert!(m.total > 0 && m.available <= m.total);
         // A CI runner or this PC always has a default route.

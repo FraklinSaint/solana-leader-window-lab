@@ -142,6 +142,12 @@ impl TpuConnection {
         Ok(StreamWrite { stream_id })
     }
 
+    /// Why the connection is closed, `None` while it is open. A peer that drops us (its
+    /// connection table is full) or an idle timeout shows up here before any byte is sent.
+    pub fn close_reason(&self) -> Option<String> {
+        self.conn.close_reason().map(|e| e.to_string())
+    }
+
     pub fn close(&self) {
         self.conn.close(0u32.into(), b"done");
     }
@@ -208,6 +214,16 @@ mod tests {
         let s = seen.lock().unwrap();
         assert_eq!(s.connections, 1);
         assert!(s.streams.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_closed_connection_reports_why() {
+        let (addr, _seen) = test_server::spawn().await.unwrap();
+        let client = TpuClient::new().unwrap();
+        let conn = client.connect(addr).await.unwrap();
+        assert_eq!(conn.close_reason(), None, "open");
+        conn.close();
+        assert!(conn.close_reason().is_some(), "closed");
     }
 
     #[tokio::test]
