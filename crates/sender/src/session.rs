@@ -710,6 +710,10 @@ pub fn coverage(p: &Paths, data_root: &Path, st: &SessionState) -> Result<Value>
                    window-start prediction error at prep time (see sender clock-report).",
         "runs": runs.iter().filter_map(|d| d.file_name()?.to_str().map(str::to_string)).collect::<Vec<_>>(),
         "covered_secs_total": overlap(&covered, st.start_unix, st.end_unix),
+        "network": std::fs::read(p.dir(&st.id).join("network.json"))
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+            .unwrap_or(Value::Null),
         "hours": hours,
     }))
 }
@@ -751,7 +755,49 @@ pub fn coverage_md(c: &Value) -> String {
             h["flag"].as_str().unwrap_or("")
         );
     }
-    s
+    s + &network_md(&c["network"])
+}
+
+/// Network path section of the coverage report (README "Limitations: Wi-Fi").
+pub fn network_md(n: &Value) -> String {
+    if n.is_null() {
+        return "
+## Network path
+
+No network record (the session ended before it was written).
+"
+        .into();
+    }
+    let f = |v: &Value, d: usize| v.as_f64().map_or("–".to_string(), |x| format!("{x:.d$}"));
+    let r = &n["rtt"];
+    let q = &n["signal_quality"];
+    format!(
+        "
+## Network path (Wi-Fi limitation)
+
+         RTT to the RPC endpoint (getSlot, proxy for the path), {} probes, {} failed: min {} ms,          median {}, p95 {}, p99 {}, max {}; robust sigma {} ms; jitter (mean |diff| of consecutive          probes) {} ms.
+
+         Wi-Fi: network types {}, bands {}, channels {}, PHY {}, {} access point(s), {} change(s).          Signal quality min {} / median {} / max {} %.
+",
+        r["n"],
+        r["n_err"],
+        f(&r["min_ms"], 1),
+        f(&r["p50_ms"], 1),
+        f(&r["p95_ms"], 1),
+        f(&r["p99_ms"], 1),
+        f(&r["max_ms"], 1),
+        f(&r["sigma_mad_ms"], 1),
+        f(&r["jitter_ms"], 1),
+        n["network_types"],
+        n["bands"],
+        n["channels"],
+        n["phys"],
+        n["access_points"],
+        n["access_point_changes"],
+        f(&q["min"], 0),
+        f(&q["median"], 0),
+        f(&q["max"], 0),
+    )
 }
 
 /// Write coverage, log `done` and close the session.
@@ -783,6 +829,7 @@ mod tests {
             os_build: "10.0.17763.9376".into(),
             machine_id: "0123456789abcdef".into(),
             sender_sha256: "ab".repeat(32),
+            network_type: "wifi".into(),
         }
     }
 
@@ -1146,5 +1193,26 @@ mod tests {
         )
         .unwrap();
         assert_eq!(reserved_since(&ledger, T0).unwrap(), 500);
+    }
+    #[test]
+    fn network_section_in_the_coverage_report() {
+        // no record: a stated absence, not a missing section
+        assert!(network_md(&Value::Null).contains("No network record"));
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(
+            d.path().join("rtt.jsonl"),
+            "{\"unix\": 100, \"rtt_ms\": 25.0}
+{\"unix\": 105, \"rtt_ms\": 35.0}
+",
+        )
+        .unwrap();
+        let n = crate::netmon::summarize(d.path(), json!({"type": "wifi"}));
+        let md = network_md(&n);
+        assert!(md.contains("Network path (Wi-Fi limitation)"), "{md}");
+        assert!(md.contains("jitter") && md.contains("10.0 ms"), "{md}");
+        // coverage_md appends it after the hourly table
+        let c = json!({"session": "s", "mode": "calibrate", "start": "a", "end": "b",
+                       "covered_secs_total": 0, "hours": [], "network": n});
+        assert!(coverage_md(&c).contains("Network path"));
     }
 }

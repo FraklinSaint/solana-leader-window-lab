@@ -1102,6 +1102,14 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
         });
     }
     spawn_close_listeners(Some((stop.clone(), paths.events(&st.id))), None);
+    // Network path record (Wi-Fi limitation): RTT to the RPC endpoint and the link state, all
+    // session long, in the supervisor process.
+    let net_stop = std::sync::Arc::new(session::Stop::default());
+    let net_task = tokio::spawn(slwlab_sender::netmon::monitor(
+        paths.dir(&st.id),
+        ctx.rpc.clone(),
+        net_stop.clone(),
+    ));
     let g = &ctx.g;
     let mut worker = ProcWorker {
         exe: std::env::current_exe()?,
@@ -1124,7 +1132,15 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
         ledger: ctx.ledger_path(),
         events: paths.events(&st.id),
     };
-    let outcome = session::supervise(&paths, &st, &mut worker, &stop)?;
+    let outcome = session::supervise(&paths, &st, &mut worker, &stop);
+    net_stop.request("session end");
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(10), net_task).await;
+    if let Err(e) =
+        slwlab_sender::netmon::write_summary(&paths.dir(&st.id), pf.info["network"].clone())
+    {
+        tracing::warn!(error = %format!("{e:#}"), "network.json not written");
+    }
+    let outcome = outcome?;
     drop(heartbeat);
     drop(awake);
     match outcome {

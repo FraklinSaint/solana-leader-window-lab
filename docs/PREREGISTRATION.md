@@ -15,7 +15,8 @@ Timeline (enforced where code can enforce it):
    calibration. It uses **order-agnostic statistics only**: landing counts, clock logs, the
    block span of our txs, never their order (tested: shuffling block positions changes no
    estimate). Jitter, execution noise and worker busy time cannot be estimated that way and
-   stay at the preset levels.
+   stay at the preset levels. The session RTT record gives an order-agnostic proxy for jitter,
+   reported and used only as a labeled sensitivity (§6d).
 3. The simulator is re-run with the calibrated values as the new primary level, keeping the
    preset low/high as sensitivity levels. This gives `sim_v2.json` and `alloc_v2.json` (same
    code, same seed). The numbers in §4–§9 are replaced by those results.
@@ -152,6 +153,44 @@ HarmonicAgave `Fd7btgyS` and HarmonicFiredancer `JUPiTERr` share 198.13.140.105 
 advertise it). BamAgave `DRpbCBMx` is alone among the picks at 208.91.105.55, which 9 gossip
 nodes advertise. What runs at a shared address is not inferred. ASNs are not recorded.
 
+## 6d. Network path and platform strata (registered 2026-10-25, before any live window)
+
+**Registered path: Wi-Fi.** The sending PC has no Ethernet. Smoke, calibration and every
+confirmatory window run over Wi-Fi from this one PC. This is a stated limitation (README
+"Limitations: Wi-Fi"): the Wi-Fi hop adds delay and jitter that the measurement cannot remove.
+It is recorded and reported, never corrected, and it does not exclude windows.
+
+**Record.** Every manifest row carries `host.network_type` (`wifi`, `ethernet`, `vpn`, `other`,
+`unknown`). Every session writes `rtt.jsonl` (a timed `getSlot` every 5 s on a kept-alive
+connection, first probe of a connection excluded), `wifi.jsonl` (band, channel, signal quality,
+RSSI if plausible, PHY, rates, access-point hash, every 30 s) and `network.json` (summary:
+RTT min/median/p95/p99/max, robust sigma, jitter = mean absolute difference of consecutive
+probes, loss, by UTC hour; link statistics), plus the pre-flight network block. The pre-flight
+warns about 2.4 GHz, signal quality below 60 %, adapter power saving, a VPN default route and an
+unreadable link. It never refuses a session for the network.
+
+**Platform stratum.** A stratum is (platform id, OS, machine id, network type). Calibration and
+all confirmatory windows belong to one stratum. A session on a different network type is a
+**different stratum**:
+1. `live --purpose calibrate|measure` refuses to start when the network type differs from the
+   calibration rows' type (both known; `unknown` is recorded and never refuses);
+2. verifier check Q fails if the calibration and confirmatory data contain more than one known
+   network type;
+3. data from another stratum would need its own calibration, is analyzed separately, and is
+   never pooled with this one. Without that, it is EXPLORATORY.
+
+**Noise analysis.** RTT jitter enters the nuisance model as follows. It is a proxy, not the
+delay of our QUIC sends to a leader: it also contains the provider's processing and the
+internet path, and a burst shares most of its path delay, so the per-tx jitter inside a burst
+is smaller than the RTT jitter. `calibrate.py` therefore reports the RTT distribution of the
+calibration sessions and the one-way proxy (robust RTT sigma / sqrt 2) beside the preset
+`jitter_ms` range, and leaves the primary `jitter_ms` at the preset level. If the proxy exceeds
+the preset high level, the simulator is run once more at `jitter_ms` = proxy (the calibrated
+level otherwise), and ceilings, thresholds and power at that level are reported as a labeled
+**Wi-Fi sensitivity**. Any cell whose verdict class (STRICT, SOFT, NO_RULE, INCONCLUSIVE) differs
+between the primary and the Wi-Fi sensitivity level is marked in the verdict table. The per-hour
+RTT jitter and signal statistics are reported next to the per-hour clock error.
+
 **Send order realized (registered 2026-10-23).** Each window's actual send order (order of
 `start_mono_ns`) must equal its planned `send_rank` (verifier check O). A window where it does
 not is excluded with reason `send_order_mismatch`. Before the fix of 2026-10-23, the burst loop
@@ -229,7 +268,9 @@ the same pipeline). Simulated null false-positive rate: see above.
 
 ## 10. Sensitivity analyses
 
-By send gap (Arm X, §5b), by path (QUIC vs RPC delivery check: landing only), by date, by window
+By send gap (Arm X, §5b), by path (QUIC vs RPC delivery check: landing only), by path quality
+(exploratory: windows split at the median of the concurrent RTT jitter and of the signal
+quality, §6d), by date, by window
 length (4 vs merged 8+ slots), by burst offset, Firedancer `fd4` vs `fd2` ceilings, and
 low/high nuisance ceilings (SIMULATION.md).
 
@@ -237,7 +278,8 @@ low/high nuisance ceilings (SIMULATION.md).
 
 The models are structural: worker and tile counts and microblock size come from source (F6c),
 and pop order from the rules. Background load, execution-time noise, arrival jitter, clock
-error and landing probability are not knowable before measurement. They are swept low /
+error and landing probability are not knowable before measurement. The Wi-Fi hop of the
+sending PC (§6d) adds delay and jitter that is recorded (RTT, link state) but not removed. They are swept low /
 medium / high, and medium is primary. Window-start "prediction error" in our logs is measured
 against slot-notification arrival at our machine, not the leader's real block start.
 

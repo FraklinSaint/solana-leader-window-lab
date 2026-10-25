@@ -53,3 +53,61 @@ def test_ordering_is_never_read(tmp_path, monkeypatch):
     write_cal(tmp_path, lines, [0.0, 10.0, -10.0])
     b = calibrate.estimate(tmp_path)
     assert {k: v["value"] for k, v in a["estimates"].items()} == {k: v["value"] for k, v in b["estimates"].items()}
+
+
+def write_session(tmp_path, name, mode, rtts, start=1_000):
+    d = tmp_path / "sessions" / name
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "session.json").write_text(json.dumps({"id": name, "mode": mode}))
+    with open(d / "rtt.jsonl", "w") as f:
+        f.write(json.dumps({"unix": start - 5, "rtt_ms": 900.0, "warmup": True}) + "\n")
+        for i, r in enumerate(rtts):
+            row = {"unix": start + 5 * i}
+            row.update({"rtt_ms": r} if r is not None else {"error": "timeout"})
+            f.write(json.dumps(row) + "\n")
+
+
+def test_rtt_stats_match_the_rust_definitions():
+    # same vectors as netmon.rs tests: 10,20,10,20 at 5 s -> jitter 10, nearest-rank median 10
+    s = [(i * 5, r) for i, r in enumerate([10.0, 20.0, 10.0, 20.0])]
+    st = calibrate.rtt_stats(s)
+    assert st["jitter_ms"] == 10.0 and st["p50_ms"] == 10.0 and st["n_pairs"] == 3
+    # MAD sigma of 10..18: median 14, MAD 2 -> 2.9652
+    st = calibrate.rtt_stats([(i * 5, 10.0 + i) for i in range(9)])
+    assert abs(st["sigma_mad_ms"] - 2.9652) < 1e-9
+    # a failed probe and a 90 s gap make no pair; loss is counted
+    st = calibrate.rtt_stats([(0, 10.0), (5, None), (10, 30.0), (100, 50.0), (105, 50.0)])
+    assert st["n_err"] == 1 and st["n_pairs"] == 1 and st["jitter_ms"] == 0.0
+    assert calibrate.rtt_stats([])["p50_ms"] is None
+
+
+def test_network_path_uses_calibration_sessions_only_and_flags_a_wifi_sensitivity(tmp_path):
+    rng = np.random.default_rng(3)
+    # RTT sd about 12 ms -> one-way proxy about 8.5 ms, above the preset high of 3 ms
+    write_session(tmp_path, "20261025T180000Z", "calibrate", list(40 + rng.normal(0, 12, 400)))
+    write_session(tmp_path, "20261025T120000Z", "dryrun", [500.0] * 50)  # not calibration
+    np_ = calibrate.network_path(tmp_path)
+    assert np_["sessions"] == ["20261025T180000Z"]
+    assert np_["rtt"]["n"] == 400, "the warmup probe is excluded"
+    assert 6 < np_["oneway_jitter_proxy_ms"] < 11
+    assert np_["proxy_above_preset_high"] is True
+    # data without sessions: a well-formed empty record
+    empty = calibrate.network_path(tmp_path / "nothing")
+    assert empty["rtt"]["n"] == 0 and empty["proxy_above_preset_high"] is False
+
+
+def test_estimate_carries_the_path_record_and_never_overrides_jitter(tmp_path):
+    lines = synth(tmp_path, sim.AGAVE, windows=20, seed=7)
+    write_cal(tmp_path, lines, np.random.default_rng(1).normal(0, 80, 200))
+    write_session(tmp_path, "20261025T180000Z", "calibrate",
+                  list(40 + np.random.default_rng(4).normal(0, 12, 300)))
+    est = calibrate.estimate(tmp_path)
+    assert est["network_path"]["proxy_above_preset_high"] is True
+    j = est["estimates"]["jitter_ms"]
+    assert j["value"] is None and j["deviation"] is False
+    assert calibrate.calibrated_nuisance(est).jitter_ms == sim.MEDIUM.jitter_ms
+    wifi = calibrate.wifi_sensitivity_nuisance(est)
+    assert wifi is not None and wifi.jitter_ms == est["network_path"]["oneway_jitter_proxy_ms"]
+    # a quiet path needs no extra simulator run
+    est["network_path"]["proxy_above_preset_high"] = False
+    assert calibrate.wifi_sensitivity_nuisance(est) is None

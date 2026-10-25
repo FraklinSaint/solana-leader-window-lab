@@ -300,3 +300,22 @@ def test_send_order_in_dryrun_windows(tmp_path):
     rep = vm.Report()
     vm.check_send_order_windows(d, rep)
     assert [p["window_id"] for p in rep.problems] == ["2-bad"]
+
+
+def test_a_second_network_type_is_a_second_stratum(tmp_path):
+    lines, ledger = build(tmp_path)
+    for l in lines:
+        l["tx"]["host"] = dict(HOST, network_type="wifi")
+    rep = vm.Report()
+    summary = vm.check_platform(lines, rep)
+    assert not rep.problems and summary["network_types"] == {"wifi": len(lines)}
+    # rows from before the field existed and an unreadable adapter are listed, never failed
+    lines[0]["tx"]["host"] = dict(HOST)
+    lines[1]["tx"]["host"] = dict(HOST, network_type="unknown")
+    rep = vm.Report()
+    summary = vm.check_platform(lines, rep)
+    assert not rep.problems and summary["network_types"]["unknown"] == 2
+    lines[2]["tx"]["host"] = dict(HOST, network_type="ethernet")
+    rep = vm.Report()
+    vm.check_platform(lines, rep)
+    assert any("more than one network type" in p["problem"] for p in rep.problems)

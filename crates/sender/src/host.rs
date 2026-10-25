@@ -7,6 +7,12 @@
 //! machine id. [`gate_live`] refuses live calibration or measurement on mainnet from an
 //! unregistered host, or from a host other than the one calibration ran on. Dry-runs are
 //! recorded the same way and are exploratory wherever they ran.
+//!
+//! The **network type** of the default route (`wifi`, `ethernet`, `vpn`, `other`, `unknown`)
+//! is part of the platform stratum: the first hop is part of the treatment. Calibration and
+//! measurement on different network types are different strata, and the gate refuses to mix
+//! them (PREREGISTRATION "Network path and platform strata"). `unknown` (the adapter could not
+//! be read) never refuses, and is recorded.
 
 use crate::ledger::Purpose;
 use anyhow::{Result, bail};
@@ -16,6 +22,32 @@ use std::path::Path;
 
 pub const PLATFORM_ENV: &str = "SLWLAB_PLATFORM";
 pub const UNREGISTERED: &str = "unregistered";
+pub const NET_UNKNOWN: &str = "unknown";
+
+fn net_unknown() -> String {
+    NET_UNKNOWN.into()
+}
+
+/// Network type of the default-route adapter: `wifi` (ifType 71), `ethernet` (6), `vpn`
+/// (tunnel ifType 131, or a description naming a VPN/TAP/WireGuard adapter), `other`, or
+/// `unknown` when no adapter could be read.
+pub fn classify_network(a: Option<&slwlab_winsys::Adapter>) -> &'static str {
+    let Some(a) = a else { return NET_UNKNOWN };
+    let d = a.description.to_ascii_lowercase();
+    if a.if_type == 131
+        || ["vpn", "wireguard", "openvpn", "tap-windows", "tunnel"]
+            .iter()
+            .any(|k| d.contains(k))
+    {
+        "vpn"
+    } else if a.is_wifi() {
+        "wifi"
+    } else if a.if_type == 6 {
+        "ethernet"
+    } else {
+        "other"
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HostInfo {
@@ -31,6 +63,10 @@ pub struct HostInfo {
     pub machine_id: String,
     /// SHA-256 of the running sender executable (Windows keeps it locked while it runs).
     pub sender_sha256: String,
+    /// Network type of the default route when the run started (see [`classify_network`]).
+    /// Rows written before this field existed read as `unknown`.
+    #[serde(default = "net_unknown")]
+    pub network_type: String,
 }
 
 fn sha256_hex(b: &[u8]) -> String {
@@ -119,15 +155,25 @@ impl HostInfo {
             os_build: os_build(),
             machine_id: machine_id(),
             sender_sha256,
+            network_type: classify_network(slwlab_winsys::default_route_adapter().as_ref()).into(),
         }
     }
 
-    /// "Same platform": platform id, OS and machine. The OS build and the binary hash are
-    /// recorded and reported, not gated (a security update must not void calibration).
+    /// Same network stratum: equal types, or one of them unreadable (`unknown`).
+    pub fn same_network(&self, other: &HostInfo) -> bool {
+        self.network_type == NET_UNKNOWN
+            || other.network_type == NET_UNKNOWN
+            || self.network_type == other.network_type
+    }
+
+    /// "Same platform stratum": platform id, OS, machine and network type. The OS build and the
+    /// binary hash are recorded and reported, not gated (a security update must not void
+    /// calibration).
     pub fn same_platform(&self, other: &HostInfo) -> bool {
         self.platform == other.platform
             && self.os == other.os
             && self.machine_id == other.machine_id
+            && self.same_network(other)
     }
 }
 
@@ -165,6 +211,20 @@ pub fn gate_live(
     for c in calibration {
         match c {
             Some(c) if here.same_platform(c) => {}
+            Some(c)
+                if here.platform == c.platform
+                    && here.os == c.os
+                    && here.machine_id == c.machine_id =>
+            {
+                bail!(
+                    "calibration rows exist on network type {}; this session is on {}. A \
+                     different network type is a different platform stratum: calibrate on it \
+                     first, or return to the calibrated network (PREREGISTRATION, Network path \
+                     and platform strata)",
+                    c.network_type,
+                    here.network_type
+                )
+            }
             Some(c) => bail!(
                 "calibration rows exist from {}/{}/{}; this host is {}/{}/{}. Calibration and \
                  confirmatory windows must come from one machine",
@@ -209,6 +269,7 @@ mod tests {
             os_build: "10.0.17763.6893".into(),
             machine_id: machine.into(),
             sender_sha256: "ab".repeat(32),
+            network_type: "wifi".into(),
         }
     }
 
@@ -246,6 +307,64 @@ mod tests {
         assert!(gate_live(&pc, Purpose::Measure, true, &[Some(other_machine.clone())]).is_err());
         assert!(gate_live(&pc, Purpose::Calibrate, true, &[Some(other_machine)]).is_err());
         assert!(gate_live(&pc, Purpose::Measure, true, &[None]).is_err());
+    }
+
+    #[test]
+    fn a_different_network_type_is_a_different_stratum() {
+        let wifi = h("win-pc1", "0123456789abcdef");
+        let mut eth = wifi.clone();
+        eth.network_type = "ethernet".into();
+        let mut unknown = wifi.clone();
+        unknown.network_type = NET_UNKNOWN.into();
+        assert!(wifi.same_platform(&wifi.clone()));
+        assert!(!wifi.same_platform(&eth));
+        // an unreadable adapter is recorded but never refuses
+        assert!(wifi.same_platform(&unknown) && unknown.same_platform(&eth));
+        // calibrated on Wi-Fi: measuring on Ethernet is refused, with the stratum named
+        let e = gate_live(&eth, Purpose::Measure, true, &[Some(wifi.clone())])
+            .unwrap_err()
+            .to_string();
+        assert!(
+            e.contains("platform stratum") && e.contains("wifi") && e.contains("ethernet"),
+            "{e}"
+        );
+        assert!(gate_live(&eth, Purpose::Calibrate, true, &[Some(wifi.clone())]).is_err());
+        assert!(gate_live(&wifi, Purpose::Measure, true, &[Some(wifi.clone())]).is_ok());
+        assert!(gate_live(&unknown, Purpose::Measure, true, &[Some(wifi)]).is_ok());
+        // rows written before the field existed read as unknown
+        let old: HostInfo = serde_json::from_value(serde_json::json!({
+            "platform": "win-pc1", "os": "windows", "arch": "x86_64", "os_build": "1",
+            "machine_id": "0123456789abcdef", "sender_sha256": "ab"
+        }))
+        .unwrap();
+        assert_eq!(old.network_type, NET_UNKNOWN);
+    }
+
+    #[test]
+    fn network_classification() {
+        use slwlab_winsys::Adapter;
+        let a = |t: u32, d: &str| Adapter {
+            index: 1,
+            if_type: t,
+            description: d.into(),
+            name: String::new(),
+        };
+        assert_eq!(classify_network(None), "unknown");
+        assert_eq!(
+            classify_network(Some(&a(71, "TP-Link Wireless USB Adapter"))),
+            "wifi"
+        );
+        assert_eq!(
+            classify_network(Some(&a(6, "Realtek PCIe GbE"))),
+            "ethernet"
+        );
+        assert_eq!(classify_network(Some(&a(131, "Anything"))), "vpn");
+        assert_eq!(classify_network(Some(&a(53, "WireGuard Tunnel"))), "vpn");
+        assert_eq!(
+            classify_network(Some(&a(71, "OpenVPN TAP-Windows Adapter"))),
+            "vpn"
+        );
+        assert_eq!(classify_network(Some(&a(24, "Loopback"))), "other");
     }
 
     #[test]

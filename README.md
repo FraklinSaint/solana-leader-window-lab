@@ -153,11 +153,15 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
 `sender session --mode dryrun|calibrate|measure --hours <= 10`:
 - **pre-flight** (`crates/sender/src/preflight.rs`), recorded in `data/sessions/<id>/preflight.json`
   and printed as warnings: sleep and hibernate timeouts (`powercfg`), free RAM, the
-  default-route adapter and whether it is **Wi-Fi**, the clock offset against an NTP server
+  default-route adapter and its type (**Wi-Fi**, Ethernet, VPN; on Wi-Fi band, channel, signal
+  quality, RSSI, PHY, power-saving mode: warnings only, never a refusal), the clock offset against an NTP server
   (SNTP, `--ntp-server`, default time.cloudflare.com), the platform id (`SLWLAB_PLATFORM`), and
   whether Windows Update or servicing is waiting for a restart (registry, `reg query`);
 - **session header** `data/sessions/<id>/session.json`: mode, fixed UTC interval, platform,
-  OS build, machine id, sender SHA-256;
+  network type, OS build, machine id, sender SHA-256;
+- **network path record** (Wi-Fi limitation): `rtt.jsonl` (RTT to the RPC endpoint every 5 s),
+  `wifi.jsonl` (link state every 30 s) and, at the end, `network.json` and a section of
+  `coverage.md`;
 - **no idle sleep**: `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)` through
   `crates/winsys`, the only crate with `unsafe` code (four Windows API calls behind safe
   functions; the workspace forbids `unsafe` everywhere else), held by the supervisor for the
@@ -421,6 +425,46 @@ Unattended runs log every blind period to `<run>/gaps.jsonl`: host sleep or stal
 stall, RPC outage. A silent WebSocket is dropped after 10 s and reconnected, and the slot
 clock is cleared after a host stall of more than 30 s. `clock_hourly.json` (per run, and
 merged per campaign by `sender clock-report`) gives the error distribution by UTC hour.
+
+### Limitations: Wi-Fi (no Ethernet)
+
+The sending PC has no Ethernet cable, so **every run (smoke, calibration, confirmatory) goes out
+over Wi-Fi** (TP-Link USB adapter). This is a stated limitation of the whole study, not a
+defect that was corrected:
+
+- A Wi-Fi hop adds delay and jitter of its own (contention, retries, power saving, frame
+  aggregation), so the burst our txs form at the NIC is not exactly the burst that reaches the
+  leader. Calibration absorbs the mean (the send offset); the variation stays in the data as
+  arrival noise. Verdicts therefore describe ordering **as seen from this Wi-Fi path**, and a
+  rule whose effect is smaller than that noise can be missed (INCONCLUSIVE, never NO_RULE
+  unless the simulator's power says so at the calibrated noise).
+- **What is recorded.** The pre-flight records the network type of the default route, and on
+  Wi-Fi the band, channel, signal quality, RSSI (only if the driver reports a plausible one),
+  PHY, link rate and the adapter's power-saving mode. It **warns and never refuses** (2.4 GHz,
+  weak signal, power saving, VPN, unreadable link). During every session the supervisor
+  samples the link every 30 s and measures the round-trip time to the RPC endpoint every 5 s
+  (`rtt.jsonl`, `wifi.jsonl`), and writes `network.json` and a coverage-report section at the
+  end (also when the session was stopped). Every manifest row carries `host.network_type`. The
+  SSID is never read, and the access point appears only as a short hash of its BSSID.
+- **RTT is a proxy.** It is a JSON-RPC `getSlot` over a kept-alive HTTPS connection: it
+  includes the provider's processing and the internet path, not only the Wi-Fi hop, and it is
+  not the delay of a QUIC send to a leader. It enters the noise analysis as a reported noise
+  level and as a labeled simulator sensitivity (`analysis/slwlab/calibrate.py`,
+  PREREGISTRATION §6d). It is never used to correct, drop or reweight a window.
+- **Platform strata.** The stratum is (platform id, OS, machine, **network type**). A session on
+  another network type (Ethernet later, a phone hotspot, a VPN) is a different stratum: the
+  live gate refuses to mix it with the calibrated one, verifier check Q fails on a data set
+  with two known network types, and its data would be analyzed separately and never pooled.
+- **Observed on 2026-10-25 (pre-flight, EXPLORATORY).** Connected on 2.4 GHz, channel 13, 802.11n,
+  150 Mbit/s, signal quality 90 %. A 150 Mbit/s 802.11n link is what a single-stream 2.4 GHz
+  adapter negotiates, so 5 GHz is probably not available with this adapter (model not verified).
+  The RSSI query returned a nonsense value (+247 dBm) and is now filtered.
+
+Operator checklist before a Wi-Fi session: near the router (line of sight, signal quality at
+least 60 %); 5 GHz if the adapter supports it (otherwise a quiet 2.4 GHz channel, set on the
+router); adapter power saving off (power plan "Wireless Adapter Settings" = Maximum Performance
+and, in Device Manager, "Allow the computer to turn off this device" unchecked); no VPN; no
+downloads, uploads, cloud sync or video on the network while a session runs.
 
 ### Interaction of our own transactions with each other
 In arms P, F, X and R, each tx has its own fee payer and no other writable account (tested), so

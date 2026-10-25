@@ -1,4 +1,4 @@
-//! Four Windows API calls behind safe functions. This crate holds the only `unsafe` code in the
+//! Five Windows API calls behind safe functions. This crate holds the only `unsafe` code in the
 //! workspace (every other crate has `unsafe_code = "forbid"`). On other OSes every function is
 //! a no-op that returns `None`.
 //!
@@ -7,6 +7,9 @@
 //! - [`memory`]: `GlobalMemoryStatusEx` (total and available physical memory).
 //! - [`default_route_adapter`]: `GetBestInterface` + `GetAdaptersAddresses`, the adapter that
 //!   carries traffic to the internet and its interface type (Wi-Fi or not).
+//! - [`wifi_link`]: the WLAN API (`WlanOpenHandle`, `WlanEnumInterfaces`, `WlanQueryInterface`),
+//!   channel, signal quality, RSSI and PHY of the connected Wi-Fi interface. Language
+//!   independent, unlike `netsh wlan show interfaces`. SSID is never read.
 //! - [`ui_dlls_loaded`]: `GetModuleHandleW`, whether user32.dll / gdi32.dll are loaded in this
 //!   process. Windows does not deliver `CTRL_SHUTDOWN_EVENT` to a console process that has
 //!   loaded either, so the session records it.
@@ -93,6 +96,64 @@ pub fn default_route_adapter() -> Option<Adapter> {
     sys::default_route_adapter()
 }
 
+/// State of the connected Wi-Fi link. The SSID is not read; the BSSID is returned only so the
+/// caller can tell access points apart (it should hash it before storing).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WifiLink {
+    /// Channel number (`None` if the driver does not report it).
+    pub channel: Option<u32>,
+    /// Windows' signal quality, 0..=100 (0 = -100 dBm or worse, 100 = -50 dBm or better).
+    pub signal_quality: u32,
+    /// RSSI in dBm (`None` if the driver does not report a plausible value).
+    pub rssi_dbm: Option<i32>,
+    /// PHY of the association, e.g. "802.11n", "802.11ac".
+    pub phy: &'static str,
+    /// Negotiated receive rate in Mbit/s.
+    pub rx_mbps: u32,
+    /// Negotiated transmit rate in Mbit/s.
+    pub tx_mbps: u32,
+    /// Access point address.
+    pub bssid: [u8; 6],
+}
+
+/// Band of a Wi-Fi channel number: 1..=14 is 2.4 GHz, 32..=177 is 5 GHz. 6 GHz (Wi-Fi 6E)
+/// reuses small numbers and cannot be told from 2.4 GHz by channel alone; this PC's adapter
+/// is not 6 GHz capable, so the ambiguity is not reachable here.
+pub fn band_of_channel(ch: u32) -> &'static str {
+    match ch {
+        1..=14 => "2.4 GHz",
+        32..=177 => "5 GHz",
+        _ => "unknown",
+    }
+}
+
+/// An RSSI is believable between -120 and 0 dBm. Some drivers answer the RSSI query with
+/// garbage (this PC's TP-Link adapter returned +247), which must not be recorded as a reading.
+pub fn rssi_if_valid(r: i32) -> Option<i32> {
+    (-120..=0).contains(&r).then_some(r)
+}
+
+/// Name of a `DOT11_PHY_TYPE` value.
+pub fn phy_name(t: i32) -> &'static str {
+    match t {
+        2 => "802.11 DSSS",
+        4 => "802.11a",
+        5 => "802.11b",
+        6 => "802.11g",
+        7 => "802.11n",
+        8 => "802.11ac",
+        10 => "802.11ax",
+        11 => "802.11be",
+        _ => "other",
+    }
+}
+
+/// The first connected Wi-Fi interface (`None` off Windows, without the WLAN service, or when
+/// no Wi-Fi interface is connected).
+pub fn wifi_link() -> Option<WifiLink> {
+    sys::wifi_link()
+}
+
 /// Which of user32.dll and gdi32.dll are loaded in this process now (`None` off Windows).
 pub fn ui_dlls_loaded() -> Option<Vec<&'static str>> {
     sys::ui_dlls_loaded()
@@ -100,16 +161,24 @@ pub fn ui_dlls_loaded() -> Option<Vec<&'static str>> {
 
 #[cfg(windows)]
 mod sys {
-    use super::{Adapter, Memory};
+    use super::{Adapter, Memory, WifiLink, phy_name, rssi_if_valid};
+    use windows_sys::Win32::Foundation::HANDLE;
     use windows_sys::Win32::NetworkManagement::IpHelper::{
         GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST,
         GAA_FLAG_SKIP_UNICAST, GetAdaptersAddresses, GetBestInterface, IP_ADAPTER_ADDRESSES_LH,
+    };
+    use windows_sys::Win32::NetworkManagement::WiFi::{
+        WLAN_CONNECTION_ATTRIBUTES, WLAN_INTERFACE_INFO, WLAN_INTERFACE_INFO_LIST,
+        WLAN_INTF_OPCODE, WlanCloseHandle, WlanEnumInterfaces, WlanFreeMemory, WlanOpenHandle,
+        WlanQueryInterface, wlan_interface_state_connected, wlan_intf_opcode_channel_number,
+        wlan_intf_opcode_current_connection, wlan_intf_opcode_rssi,
     };
     use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::System::Power::{
         ES_CONTINUOUS, ES_SYSTEM_REQUIRED, SetThreadExecutionState,
     };
     use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+    use windows_sys::core::GUID;
 
     pub fn ui_dlls_loaded() -> Option<Vec<&'static str>> {
         let mut out = vec![];
@@ -171,6 +240,101 @@ mod sys {
         }
     }
 
+    /// Reads one fixed-size value of an interface query (channel number, RSSI) or a plain
+    /// struct (connection attributes), and frees the API's buffer.
+    fn query_copy<T: Copy>(client: HANDLE, guid: &GUID, opcode: WLAN_INTF_OPCODE) -> Option<T> {
+        let mut size = 0u32;
+        let mut data: *mut core::ffi::c_void = std::ptr::null_mut();
+        let mut value_type = 0i32;
+        // SAFETY: `guid` is a valid GUID reference and every out-pointer is valid for the
+        // call; `client` is an open WLAN handle (the caller opened it and closes it after).
+        let rc = unsafe {
+            WlanQueryInterface(
+                client,
+                guid,
+                opcode,
+                std::ptr::null(),
+                &mut size,
+                &mut data,
+                &mut value_type,
+            )
+        };
+        if rc != 0 || data.is_null() {
+            return None;
+        }
+        let out = if size as usize >= std::mem::size_of::<T>() {
+            // SAFETY: `data` points to `size` bytes that the API returned for this opcode, and
+            // `size >= size_of::<T>()`. `T` is a plain integer or POD struct, so any bit
+            // pattern is valid; read_unaligned makes no alignment assumption.
+            Some(unsafe { data.cast::<T>().read_unaligned() })
+        } else {
+            None
+        };
+        // SAFETY: `data` was allocated by WlanQueryInterface and is freed exactly once here.
+        unsafe { WlanFreeMemory(data) };
+        out
+    }
+
+    fn link_of(client: HANDLE, guid: &GUID) -> Option<WifiLink> {
+        let conn: WLAN_CONNECTION_ATTRIBUTES =
+            query_copy(client, guid, wlan_intf_opcode_current_connection)?;
+        let a = &conn.wlanAssociationAttributes;
+        Some(WifiLink {
+            channel: query_copy::<u32>(client, guid, wlan_intf_opcode_channel_number)
+                .filter(|c| *c > 0),
+            signal_quality: a.wlanSignalQuality,
+            rssi_dbm: query_copy::<i32>(client, guid, wlan_intf_opcode_rssi)
+                .and_then(rssi_if_valid),
+            phy: phy_name(a.dot11PhyType),
+            rx_mbps: a.ulRxRate / 1000,
+            tx_mbps: a.ulTxRate / 1000,
+            bssid: a.dot11Bssid,
+        })
+    }
+
+    fn first_connected(client: HANDLE) -> Option<WifiLink> {
+        let mut list: *mut WLAN_INTERFACE_INFO_LIST = std::ptr::null_mut();
+        // SAFETY: `client` is open; `list` is a valid out-pointer. On success the API owns a
+        // buffer that we free below.
+        if unsafe { WlanEnumInterfaces(client, std::ptr::null(), &mut list) } != 0 || list.is_null()
+        {
+            return None;
+        }
+        // SAFETY: `list` is non-null and points to the header the API just wrote.
+        let n = unsafe { (*list).dwNumberOfItems } as usize;
+        // SAFETY: the entries follow the header contiguously (the struct declares a 1-element
+        // array that the API over-allocates); the address is taken without making a reference.
+        let first = unsafe { (&raw const (*list).InterfaceInfo).cast::<WLAN_INTERFACE_INFO>() };
+        let mut found = None;
+        for i in 0..n {
+            // SAFETY: `i < dwNumberOfItems`, so `first.add(i)` is inside the API's buffer.
+            let info = unsafe { &*first.add(i) };
+            if info.isState == wlan_interface_state_connected
+                && let Some(l) = link_of(client, &info.InterfaceGuid)
+            {
+                found = Some(l);
+                break;
+            }
+        }
+        // SAFETY: `list` was allocated by WlanEnumInterfaces and is freed exactly once here;
+        // `found` holds copies only.
+        unsafe { WlanFreeMemory(list.cast()) };
+        found
+    }
+
+    pub fn wifi_link() -> Option<WifiLink> {
+        let mut negotiated = 0u32;
+        let mut client: HANDLE = std::ptr::null_mut();
+        // SAFETY: both out-pointers are valid for the call. Version 2 is the Vista+ API.
+        if unsafe { WlanOpenHandle(2, std::ptr::null(), &mut negotiated, &mut client) } != 0 {
+            return None;
+        }
+        let link = first_connected(client);
+        // SAFETY: `client` was opened above and is closed exactly once.
+        unsafe { WlanCloseHandle(client, std::ptr::null()) };
+        link
+    }
+
     pub fn default_route_adapter() -> Option<Adapter> {
         // 1.1.1.1 as an IPv4 address in network byte order.
         let dest = u32::from_ne_bytes([1, 1, 1, 1]);
@@ -220,7 +384,10 @@ mod sys {
 
 #[cfg(not(windows))]
 mod sys {
-    use super::{Adapter, Memory};
+    use super::{Adapter, Memory, WifiLink};
+    pub fn wifi_link() -> Option<WifiLink> {
+        None
+    }
     pub fn keep_awake(_on: bool) -> bool {
         false
     }
@@ -254,6 +421,39 @@ mod tests {
         // kernel32 is always loaded; the answer for user32/gdi32 is just a list
         let ui = ui_dlls_loaded().expect("ui dlls");
         assert!(ui.iter().all(|n| n.ends_with(".dll")));
+    }
+
+    #[test]
+    fn bands_and_phys() {
+        assert_eq!(band_of_channel(6), "2.4 GHz");
+        assert_eq!(band_of_channel(14), "2.4 GHz");
+        assert_eq!(band_of_channel(36), "5 GHz");
+        assert_eq!(band_of_channel(149), "5 GHz");
+        assert_eq!(band_of_channel(0), "unknown");
+        assert_eq!(rssi_if_valid(-61), Some(-61));
+        assert_eq!(rssi_if_valid(247), None);
+        assert_eq!(rssi_if_valid(-200), None);
+        assert_eq!(phy_name(7), "802.11n");
+        assert_eq!(phy_name(8), "802.11ac");
+        assert_eq!(phy_name(99), "other");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn wifi_query_works_or_is_absent_and_loads_no_ui_dll() {
+        let before = ui_dlls_loaded().expect("ui dlls");
+        // A PC without Wi-Fi, without the WLAN service or not connected returns None.
+        let link = wifi_link();
+        if let Some(l) = &link {
+            assert!(l.signal_quality <= 100);
+            if let Some(c) = l.channel {
+                assert_ne!(band_of_channel(c), "unknown");
+            }
+        }
+        // Loading wlanapi.dll must not pull in user32/gdi32: Windows would then stop sending
+        // CTRL_SHUTDOWN_EVENT to the process (README, Running natively).
+        let after = ui_dlls_loaded().expect("ui dlls");
+        assert_eq!(before, after, "wifi_link() loaded a UI dll");
     }
 
     #[test]

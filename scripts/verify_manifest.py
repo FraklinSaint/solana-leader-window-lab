@@ -29,8 +29,11 @@ Offline, from `data/` alone (no trust in the collector):
      in idx order; LOGBOOK 13:40.) Also for dry-run output: `--windows <run dir>`.
   Q  platform: every calibration and confirmatory tx carries a host record (platform id, OS,
      OS build, machine id, sender binary SHA-256; crates/sender/src/host.rs), the platform is
-     registered, and all of them come from one (platform, OS, machine). OS build and binary
-     hash changes are listed in the summary, not failed.
+     registered, and all of them come from one (platform, OS, machine) and one network type
+     (`host.network_type`: wifi / ethernet / vpn / other; a different type is a different
+     platform stratum, PREREGISTRATION "Network path and platform strata"; `unknown`, an
+     unreadable adapter, is listed and not failed). OS build and binary hash changes are
+     listed in the summary, not failed.
   L  ledger (`data/ledger.jsonl`, if present): every measure/calibrate reservation has a
      manifest line and vice versa, and the landed fees match.
 Online (`--online`, RPC_URL from env; the key is never printed or stored):
@@ -246,6 +249,7 @@ def check_platform(lines: list[dict], rep: Report) -> dict:
     keys: Counter = Counter()
     builds: Counter = Counter()
     hashes: Counter = Counter()
+    nets: Counter = Counter()
     for l in lines:
         t = l["tx"]
         if t.get("purpose") not in ORDERING_PURPOSES:
@@ -260,11 +264,17 @@ def check_platform(lines: list[dict], rep: Report) -> dict:
         keys[(h["platform"], h["os"], h["machine_id"])] += 1
         builds[h.get("os_build")] += 1
         hashes[h.get("sender_sha256")] += 1
+        nets[h.get("network_type") or "unknown"] += 1
         rep.ok("Q")
     if len(keys) > 1:
         rep.fail("Q", "calibration/confirmatory txs come from more than one platform",
                  platforms={"/".join(map(str, k)): n for k, n in sorted(keys.items())})
+    known = sorted(k for k in nets if k != "unknown")
+    if len(known) > 1:
+        rep.fail("Q", "calibration/confirmatory txs come from more than one network type "
+                 "(a different platform stratum)", network_types=dict(sorted(nets.items())))
     return {"platforms": {"/".join(map(str, k)): n for k, n in sorted(keys.items())},
+            "network_types": dict(sorted(nets.items())),
             "os_builds": dict(sorted(builds.items())), "sender_sha256": dict(sorted(hashes.items()))}
 
 

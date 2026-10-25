@@ -4,7 +4,11 @@
 //!
 //! - power plan: sleep and hibernate timeouts on AC and battery (`powercfg /query`);
 //! - free RAM (`GlobalMemoryStatusEx`, slwlab-winsys);
-//! - network: the default-route adapter and whether it is Wi-Fi (`GetAdaptersAddresses`);
+//! - network: the default-route adapter, its type (Wi-Fi, Ethernet, VPN) and, on Wi-Fi, band,
+//!   channel, signal quality and the adapter's power-saving mode. All of it **warns, never
+//!   refuses**: this PC has no Ethernet, so Wi-Fi is the registered path (README
+//!   "Limitations: Wi-Fi"); the session then records RTT and link state all session long
+//!   (`netmon.rs`);
 //! - clock offset against an NTP server (SNTP, 4 samples, smallest round trip wins);
 //! - platform id (`SLWLAB_PLATFORM`);
 //! - Windows Update / servicing waiting for a restart (three registry markers, `reg query`).
@@ -15,11 +19,18 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const MIN_FREE_RAM: u64 = 2 * 1024 * 1024 * 1024;
 pub const MAX_CLOCK_OFFSET_MS: f64 = 50.0;
+/// Windows' Wi-Fi signal quality (0..=100) below which the pre-flight warns (60 is about
+/// -70 dBm).
+pub const MIN_WIFI_SIGNAL: u32 = 60;
 const NTP_UNIX_OFFSET: u64 = 2_208_988_800;
 
 const STANDBYIDLE: &str = "29f6c1db-86da-48c5-9fdb-f2b67b1f44da";
 const HIBERNATEIDLE: &str = "9d7815a6-7ee4-497e-8888-515a05f02364";
 const SUB_SLEEP: &str = "238c9fa8-0aad-41ed-83f4-97be242c8f20";
+/// "Wireless Adapter Settings" / "Power Saving Mode": 0 maximum performance, 1 low, 2 medium,
+/// 3 maximum power saving.
+const SUB_WIRELESS: &str = "19cbb8fa-5279-450e-9fac-8a3d5fedd0c1";
+const WIFI_POWER_SAVING: &str = "12bbebe6-58d6-4636-95bb-3217ef867c1a";
 
 /// (AC, DC) timeout in seconds from `powercfg /query` output: the last two hex values are the
 /// AC and DC indices whatever the display language. 0 = never.
@@ -50,6 +61,14 @@ fn power_timeout(setting: &str) -> Option<(u64, u64)> {
     command(
         "powercfg",
         &["/query", "SCHEME_CURRENT", SUB_SLEEP, setting],
+    )
+    .and_then(|(_, o)| parse_powercfg(&o))
+}
+
+fn wifi_power_saving() -> Option<(u64, u64)> {
+    command(
+        "powercfg",
+        &["/query", "SCHEME_CURRENT", SUB_WIRELESS, WIFI_POWER_SAVING],
     )
     .and_then(|(_, o)| parse_powercfg(&o))
 }
@@ -173,13 +192,55 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
         ));
     }
     let nic = slwlab_winsys::default_route_adapter();
-    match &nic {
-        None => w.push("network: could not determine the default-route adapter".into()),
-        Some(a) if a.is_wifi() => w.push(format!(
-            "network: the default route uses Wi-Fi ({}); Ethernet gives steadier send timing",
+    let net = crate::host::classify_network(nic.as_ref());
+    let link = (net == "wifi").then(slwlab_winsys::wifi_link).flatten();
+    let power = (net == "wifi").then(wifi_power_saving).flatten();
+    match (&nic, net) {
+        (None, _) => w.push("network: could not determine the default-route adapter".into()),
+        (Some(a), "wifi") => w.push(format!(
+            "network: Wi-Fi ({}). Registered path of this PC: recorded in every run and session \
+             (RTT and link state) and a separate platform stratum; not refused",
+            a.description
+        )),
+        (Some(a), "vpn") => w.push(format!(
+            "network: the default route is a VPN/tunnel adapter ({}); that is a different \
+             platform stratum than the calibrated path",
             a.description
         )),
         _ => {}
+    }
+    if net == "wifi" {
+        match &link {
+            None => w.push(
+                "wifi: link state unreadable (WLAN service stopped or not connected); \
+                 channel and signal will be missing from the record"
+                    .into(),
+            ),
+            Some(l) => {
+                if l.channel.map(slwlab_winsys::band_of_channel) == Some("2.4 GHz") {
+                    w.push(format!(
+                        "wifi: connected on 2.4 GHz (channel {}); 5 GHz is steadier",
+                        l.channel.unwrap_or(0)
+                    ));
+                }
+                if l.signal_quality < MIN_WIFI_SIGNAL {
+                    w.push(format!(
+                        "wifi: signal quality {} % (RSSI {} dBm) is below {MIN_WIFI_SIGNAL} %: move \
+                         closer to the router",
+                        l.signal_quality,
+                        l.rssi_dbm.map_or("?".to_string(), |r| r.to_string())
+                    ));
+                }
+            }
+        }
+        match power {
+            None => w.push("wifi: could not read the adapter power-saving mode (powercfg)".into()),
+            Some((ac, _)) if ac != 0 => w.push(format!(
+                "wifi: power saving mode on AC is {ac} (0 = maximum performance): set the \
+                 wireless adapter to Maximum Performance"
+            )),
+            _ => {}
+        }
     }
     let clock = clock_offset(ntp_server);
     match &clock {
@@ -215,7 +276,10 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
         "hibernate_after_secs": hib.map(|(ac, dc)| json!({"ac": ac, "dc": dc})),
         "memory": mem.map(|m| json!({"total_bytes": m.total, "available_bytes": m.available})),
         "network": nic.as_ref().map(|a| json!({"name": a.name, "description": a.description,
-                                                 "if_type": a.if_type, "wifi": a.is_wifi()})),
+                                                 "if_type": a.if_type, "wifi": a.is_wifi(),
+                                                 "type": net,
+                                                 "wifi_link": link.as_ref().map(crate::netmon::wifi_json),
+                                                 "wifi_power_saving_ac": power.map(|p| p.0)})),
         "clock": match &clock {
             Ok((o, d)) => json!({"server": ntp_server, "local_minus_server_ms": -o * 1000.0, "round_trip_ms": d * 1000.0}),
             Err(e) => json!({"server": ntp_server, "error": e}),

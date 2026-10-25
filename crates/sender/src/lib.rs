@@ -15,6 +15,7 @@ pub mod ledger;
 pub mod live;
 #[cfg(test)]
 mod localnet_tests;
+pub mod netmon;
 pub mod planner;
 pub mod preflight;
 pub mod quic;

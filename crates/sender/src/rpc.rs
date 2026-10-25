@@ -267,6 +267,35 @@ impl Rpc {
         bail!("{method}: rate limited after {} retries", self.max_retries)
     }
 
+    /// One timed `getSlot` on the kept-alive connection, for the network path record
+    /// (`netmon.rs`). Waiting for a rate-limit token is not part of the time; there is no
+    /// retry, so a slow or failed probe is what it is. The time covers sending the request and
+    /// reading the whole response.
+    pub async fn probe_rtt(&self) -> Result<Duration> {
+        let body = json!({"jsonrpc": "2.0", "id": 1, "method": "getSlot",
+                          "params": [{"commitment": "processed"}]});
+        self.bucket.acquire().await;
+        self.meter.http_call("getSlot");
+        let t0 = std::time::Instant::now();
+        let resp = self
+            .http
+            .post(&self.url)
+            .timeout(Duration::from_secs(4))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| anyhow!("{}", redact(&e.without_url().to_string())))?;
+        let status = resp.status();
+        resp.bytes()
+            .await
+            .map_err(|e| anyhow!("{}", redact(&e.without_url().to_string())))?;
+        let dt = t0.elapsed();
+        if !status.is_success() {
+            bail!("HTTP {status}");
+        }
+        Ok(dt)
+    }
+
     async fn typed<T: for<'de> Deserialize<'de>>(&self, method: &str, params: Value) -> Result<T> {
         let v = self.call(method, params).await?;
         serde_json::from_value(v).with_context(|| format!("{method}: unexpected shape"))
