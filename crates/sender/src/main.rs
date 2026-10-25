@@ -1023,6 +1023,17 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
             std::env::var(live::CONFIRM_ENV).ok().as_deref(),
             a.max_spend_lamports,
         )?;
+        // Every payer must be funded before a session opens: an underfunded payer would be
+        // skipped silently by the pool and thin out the windows.
+        let payers = keys::load_payers(&ctx.payers_dir())?;
+        let pks: Vec<String> = payers.iter().map(|p| p.pubkey().to_string()).collect();
+        let bal = ctx.rpc.balances(&pks).await?;
+        let required = funding::required_payer_balance(
+            lamports_per_signature(&ctx.rpc).await?,
+            ctx.rpc.min_rent(0).await?,
+            &ArmConfig::default(),
+        );
+        funding::check_payers_funded(&pks.into_iter().zip(bal).collect::<Vec<_>>(), required)?;
         if purpose == Purpose::Measure {
             ensure!(
                 ctx.cluster.is_mainnet(),
@@ -1517,6 +1528,21 @@ async fn campaign(
     let committed = ledger_commitment(&ctx.ledger_path())?;
     let mut plan_cfg = plan_config(ctx, a, lps, purpose_budget(&committed, purpose))?;
     if purpose == Purpose::Measure && mode_is_live(&mode) {
+            let required = funding::required_payer_balance(
+                lps,
+                rent_min,
+                &ArmConfig {
+                    n: a.n,
+                    ..ArmConfig::default()
+                },
+            );
+            funding::check_payers_funded(
+                &pks.iter()
+                    .cloned()
+                    .zip(bal.iter().copied())
+                    .collect::<Vec<_>>(),
+                required,
+            )?;
         ensure!(
             plan_cfg.quotas.is_some(),
             "--purpose measure requires --allocation (the pre-registered power-balanced allocation)"
@@ -1804,16 +1830,24 @@ async fn fund(
     println!("opening snapshot: {}", p.display());
     let mut ledger = Ledger::open(&ctx.ledger_path(), run_id, auth.cap())?;
     let signers = BTreeMap::from([(master.pubkey().to_string(), &master)]);
-    funding::execute_transfers(
-        &ctx.rpc,
-        &auth,
-        &mut ledger,
-        &ctx.data_root,
-        &signers,
-        &plan,
-        Purpose::Fund,
-    )
-    .await?;
+    let master_pk = master.pubkey().to_string();
+    let outcome = {
+        let mut exec = funding::LiveTransfers {
+            rpc: &ctx.rpc,
+            auth: &auth,
+            ledger: &mut ledger,
+            data_root: &ctx.data_root,
+            signers: &signers,
+            purpose: Purpose::Fund,
+            cluster: ctx.cluster.name(),
+            accounts: wallets(ctx)?,
+            planner: Box::new(|snap, _| {
+                funding::plan_funding(snap, &master_pk, payer_target, rent_min, fee)
+            }),
+        };
+        funding::send_until_landed(&mut exec, &master_pk, plan, funding::MAX_TRANSFER_RETRIES)
+            .await?
+    };
     drop(payers);
     let after = funding::snapshot(&ctx.rpc, &ctx.cluster.name(), &wallets(ctx)?).await?;
     let pa = funding::save_snapshot(&ctx.data_root, &after)?;
@@ -1824,7 +1858,8 @@ async fn fund(
         &before,
         &after,
     )
-    .await?;
+    .await?
+    .with_transfers(&outcome);
     println!(
         "{}\nclosing snapshot: {}",
         serde_json::to_string_pretty(&r)?,
@@ -1861,7 +1896,10 @@ async fn sweep(ctx: &Ctx, live_flag: bool, max_spend: Option<u64>, run_id: &str)
         } else {
             ""
         };
-        println!("  {} -> {} {} (fee {}{by})", t.from, t.to, t.lamports, t.fee);
+        println!(
+            "  {} -> {} {} (fee {}{by})",
+            t.from, t.to, t.lamports, t.fee
+        );
     }
     for n in &notes {
         println!("note: {n}");
@@ -1882,16 +1920,23 @@ async fn sweep(ctx: &Ctx, live_flag: bool, max_spend: Option<u64>, run_id: &str)
         payers.iter().map(|p| (p.pubkey().to_string(), p)).collect();
     signers.insert(sink.pubkey().to_string(), &sink);
     signers.insert(master_pk.clone(), &master);
-    funding::execute_transfers(
-        &ctx.rpc,
-        &auth,
-        &mut ledger,
-        &ctx.data_root,
-        &signers,
-        &plan,
-        Purpose::Sweep,
-    )
-    .await?;
+    let outcome = {
+        let mut exec = funding::LiveTransfers {
+            rpc: &ctx.rpc,
+            auth: &auth,
+            ledger: &mut ledger,
+            data_root: &ctx.data_root,
+            signers: &signers,
+            purpose: Purpose::Sweep,
+            cluster: ctx.cluster.name(),
+            accounts: wallets(ctx)?,
+            planner: Box::new(|snap, led| {
+                Ok(funding::plan_sweep(snap, &master_pk, fee, rent_min, &led.busy_payers()).0)
+            }),
+        };
+        funding::send_until_landed(&mut exec, &master_pk, plan, funding::MAX_TRANSFER_RETRIES)
+            .await?
+    };
     let after = funding::snapshot(&ctx.rpc, &ctx.cluster.name(), &wallets(ctx)?).await?;
     funding::save_snapshot(&ctx.data_root, &after)?;
     let r = funding::reconcile(
@@ -1901,7 +1946,8 @@ async fn sweep(ctx: &Ctx, live_flag: bool, max_spend: Option<u64>, run_id: &str)
         &before,
         &after,
     )
-    .await?;
+    .await?
+    .with_transfers(&outcome);
     println!("{}", serde_json::to_string_pretty(&r)?);
     funding::fail_if_not_ok(&r)
 }

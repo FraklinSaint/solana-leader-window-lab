@@ -271,6 +271,172 @@ pub async fn execute_transfers(
     Ok(sigs)
 }
 
+impl Transfer {
+    /// The wallet this transfer is about: whichever side is not the master.
+    pub fn account(&self, master: &str) -> String {
+        if self.from == master {
+            self.to.clone()
+        } else {
+            self.from.clone()
+        }
+    }
+}
+
+/// Retries after the first send (so a transfer is sent at most 1 + this many times).
+pub const MAX_TRANSFER_RETRIES: u32 = 3;
+
+/// What `send_until_landed` needs from the outside world. The live implementation talks to
+/// the cluster and the ledger; tests use a fake.
+#[allow(async_fn_in_trait)]
+pub trait TransferExec {
+    /// Send and resolve these transfers (every one lands or is proven expired).
+    async fn send(&mut self, plan: &[Transfer]) -> Result<()>;
+    /// Fresh balances -> the transfers still needed. A transfer that landed late is gone
+    /// from this plan, so it is never repeated.
+    async fn replan(&mut self) -> Result<Vec<Transfer>>;
+    /// Whether the run's spend cap still allows these fees.
+    fn within_cap(&self, fees: u64) -> bool;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+pub struct SendOutcome {
+    pub planned: usize,
+    /// Wallets whose transfer never landed, after all retries.
+    pub missing: Vec<String>,
+    pub retries: u32,
+}
+
+/// Send `plan`, then compare planned and landed transfers using fresh balances. Missing
+/// ones are retried (at most `max_retries` times, only while the spend cap allows), each
+/// time from a plan recomputed from fresh balances.
+pub async fn send_until_landed<E: TransferExec>(
+    exec: &mut E,
+    master: &str,
+    plan: Vec<Transfer>,
+    max_retries: u32,
+) -> Result<SendOutcome> {
+    let wanted: std::collections::BTreeSet<String> =
+        plan.iter().map(|t| t.account(master)).collect();
+    let planned = plan.len();
+    let mut out = SendOutcome {
+        planned,
+        ..Default::default()
+    };
+    if planned == 0 {
+        return Ok(out);
+    }
+    let mut cur = plan;
+    loop {
+        exec.send(&cur).await?;
+        let todo: Vec<Transfer> = exec
+            .replan()
+            .await?
+            .into_iter()
+            .filter(|t| wanted.contains(&t.account(master)))
+            .collect();
+        out.missing = todo.iter().map(|t| t.account(master)).collect();
+        if out.missing.is_empty() {
+            return Ok(out);
+        }
+        println!(
+            "{} of {} transfers did NOT land: {}",
+            out.missing.len(),
+            planned,
+            out.missing.join(", ")
+        );
+        if out.retries >= max_retries {
+            return Ok(out);
+        }
+        let fees: u64 = todo.iter().map(|t| t.fee).sum();
+        if !exec.within_cap(fees) {
+            println!("not retrying: fees {fees} would exceed the spend cap");
+            return Ok(out);
+        }
+        out.retries += 1;
+        println!(
+            "retry {}/{max_retries} from fresh balances: {} transfers, fees {fees}",
+            out.retries,
+            todo.len()
+        );
+        cur = todo;
+    }
+}
+
+/// The live implementation: sends through RPC with the ledger, replans from a fresh snapshot.
+pub struct LiveTransfers<'a> {
+    pub rpc: &'a Rpc,
+    pub auth: &'a LiveAuth,
+    pub ledger: &'a mut Ledger,
+    pub data_root: &'a Path,
+    pub signers: &'a BTreeMap<String, &'a NamedKeypair>,
+    pub purpose: Purpose,
+    pub cluster: String,
+    pub accounts: Vec<(Pubkey, Role)>,
+    #[allow(clippy::type_complexity)]
+    pub planner: Box<dyn Fn(&BalanceSnapshot, &Ledger) -> Result<Vec<Transfer>> + 'a>,
+}
+
+impl TransferExec for LiveTransfers<'_> {
+    async fn send(&mut self, plan: &[Transfer]) -> Result<()> {
+        execute_transfers(
+            self.rpc,
+            self.auth,
+            self.ledger,
+            self.data_root,
+            self.signers,
+            plan,
+            self.purpose,
+        )
+        .await
+        .map(|_| ())
+    }
+    async fn replan(&mut self) -> Result<Vec<Transfer>> {
+        let snap = snapshot(self.rpc, &self.cluster, &self.accounts).await?;
+        (self.planner)(&snap, self.ledger)
+    }
+    fn within_cap(&self, fees: u64) -> bool {
+        self.ledger.check(fees).is_ok()
+    }
+}
+
+/// Worst-case fee of one measurement tx under `cfg` (the dearest arm), plus rent-exempt
+/// minimum: what a payer must hold to send it and stay rent-exempt.
+pub fn required_payer_balance(lps: u64, rent_min: u64, cfg: &crate::arms::ArmConfig) -> u64 {
+    use slwlab_common::fees::total_fee;
+    let r_max = cfg
+        .r_cu_limits
+        .iter()
+        .copied()
+        .max()
+        .unwrap_or(cfg.cu_limit);
+    let worst = [
+        total_fee(lps, 1, cfg.price_max, cfg.cu_limit),
+        total_fee(lps, 1, cfg.f_price, cfg.cu_limit),
+        total_fee(lps, 1, cfg.r_price, r_max),
+    ]
+    .into_iter()
+    .max()
+    .unwrap_or(lps);
+    rent_min + worst
+}
+
+/// Refuse to start when any payer holds less than `required`.
+pub fn check_payers_funded(balances: &[(String, u64)], required: u64) -> Result<()> {
+    let low: Vec<String> = balances
+        .iter()
+        .filter(|(_, b)| *b < required)
+        .map(|(k, b)| format!("{k} ({b})"))
+        .collect();
+    ensure!(
+        low.is_empty(),
+        "{} of {} payers hold less than the required {required} lamports (rent-exempt minimum + worst-case fee): {}. Run `sender fund`.",
+        low.len(),
+        balances.len(),
+        low.join(", ")
+    );
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ReconcileReport {
     pub before_slot: u64,
@@ -283,8 +449,28 @@ pub struct ReconcileReport {
     pub fees_checked_onchain: usize,
     pub open_reservations: usize,
     pub locked_rent_after: u64,
+    pub transfers_planned: usize,
+    pub transfers_missing: Vec<String>,
     pub problems: Vec<String>,
     pub ok: bool,
+}
+
+impl ReconcileReport {
+    /// Record the outcome of a send round: any transfer that never landed fails the report.
+    pub fn with_transfers(mut self, o: &SendOutcome) -> Self {
+        self.transfers_planned = o.planned;
+        self.transfers_missing = o.missing.clone();
+        if !o.missing.is_empty() {
+            self.problems.push(format!(
+                "{} of {} transfers did NOT land: {}",
+                o.missing.len(),
+                o.planned,
+                o.missing.join(", ")
+            ));
+            self.ok = false;
+        }
+        self
+    }
 }
 
 /// Pure part of reconciliation: wallet delta vs ledger fees (on-chain fee checks are added
@@ -350,6 +536,8 @@ pub fn reconcile_math(
         fees_checked_onchain: 0,
         open_reservations: open.len(),
         locked_rent_after: after.locked(),
+        transfers_planned: 0,
+        transfers_missing: vec![],
         ok: problems.is_empty(),
         problems,
     }
@@ -491,7 +679,11 @@ mod tests {
         assert_eq!(got, vec![("P1", 995_000, None), ("S", 650_245, Some("M"))]);
         assert_eq!(notes.len(), 2);
         let fees: Vec<u64> = t.iter().map(|t| t.fee).collect();
-        assert_eq!(fees, vec![5_000, 10_000], "two signatures cost two base fees");
+        assert_eq!(
+            fees,
+            vec![5_000, 10_000],
+            "two signatures cost two base fees"
+        );
     }
 
     #[test]
@@ -509,6 +701,186 @@ mod tests {
         assert_eq!(t[0].lamports, 655_239);
         assert_eq!(t[1].fee_payer, None);
         assert_eq!(t[1].lamports, 650_240);
+    }
+
+    /// Cluster stand-in: a transfer fills its account to 100. Accounts in `drops` lose that
+    /// many sends first; accounts in `late` land only after the next balance read.
+    struct Fake {
+        bal: BTreeMap<String, u64>,
+        drops: BTreeMap<String, u32>,
+        late: std::collections::BTreeSet<String>,
+        pending_late: Vec<String>,
+        sent: Vec<String>,
+        cap_left: u64,
+    }
+
+    impl Fake {
+        fn new(accounts: &[&str], cap_left: u64) -> Self {
+            Self {
+                bal: accounts.iter().map(|a| (a.to_string(), 0)).collect(),
+                drops: BTreeMap::new(),
+                late: Default::default(),
+                pending_late: vec![],
+                sent: vec![],
+                cap_left,
+            }
+        }
+        fn count(&self, a: &str) -> usize {
+            self.sent.iter().filter(|x| *x == a).count()
+        }
+    }
+
+    impl TransferExec for Fake {
+        async fn send(&mut self, plan: &[Transfer]) -> Result<()> {
+            for t in plan {
+                let a = t.account("M");
+                self.sent.push(a.clone());
+                if self.late.remove(&a) {
+                    self.pending_late.push(a);
+                } else if let Some(n) = self.drops.get_mut(&a).filter(|n| **n > 0) {
+                    *n -= 1;
+                } else {
+                    self.bal.insert(a, 100);
+                }
+            }
+            Ok(())
+        }
+        async fn replan(&mut self) -> Result<Vec<Transfer>> {
+            for a in self.pending_late.drain(..) {
+                self.bal.insert(a, 100);
+            }
+            Ok(self
+                .bal
+                .iter()
+                .filter(|(_, b)| **b < 100)
+                .map(|(a, b)| Transfer {
+                    from: a.clone(),
+                    to: "M".into(),
+                    lamports: 100 - b,
+                    fee: 10_000,
+                    fee_payer: Some("M".into()),
+                })
+                .collect())
+        }
+        fn within_cap(&self, fees: u64) -> bool {
+            fees <= self.cap_left
+        }
+    }
+
+    fn first_plan(f: &Fake) -> Vec<Transfer> {
+        f.bal
+            .keys()
+            .map(|a| Transfer {
+                from: a.clone(),
+                to: "M".into(),
+                lamports: 100,
+                fee: 10_000,
+                fee_payer: Some("M".into()),
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn a_transfer_that_landed_late_is_not_sent_again() {
+        let mut f = Fake::new(&["A", "B", "C"], u64::MAX);
+        f.late.insert("B".into());
+        let plan = first_plan(&f);
+        let o = send_until_landed(&mut f, "M", plan, MAX_TRANSFER_RETRIES)
+            .await
+            .unwrap();
+        assert!(o.missing.is_empty(), "{o:?}");
+        assert_eq!((o.planned, o.retries), (3, 0));
+        assert_eq!((f.count("A"), f.count("B"), f.count("C")), (1, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn a_dropped_transfer_is_retried_from_fresh_balances() {
+        let mut f = Fake::new(&["A", "B", "C"], 10_000);
+        f.drops.insert("C".into(), 1);
+        let plan = first_plan(&f);
+        let o = send_until_landed(&mut f, "M", plan, MAX_TRANSFER_RETRIES)
+            .await
+            .unwrap();
+        assert!(o.missing.is_empty(), "{o:?}");
+        assert_eq!(o.retries, 1);
+        // only the missing one is sent again; A and B are not repeated
+        assert_eq!((f.count("A"), f.count("B"), f.count("C")), (1, 1, 2));
+    }
+
+    #[tokio::test]
+    async fn retries_stop_after_three_and_report_the_missing_address() {
+        let mut f = Fake::new(&["A", "B", "C"], u64::MAX);
+        f.drops.insert("C".into(), 99);
+        let plan = first_plan(&f);
+        let o = send_until_landed(&mut f, "M", plan, MAX_TRANSFER_RETRIES)
+            .await
+            .unwrap();
+        assert_eq!(o.missing, vec!["C".to_string()]);
+        assert_eq!(o.retries, 3);
+        assert_eq!((f.count("A"), f.count("B"), f.count("C")), (1, 1, 4));
+        let r = reconcile_math(
+            &snap(1, &[("M", Role::Master, 5)]),
+            &snap(2, &[("M", Role::Master, 5)]),
+            &[],
+        );
+        assert!(r.ok);
+        let r = r.with_transfers(&o);
+        assert!(!r.ok);
+        assert_eq!(r.transfers_missing, vec!["C".to_string()]);
+        assert_eq!(
+            r.problems,
+            vec!["1 of 3 transfers did NOT land: C".to_string()]
+        );
+        assert!(fail_if_not_ok(&r).is_err());
+    }
+
+    #[tokio::test]
+    async fn no_retry_when_a_master_paid_fee_does_not_fit_the_cap() {
+        // a master-paid transfer costs 10_000; 9_999 left
+        let mut f = Fake::new(&["A", "C"], 9_999);
+        f.drops.insert("C".into(), 99);
+        let plan = first_plan(&f);
+        let o = send_until_landed(&mut f, "M", plan, MAX_TRANSFER_RETRIES)
+            .await
+            .unwrap();
+        assert_eq!((o.missing, o.retries), (vec!["C".to_string()], 0));
+        assert_eq!(f.count("C"), 1);
+    }
+
+    #[test]
+    fn report_without_missing_transfers_stays_ok() {
+        let r = reconcile_math(
+            &snap(1, &[("M", Role::Master, 5)]),
+            &snap(2, &[("M", Role::Master, 5)]),
+            &[],
+        )
+        .with_transfers(&SendOutcome {
+            planned: 2,
+            ..Default::default()
+        });
+        assert!(r.ok && r.problems.is_empty());
+        assert_eq!(r.transfers_planned, 2);
+        assert!(fail_if_not_ok(&r).is_ok());
+    }
+
+    #[test]
+    fn payer_preflight_names_every_underfunded_payer() {
+        let required = required_payer_balance(5_000, 650_240, &crate::arms::ArmConfig::default());
+        // dearest arm: R, 200_000 micro-lamports x 8_000 CU = 1_600 on top of the base fee
+        assert_eq!(required, 650_240 + 5_000 + 1_600);
+        let ok = vec![("P1".to_string(), required), ("P2".to_string(), 700_000)];
+        assert!(check_payers_funded(&ok, required).is_ok());
+        let bad = vec![
+            ("P1".to_string(), required),
+            ("P2".to_string(), required - 1),
+            ("P3".to_string(), 0),
+        ];
+        let e = check_payers_funded(&bad, required).unwrap_err().to_string();
+        assert!(
+            e.contains("2 of 3 payers") && e.contains("P2") && e.contains("P3"),
+            "{e}"
+        );
+        assert!(!e.contains("P1"), "{e}");
     }
 
     #[test]
