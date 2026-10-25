@@ -131,6 +131,17 @@ impl HostInfo {
     }
 }
 
+/// A calibrate or measure session needs an explicit platform id on every cluster, so that no
+/// live row is ever recorded as "unregistered".
+pub fn require_platform(platform: Option<&str>) -> Result<()> {
+    if platform.is_none_or(|p| p.trim().is_empty() || p == UNREGISTERED) {
+        bail!(
+            "calibrate and measure sessions need a registered platform: set {PLATFORM_ENV} (for example {PLATFORM_ENV}=win-pc1 in .env) and start again"
+        );
+    }
+    Ok(())
+}
+
 /// Live calibration and measurement on mainnet run only on a registered platform with a known
 /// machine id, and only on the machine that every recorded calibration row came from
 /// (`calibration`; `None` = a row without a host record). Measurement needs calibration rows.
@@ -199,6 +210,15 @@ mod tests {
             machine_id: machine.into(),
             sender_sha256: "ab".repeat(32),
         }
+    }
+
+    #[test]
+    fn live_sessions_refuse_to_start_without_a_platform() {
+        for none in [None, Some(""), Some("  "), Some(UNREGISTERED)] {
+            let e = require_platform(none).unwrap_err().to_string();
+            assert!(e.contains(PLATFORM_ENV), "{e}");
+        }
+        assert!(require_platform(Some("win-pc1")).is_ok());
     }
 
     #[test]

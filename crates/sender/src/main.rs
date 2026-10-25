@@ -879,28 +879,8 @@ impl ProcWorker {
 
 impl Worker for ProcWorker {
     fn run(&mut self, left_secs: i64) -> Result<i32> {
-        let mut a: Vec<String> = match self.st.mode {
-            SessionMode::Dryrun => vec!["dry-run".into()],
-            m => vec!["live".into(), "--purpose".into(), m.name().into()],
-        };
-        a.extend(["--duration-secs".into(), left_secs.to_string()]);
-        if self.st.mode.is_live() {
-            let cap = self.cap_left()?.unwrap_or(0);
-            a.extend(["--max-spend-lamports".into(), cap.to_string()]);
-            if !self.st.offsets.is_empty() {
-                let o: Vec<String> = self.st.offsets.iter().map(i64::to_string).collect();
-                a.extend(["--offsets".into(), o.join(",")]);
-            }
-            if let (Some(p), Some(al)) = (&self.st.prereg, &self.st.allocation) {
-                a.extend([
-                    "--prereg".into(),
-                    p.clone(),
-                    "--allocation".into(),
-                    al.clone(),
-                ]);
-            }
-        }
-        self.child(&a)
+        let cap = self.cap_left()?;
+        self.child(&session::worker_args(&self.st, left_secs, cap))
     }
     fn after_crash(&mut self) -> Result<Option<i32>> {
         if !self.st.mode.is_live() {
@@ -1018,22 +998,12 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
     };
     if let Some(purpose) = purpose {
         // The worker repeats every check; failing here avoids opening a session that cannot run.
+        slwlab_sender::host::require_platform(platform.as_deref())?;
         live::authorize(
             true,
             std::env::var(live::CONFIRM_ENV).ok().as_deref(),
             a.max_spend_lamports,
         )?;
-        // Every payer must be funded before a session opens: an underfunded payer would be
-        // skipped silently by the pool and thin out the windows.
-        let payers = keys::load_payers(&ctx.payers_dir())?;
-        let pks: Vec<String> = payers.iter().map(|p| p.pubkey().to_string()).collect();
-        let bal = ctx.rpc.balances(&pks).await?;
-        let required = funding::required_payer_balance(
-            lamports_per_signature(&ctx.rpc).await?,
-            ctx.rpc.min_rent(0).await?,
-            &ArmConfig::default(),
-        );
-        funding::check_payers_funded(&pks.into_iter().zip(bal).collect::<Vec<_>>(), required)?;
         if purpose == Purpose::Measure {
             ensure!(
                 ctx.cluster.is_mainnet(),
@@ -1053,6 +1023,17 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
                 Purpose::Calibrate,
             ))?,
         )?;
+        // Every payer must be funded before a session opens: an underfunded payer would be
+        // skipped silently by the pool and thin out the windows.
+        let payers = keys::load_payers(&ctx.payers_dir())?;
+        let pks: Vec<String> = payers.iter().map(|p| p.pubkey().to_string()).collect();
+        let bal = ctx.rpc.balances(&pks).await?;
+        let required = funding::required_payer_balance(
+            lamports_per_signature(&ctx.rpc).await?,
+            ctx.rpc.min_rent(0).await?,
+            &ArmConfig::default(),
+        );
+        funding::check_payers_funded(&pks.into_iter().zip(bal).collect::<Vec<_>>(), required)?;
     }
     let req = session::Request {
         mode: a.mode,
@@ -1528,21 +1509,6 @@ async fn campaign(
     let committed = ledger_commitment(&ctx.ledger_path())?;
     let mut plan_cfg = plan_config(ctx, a, lps, purpose_budget(&committed, purpose))?;
     if purpose == Purpose::Measure && mode_is_live(&mode) {
-            let required = funding::required_payer_balance(
-                lps,
-                rent_min,
-                &ArmConfig {
-                    n: a.n,
-                    ..ArmConfig::default()
-                },
-            );
-            funding::check_payers_funded(
-                &pks.iter()
-                    .cloned()
-                    .zip(bal.iter().copied())
-                    .collect::<Vec<_>>(),
-                required,
-            )?;
         ensure!(
             plan_cfg.quotas.is_some(),
             "--purpose measure requires --allocation (the pre-registered power-balanced allocation)"
@@ -1562,6 +1528,21 @@ async fn campaign(
             );
             let pks: Vec<String> = payers.iter().map(|p| p.pubkey().to_string()).collect();
             let bal = ctx.rpc.balances(&pks).await?;
+            let required = funding::required_payer_balance(
+                lps,
+                rent_min,
+                &ArmConfig {
+                    n: a.n,
+                    ..ArmConfig::default()
+                },
+            );
+            funding::check_payers_funded(
+                &pks.iter()
+                    .cloned()
+                    .zip(bal.iter().copied())
+                    .collect::<Vec<_>>(),
+                required,
+            )?;
             let sink = if arms_has_c {
                 let s = keys::read_keypair(&ctx.sink_path())
                     .context("Arm C needs secrets/sink.json (sender init-payers)")?

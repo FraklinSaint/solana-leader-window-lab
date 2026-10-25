@@ -258,6 +258,35 @@ pub fn record_abnormal_end(p: &Paths, now: i64) -> Result<Option<Value>> {
     Ok(Some(fields))
 }
 
+/// Arguments of one worker run: `dry-run`, or `live --purpose <mode>` with the cap that is
+/// left, the calibration offsets and the measurement pre-registration.
+pub fn worker_args(st: &SessionState, left_secs: i64, cap_left: Option<u64>) -> Vec<String> {
+    let mut a: Vec<String> = match st.mode {
+        SessionMode::Dryrun => vec!["dry-run".into()],
+        m => vec!["live".into(), "--purpose".into(), m.name().into()],
+    };
+    a.extend(["--duration-secs".into(), left_secs.to_string()]);
+    if st.mode.is_live() {
+        a.extend([
+            "--max-spend-lamports".into(),
+            cap_left.unwrap_or(0).to_string(),
+        ]);
+        if !st.offsets.is_empty() {
+            let o: Vec<String> = st.offsets.iter().map(i64::to_string).collect();
+            a.extend(["--offsets".into(), o.join(",")]);
+        }
+        if let (Some(p), Some(al)) = (&st.prereg, &st.allocation) {
+            a.extend([
+                "--prereg".into(),
+                p.clone(),
+                "--allocation".into(),
+                al.clone(),
+            ]);
+        }
+    }
+    a
+}
+
 /// What the operator asked for.
 #[derive(Debug, Clone)]
 pub struct Request {
@@ -809,6 +838,37 @@ mod tests {
     }
 
     const T0: i64 = 1_792_828_800; // 2026-10-24T08:00:00Z
+
+    #[test]
+    fn calibrate_worker_gets_the_offsets_and_the_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let mut r = req(SessionMode::Calibrate, 3600);
+        r.offsets = vec![-300, -100, 0, 100];
+        let Start::New(st) = open_or_resume(&p, &r, T0).unwrap() else {
+            panic!("new")
+        };
+        let a = worker_args(&st, 1800, Some(4_000_000));
+        let s = a.join(" ");
+        assert_eq!(
+            s,
+            concat!(
+                "live --purpose calibrate --duration-secs 1800 ",
+                "--max-spend-lamports 4000000 --offsets -300,-100,0,100"
+            )
+        );
+        // a dry-run session sends nothing live: no cap, no offsets
+        let dir2 = tempfile::tempdir().unwrap();
+        let mut r = req(SessionMode::Dryrun, 3600);
+        r.offsets = vec![-300];
+        let Start::New(d) = open_or_resume(&Paths::new(dir2.path()), &r, T0).unwrap() else {
+            panic!("new")
+        };
+        assert_eq!(
+            worker_args(&d, 60, None).join(" "),
+            "dry-run --duration-secs 60"
+        );
+    }
 
     fn events(p: &Paths, id: &str) -> Vec<String> {
         read_events(p, id)
