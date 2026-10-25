@@ -1834,9 +1834,14 @@ async fn fund(
 }
 
 async fn sweep(ctx: &Ctx, live_flag: bool, max_spend: Option<u64>, run_id: &str) -> Result<()> {
-    let master_pk = keys::read_keypair(&ctx.master_path())?.pubkey().to_string();
+    let master = NamedKeypair {
+        name: "master".into(),
+        keypair: keys::read_keypair(&ctx.master_path())?,
+    };
+    let master_pk = master.pubkey().to_string();
     let payers = keys::load_payers(&ctx.payers_dir())?;
     let sink = load_or_create_sink(&ctx.sink_path())?;
+    let rent_min = ctx.rpc.min_rent(0).await?;
     let fee = funding::transfer_fee(&ctx.rpc, &sink, &master_pk.parse()?).await?;
     let before = funding::snapshot(&ctx.rpc, &ctx.cluster.name(), &wallets(ctx)?).await?;
     let busy: std::collections::BTreeSet<String> = if ctx.ledger_path().exists() {
@@ -1849,9 +1854,14 @@ async fn sweep(ctx: &Ctx, live_flag: bool, max_spend: Option<u64>, run_id: &str)
     } else {
         Default::default()
     };
-    let (plan, notes) = funding::plan_sweep(&before, &master_pk, fee, &busy);
+    let (plan, notes) = funding::plan_sweep(&before, &master_pk, fee, rent_min, &busy);
     for t in &plan {
-        println!("  {} -> {} {} (fee {})", t.from, t.to, t.lamports, t.fee);
+        let by = if t.fee_payer.is_some() {
+            ", fee paid by master"
+        } else {
+            ""
+        };
+        println!("  {} -> {} {} (fee {}{by})", t.from, t.to, t.lamports, t.fee);
     }
     for n in &notes {
         println!("note: {n}");
@@ -1871,6 +1881,7 @@ async fn sweep(ctx: &Ctx, live_flag: bool, max_spend: Option<u64>, run_id: &str)
     let mut signers: BTreeMap<String, &NamedKeypair> =
         payers.iter().map(|p| (p.pubkey().to_string(), p)).collect();
     signers.insert(sink.pubkey().to_string(), &sink);
+    signers.insert(master_pk.clone(), &master);
     funding::execute_transfers(
         &ctx.rpc,
         &auth,

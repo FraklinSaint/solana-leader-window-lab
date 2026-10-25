@@ -263,12 +263,14 @@ async fn localnet_end_to_end() {
             &mid,
             &master.pubkey().to_string(),
             lps,
+            rent_min,
             &ledger.busy_payers(),
         );
         assert!(notes.is_empty(), "{notes:?}");
         let mut signers: BTreeMap<String, &NamedKeypair> =
             payers.iter().map(|p| (p.pubkey().to_string(), p)).collect();
         signers.insert(sink.pubkey().to_string(), &sink);
+        signers.insert(master.pubkey().to_string(), &master);
         funding::execute_transfers(
             &rpc,
             &auth,

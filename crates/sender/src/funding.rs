@@ -105,6 +105,8 @@ pub struct Transfer {
     pub to: String,
     pub lamports: u64,
     pub fee: u64,
+    /// Account that pays `fee` and co-signs when it is not `from`; `None` means `from` pays.
+    pub fee_payer: Option<String>,
 }
 
 /// Top payers up to `payer_target` and the sink up to `rent_min`, from the master.
@@ -128,6 +130,7 @@ pub fn plan_funding(
                 to: k.clone(),
                 lamports: target - bal,
                 fee,
+                fee_payer: None,
             });
         }
     }
@@ -141,11 +144,15 @@ pub fn plan_funding(
 }
 
 /// Return everything in payers and the sink to the master. Each account pays its own fee and
-/// ends at 0 lamports (closed). Accounts holding no more than the fee are reported as dust.
+/// ends at 0 lamports (closed). If `bal - fee` is below `rent_min`, the master pays the fee
+/// (and co-signs) and the account's full balance is transferred. Accounts holding no more
+/// than the fee are reported as dust. `fee` is the fee of a one-signature transfer; a
+/// master-paid transfer has two signatures and is planned (and reserved) at twice that.
 pub fn plan_sweep(
     snap: &BalanceSnapshot,
     master: &str,
     fee: u64,
+    rent_min: u64,
     busy: &std::collections::BTreeSet<String>,
 ) -> (Vec<Transfer>, Vec<String>) {
     let mut out = vec![];
@@ -160,12 +167,22 @@ pub fn plan_sweep(
             notes.push(format!(
                 "{k}: {bal} lamports of dust (<= fee {fee}), not swept"
             ));
+        } else if bal - fee < rent_min {
+            out.push(Transfer {
+                from: k.clone(),
+                to: master.into(),
+                lamports: *bal,
+                // two signatures (master and the account), each charged the base fee
+                fee: fee * 2,
+                fee_payer: Some(master.into()),
+            });
         } else {
             out.push(Transfer {
                 from: k.clone(),
                 to: master.into(),
                 lamports: bal - fee,
                 fee,
+                fee_payer: None,
             });
         }
     }
@@ -206,12 +223,23 @@ pub async fn execute_transfers(
             .with_context(|| format!("no keypair for {}", t.from))?;
         let to: Pubkey = t.to.parse().context("destination pubkey")?;
         let bh = rpc.latest_blockhash().await?;
-        let tx = txbuild::build_transfer(
-            &from.keypair,
-            &to,
-            t.lamports,
-            &crate::runner::parse_hash(&bh.blockhash)?,
-        );
+        let hash = crate::runner::parse_hash(&bh.blockhash)?;
+        let paid_by = t.fee_payer.as_deref().unwrap_or(&t.from);
+        let tx = match &t.fee_payer {
+            None => txbuild::build_transfer(&from.keypair, &to, t.lamports, &hash),
+            Some(fp) => {
+                let fp_kp = signers
+                    .get(fp)
+                    .with_context(|| format!("no keypair for fee payer {fp}"))?;
+                txbuild::build_transfer_with_fee_payer(
+                    &fp_kp.keypair,
+                    &from.keypair,
+                    &to,
+                    t.lamports,
+                    &hash,
+                )
+            }
+        };
         let sig = tx.signature.to_string();
         ledger.reserve_paid_by(
             &sig,
@@ -219,7 +247,7 @@ pub async fn execute_transfers(
             bh.last_valid_block_height,
             purpose,
             None,
-            Some(&t.from),
+            Some(paid_by),
         )?;
         let b64 = base64::engine::general_purpose::STANDARD.encode(&tx.wire);
         if let Err(e) = rpc.send_transaction(auth, &b64).await {
@@ -454,10 +482,33 @@ mod tests {
             ],
         );
         let busy = std::collections::BTreeSet::from(["P3".to_string()]);
-        let (t, notes) = plan_sweep(&s, "M", 5_000, &busy);
-        let got: Vec<(&str, u64)> = t.iter().map(|t| (t.from.as_str(), t.lamports)).collect();
-        assert_eq!(got, vec![("P1", 995_000), ("S", 645_245)]);
+        let (t, notes) = plan_sweep(&s, "M", 5_000, 650_240, &busy);
+        let got: Vec<(&str, u64, Option<&str>)> = t
+            .iter()
+            .map(|t| (t.from.as_str(), t.lamports, t.fee_payer.as_deref()))
+            .collect();
+        // S would keep 645_245 < rent_min after its own fee: master pays, S sends all 650_245
+        assert_eq!(got, vec![("P1", 995_000, None), ("S", 650_245, Some("M"))]);
         assert_eq!(notes.len(), 2);
+        let fees: Vec<u64> = t.iter().map(|t| t.fee).collect();
+        assert_eq!(fees, vec![5_000, 10_000], "two signatures cost two base fees");
+    }
+
+    #[test]
+    fn sweep_fee_payer_switches_exactly_below_rent_min() {
+        let s = snap(
+            1,
+            &[
+                ("M", Role::Master, 1),
+                ("A", Role::Payer, 655_239), // bal - fee = 650_239 < 650_240
+                ("B", Role::Payer, 655_240), // bal - fee = 650_240 == rent_min
+            ],
+        );
+        let (t, _) = plan_sweep(&s, "M", 5_000, 650_240, &Default::default());
+        assert_eq!(t[0].fee_payer.as_deref(), Some("M"));
+        assert_eq!(t[0].lamports, 655_239);
+        assert_eq!(t[1].fee_payer, None);
+        assert_eq!(t[1].lamports, 650_240);
     }
 
     #[test]

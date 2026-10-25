@@ -213,11 +213,95 @@ pub fn build_transfer(from: &Keypair, to: &Pubkey, lamports: u64, blockhash: &Ha
     }
 }
 
+/// Transfer `from` -> `to` where a different account (`fee_payer`, the first signer) pays the
+/// fee. Both sign. Lets an account that would fall below the rent minimum after paying its own
+/// fee hand over its full balance and end at 0.
+pub fn build_transfer_with_fee_payer(
+    fee_payer: &Keypair,
+    from: &Keypair,
+    to: &Pubkey,
+    lamports: u64,
+    blockhash: &Hash,
+) -> BuiltTx {
+    // The destination may be the fee payer itself (sweep back to the master). An account
+    // listed twice makes the cluster reject the message (AccountLoadedTwice), so list it once.
+    let to_is_payer = *to == fee_payer.pubkey();
+    let keys = if to_is_payer {
+        vec![fee_payer.pubkey(), from.pubkey(), SYSTEM_PROGRAM]
+    } else {
+        vec![fee_payer.pubkey(), from.pubkey(), *to, SYSTEM_PROGRAM]
+    };
+    let ix = Ix {
+        program_index: (keys.len() - 1) as u8,
+        accounts: if to_is_payer { vec![1, 0] } else { vec![1, 2] },
+        data: transfer_data(lamports),
+    };
+    let message = serialize_message([2, 0, 1], &keys, blockhash, std::slice::from_ref(&ix));
+    let signature = fee_payer.sign_message(&message);
+    let mut wire = vec![2u8];
+    wire.extend_from_slice(signature.as_ref());
+    wire.extend_from_slice(from.sign_message(&message).as_ref());
+    wire.extend_from_slice(&message);
+    BuiltTx {
+        signature,
+        wire,
+        message,
+        shape: TxShape {
+            n_signatures: 2,
+            n_writable_accounts: keys.len() as u64 - 1,
+            instruction_data_len: 12,
+            cu_limit: 0,
+            cu_price_micro_lamports: 0,
+            loaded_accounts_data_size_limit: None,
+        },
+        writable_accounts: keys[..keys.len() - 1].to_vec(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
     use slwlab_common::fees::total_fee;
+
+    #[test]
+    fn transfer_with_fee_payer_has_two_valid_signatures_and_right_layout() {
+        let (fp, from, to) = (Keypair::new(), Keypair::new(), Keypair::new().pubkey());
+        let t = build_transfer_with_fee_payer(&fp, &from, &to, 650_245, &Hash::default());
+        assert_eq!(t.wire[0], 2);
+        let s0 = Signature::try_from(&t.wire[1..65]).unwrap();
+        let s1 = Signature::try_from(&t.wire[65..129]).unwrap();
+        assert_eq!(&t.wire[129..], &t.message[..]);
+        assert_eq!(s0, t.signature);
+        assert!(s0.verify(fp.pubkey().as_ref(), &t.message));
+        assert!(s1.verify(from.pubkey().as_ref(), &t.message));
+        // header: 2 signers, 0 readonly signers, 1 readonly unsigned (system program)
+        assert_eq!(&t.message[..3], &[2, 0, 1]);
+        // keys: fee payer, from, to, system program
+        assert_eq!(&t.message[4..36], fp.pubkey().as_ref());
+        assert_eq!(&t.message[36..68], from.pubkey().as_ref());
+        assert_eq!(&t.message[68..100], to.as_ref());
+        assert_eq!(&t.message[100..132], SYSTEM_PROGRAM.as_ref());
+        assert_eq!(t.writable_accounts, vec![fp.pubkey(), from.pubkey(), to]);
+        // transfer data carries the full amount
+        assert!(t.message.ends_with(&transfer_data(650_245)));
+    }
+
+    #[test]
+    fn transfer_to_the_fee_payer_lists_it_once() {
+        let (fp, from) = (Keypair::new(), Keypair::new());
+        let t = build_transfer_with_fee_payer(&fp, &from, &fp.pubkey(), 650_318, &Hash::default());
+        assert_eq!(t.wire[0], 2);
+        assert_eq!(&t.message[..3], &[2, 0, 1]);
+        assert_eq!(t.message[3], 3, "three distinct keys");
+        assert_eq!(&t.message[4..36], fp.pubkey().as_ref());
+        assert_eq!(&t.message[36..68], from.pubkey().as_ref());
+        assert_eq!(&t.message[68..100], SYSTEM_PROGRAM.as_ref());
+        assert_eq!(t.writable_accounts, vec![fp.pubkey(), from.pubkey()]);
+        // after the 32-byte blockhash: 1 ix, program 2, accounts [from=1, to=0]
+        assert_eq!(&t.message[132..137], &[1, 2, 2, 1, 0]);
+        assert!(t.message.ends_with(&transfer_data(650_318)));
+    }
 
     fn params(price: u64, sink: Option<Pubkey>) -> TxParams {
         TxParams {

@@ -910,3 +910,17 @@
 {"kind":"run_start","run_id":"sweep-20261025T103046Z","cap_lamports":300000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T10:30:46.559202Z"}
 {"kind":"reserve","run_id":"sweep-20261025T103046Z","sig":"3LfYSBTyeWi4nCJ8YxGrD9xrMip3Z7FEQSt8bfVdUHFTjhmqDdhjNXKCNJkjUEuhNLFEdQeZfA3CQvS7ysnCTWxP","amount":5000,"last_valid_block_height":502141632,"purpose":"sweep","window_id":null,"payer":"67h58f8eQiJX18MXjen28Ht59R4Wp7stoCyrjuQiYTQ3","ts":"2026-10-25T10:30:46.666994Z"}
 {"kind":"expired","sig":"3LfYSBTyeWi4nCJ8YxGrD9xrMip3Z7FEQSt8bfVdUHFTjhmqDdhjNXKCNJkjUEuhNLFEdQeZfA3CQvS7ysnCTWxP","observed_block_height":502141636,"last_valid_block_height":502141632,"ts":"2026-10-25T10:31:23.040210Z"}
+{"kind":"run_start","run_id":"sweep-20261025T105919Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T10:59:20.525923Z"}
+{"kind":"run_start","run_id":"sweep-20261025T105925Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T10:59:26.059772Z"}
+{"kind":"run_start","run_id":"sweep-20261025T105925Z","cap_lamports":300000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T10:59:26.069051Z"}
+{"kind":"reserve","run_id":"sweep-20261025T105925Z","sig":"2i46mvB84tdzYDsKByF9KC7EzSCYjBC8dZyo5qSZAjfDEAbfN4tLQH7YAtC9nxejti7gzSzKJW5zFdqeJRYmdD1H","amount":5000,"last_valid_block_height":502148828,"purpose":"sweep","window_id":null,"payer":"9HyKbH7718jBUH1Rd8Wginb2tfg5SaMSxWKTwsatTSEG","ts":"2026-10-25T10:59:26.185536Z"}
+{"kind":"expired","sig":"2i46mvB84tdzYDsKByF9KC7EzSCYjBC8dZyo5qSZAjfDEAbfN4tLQH7YAtC9nxejti7gzSzKJW5zFdqeJRYmdD1H","observed_block_height":502148838,"last_valid_block_height":502148828,"ts":"2026-10-25T11:00:05.583367Z"}
+{"kind":"run_start","run_id":"sweep-20261025T110024Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T11:00:25.153021Z"}
+{"kind":"run_start","run_id":"sweep-20261025T110024Z","cap_lamports":300000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T11:00:25.159650Z"}
+{"kind":"reserve","run_id":"sweep-20261025T110024Z","sig":"4gvgTouyc1EiNz5Yxet2GMkoP2GaD1iuup3TgUR2EfNQXnNUx2Kz9uDuaWyUc3fmgY8GN9XTaZbUkwRM9RYy6oJF","amount":5000,"last_valid_block_height":502149074,"purpose":"sweep","window_id":null,"payer":"9HyKbH7718jBUH1Rd8Wginb2tfg5SaMSxWKTwsatTSEG","ts":"2026-10-25T11:00:25.273459Z"}
+{"kind":"expired","sig":"4gvgTouyc1EiNz5Yxet2GMkoP2GaD1iuup3TgUR2EfNQXnNUx2Kz9uDuaWyUc3fmgY8GN9XTaZbUkwRM9RYy6oJF","observed_block_height":502149082,"last_valid_block_height":502149074,"ts":"2026-10-25T11:01:04.774191Z"}
+{"kind":"run_start","run_id":"sweep-20261025T110734Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T11:07:34.912806Z"}
+{"kind":"run_start","run_id":"sweep-20261025T110735Z-check","cap_lamports":50000000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T11:07:35.914950Z"}
+{"kind":"run_start","run_id":"sweep-20261025T110735Z","cap_lamports":300000,"hard_ceiling_lamports":50000000,"ts":"2026-10-25T11:07:35.922540Z"}
+{"kind":"reserve","run_id":"sweep-20261025T110735Z","sig":"2mfE76KYdK1aXPR2xBLNQpxaLWEs3BDpheLh3J69VgYwBFd58CrZYjWHviZh1sFeeKhBZCHMxSX2bCZDEQuALb9g","amount":10000,"last_valid_block_height":502150870,"purpose":"sweep","window_id":null,"payer":"9HyKbH7718jBUH1Rd8Wginb2tfg5SaMSxWKTwsatTSEG","ts":"2026-10-25T11:07:36.030209Z"}
+{"kind":"landed","sig":"2mfE76KYdK1aXPR2xBLNQpxaLWEs3BDpheLh3J69VgYwBFd58CrZYjWHviZh1sFeeKhBZCHMxSX2bCZDEQuALb9g","fee":10000,"slot":514949873,"ts":"2026-10-25T11:07:40.108759Z"}
