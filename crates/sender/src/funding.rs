@@ -420,6 +420,38 @@ pub fn required_payer_balance(lps: u64, rent_min: u64, cfg: &crate::arms::ArmCon
     rent_min + worst
 }
 
+/// `--payer-target-lamports` that lets `payers` payers spend `budget` lamports: rent-exempt
+/// minimum, an equal share of the budget, and one worst-case fee of slack (so the last
+/// transaction of every payer still fits). Never below `required`.
+pub fn recommended_payer_target(payers: usize, rent_min: u64, required: u64, budget: u64) -> u64 {
+    let n = payers.max(1) as u64;
+    let worst_fee = required.saturating_sub(rent_min);
+    (rent_min + budget.div_ceil(n) + worst_fee).max(required)
+}
+
+/// Pre-flight for a live run or session: every payer can send one transaction, and the
+/// lamports the payers can spend (balance minus rent-exempt minimum) cover the planned spend
+/// `budget`. The error names the `fund` command that fixes it.
+pub fn preflight_payers(
+    balances: &[(String, u64)],
+    rent_min: u64,
+    required: u64,
+    budget: u64,
+) -> Result<()> {
+    check_payers_funded(balances, required)?;
+    let spendable: u64 = balances
+        .iter()
+        .map(|(_, b)| b.saturating_sub(rent_min))
+        .sum();
+    ensure!(
+        spendable >= budget,
+        "the {} payers can spend {spendable} lamports (balance minus the {rent_min} rent-exempt minimum) but this run plans to spend up to {budget}. Fund them first: `sender fund --payer-target-lamports {}` (with --live, CONFIRM_LIVE=yes and --max-spend-lamports)",
+        balances.len(),
+        recommended_payer_target(balances.len(), rent_min, required, budget)
+    );
+    Ok(())
+}
+
 /// Refuse to start when any payer holds less than `required`.
 pub fn check_payers_funded(balances: &[(String, u64)], required: u64) -> Result<()> {
     let low: Vec<String> = balances
@@ -861,6 +893,61 @@ mod tests {
         assert!(r.ok && r.problems.is_empty());
         assert_eq!(r.transfers_planned, 2);
         assert!(fail_if_not_ok(&r).is_ok());
+    }
+
+    #[test]
+    fn recommended_target_covers_budget_fee_slack_and_rent() {
+        let required = 650_240 + 6_600;
+        // calibration: 5_000_000 over 32 payers = 156_250 each
+        assert_eq!(
+            recommended_payer_target(32, 650_240, required, 5_000_000),
+            650_240 + 156_250 + 6_600
+        );
+        // rounds the share up
+        assert_eq!(
+            recommended_payer_target(32, 650_240, required, 5_000_001),
+            650_240 + 156_251 + 6_600
+        );
+        // never below what one transaction needs
+        assert_eq!(recommended_payer_target(32, 650_240, required, 0), required);
+        // funding every payer to the target makes the whole budget spendable
+        let t = recommended_payer_target(32, 650_240, required, 12_666_667);
+        assert!(32 * (t - 650_240) >= 12_666_667);
+    }
+
+    #[test]
+    fn preflight_compares_total_spendable_with_the_budget() {
+        let (rent, required) = (650_240, 656_840);
+        let funded = |each: u64| -> Vec<(String, u64)> {
+            (0..32).map(|i| (format!("P{i}"), each)).collect()
+        };
+        // 700_000 each: 32 x 49_760 = 1_592_320 spendable, far below a 5M budget
+        let e = preflight_payers(&funded(700_000), rent, required, 5_000_000)
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("can spend 1592320"), "{e}");
+        assert!(e.contains("up to 5000000"), "{e}");
+        assert!(
+            e.contains("`sender fund --payer-target-lamports 813090`"),
+            "{e}"
+        );
+        // funding to exactly the printed target passes
+        assert!(preflight_payers(&funded(813_090), rent, required, 5_000_000).is_ok());
+        // the threshold is the budget itself: spendable == budget passes, one lamport less fails
+        let exact = funded(rent + 156_250); // 32 x 156_250 = 5_000_000
+        assert!(preflight_payers(&exact, rent, required, 5_000_000).is_ok());
+        let mut short = exact.clone();
+        short[0].1 -= 1;
+        assert!(preflight_payers(&short, rent, required, 5_000_000).is_err());
+        // a zero budget needs only the per-payer minimum
+        assert!(preflight_payers(&funded(required), rent, required, 0).is_ok());
+        // the per-payer check still comes first
+        let mut one_empty = funded(2_000_000);
+        one_empty[3].1 = 0;
+        let e = preflight_payers(&one_empty, rent, required, 1_000)
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("1 of 32 payers") && e.contains("P3"), "{e}");
     }
 
     #[test]

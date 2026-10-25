@@ -1023,17 +1023,25 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
                 Purpose::Calibrate,
             ))?,
         )?;
-        // Every payer must be funded before a session opens: an underfunded payer would be
-        // skipped silently by the pool and thin out the windows.
+        // The payers must be able to carry the session before it opens: an underfunded
+        // payer is skipped silently by the pool and thins out the windows.
         let payers = keys::load_payers(&ctx.payers_dir())?;
         let pks: Vec<String> = payers.iter().map(|p| p.pubkey().to_string()).collect();
         let bal = ctx.rpc.balances(&pks).await?;
+        let rent_min = ctx.rpc.min_rent(0).await?;
         let required = funding::required_payer_balance(
             lamports_per_signature(&ctx.rpc).await?,
-            ctx.rpc.min_rent(0).await?,
+            rent_min,
             &ArmConfig::default(),
         );
-        funding::check_payers_funded(&pks.into_iter().zip(bal).collect::<Vec<_>>(), required)?;
+        let budget = purpose_budget(&ledger_commitment(&ctx.ledger_path())?, purpose)
+            .min(a.max_spend_lamports.unwrap_or(0));
+        funding::preflight_payers(
+            &pks.into_iter().zip(bal).collect::<Vec<_>>(),
+            rent_min,
+            required,
+            budget,
+        )?;
     }
     let req = session::Request {
         mode: a.mode,
@@ -1536,12 +1544,16 @@ async fn campaign(
                     ..ArmConfig::default()
                 },
             );
-            funding::check_payers_funded(
+            funding::preflight_payers(
                 &pks.iter()
                     .cloned()
                     .zip(bal.iter().copied())
                     .collect::<Vec<_>>(),
+                rent_min,
                 required,
+                plan_cfg
+                    .budget_lamports
+                    .min(auth.map(|x| x.cap()).unwrap_or(0)),
             )?;
             let sink = if arms_has_c {
                 let s = keys::read_keypair(&ctx.sink_path())

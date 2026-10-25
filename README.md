@@ -27,8 +27,8 @@ docker compose run --rm analyze   # regenerate docs/REPORT.md from committed dat
 docker compose run --rm verify    # re-fetch every block and check it against data/manifest.jsonl
 # live (operator only; the cap is mandatory and cannot exceed 0.05 SOL):
 docker compose run --rm keys init-payers --count 32
-docker compose run --rm sender fund --payer-target-lamports 700000            # prints the plan
-docker compose run --rm -e CONFIRM_LIVE=yes sender fund --payer-target-lamports 700000 --live --max-spend-lamports 200000
+docker compose run --rm sender fund --payer-target-lamports 813090            # prints the plan (sizing: "Payer sizing")
+docker compose run --rm -e CONFIRM_LIVE=yes sender fund --payer-target-lamports 813090 --live --max-spend-lamports 200000
 docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose calibrate --offsets -300,-100,0,100 --max-spend-lamports N
 docker compose run --rm -e CONFIRM_LIVE=yes sender live --purpose measure --prereg <commit> --allocation analysis/sim/results/alloc_v2.json --max-spend-lamports N
 docker compose run --rm sender collect        # resolve anything left open (crash recovery)
@@ -237,6 +237,38 @@ and clock) is tested for: worker crash and restart pause, resume after a simulat
 with the `down` gap dated from the heartbeat, the same fixed interval after resume, coverage by
 UTC hour with a GAP hour, live sessions that never resume, collect after a live crash, the
 session cap, and Ctrl+C. Not tested here: a live run against a real cluster (localnet does not start on Windows; CI only).
+
+### Payer sizing
+
+A payer must keep the rent-exempt minimum (650,240 lamports) and can spend only what is above
+it. A target of 700,000 leaves ≈ 49,760 per payer: ≈ 9 transactions, so 32 payers carry about
+48 windows, nowhere near a budget of millions. So `live` and `session --mode calibrate|measure`
+check **before they start**, and refuse to start if either fails:
+
+1. every payer holds at least rent minimum + the worst-case fee of one transaction;
+2. the lamports all payers can spend (Σ balance − rent minimum) are at least the run's planned
+   spend: its budget, which is the purpose's remaining budget capped by `--max-spend-lamports`.
+
+The error prints the command that fixes it, `sender fund --payer-target-lamports N`, with
+
+`N = rent minimum + ceil(budget / payers) + worst-case fee of one tx`
+
+(the last term is slack so that the final transaction of each payer still fits). `fund` tops
+every payer up **to** `N`, so it is run again before each session, and payers that kept an
+unspent balance need less. Worst-case fee today: 5,000 + 1,600 = 6,600 (arm R at 200,000
+µlamports/CU × 8,000 CU); rent minimum for 0 bytes: 650,240. With 32 payers:
+
+| Run | Budget | `--payer-target-lamports` | Locked in payers |
+|---|---|---|---|
+| Calibration (whole phase, ≤ 5,000,000) | 5,000,000 | **813,090** | 26,018,880 |
+| Confirmatory, 3 sessions (38,000,000 / 3) | 12,666,667 | **1,052,674** | 33,685,568 |
+| Confirmatory, 4 sessions (38,000,000 / 4) | 9,500,000 | **953,715** | 30,518,880 |
+
+Locked lamports are rent-exempt balance, not spend: `sweep` returns them to the master, so the
+master must hold ≈ 32 × N + the sink's rent minimum + the funding fees (33 × 5,000) while the
+payers are funded. If a session is started with a smaller `--max-spend-lamports` the target
+shrinks with it. The pre-flight prints the exact number, so use that rather than this table when
+the budget differs.
 
 ## Verify (no trust in our collector)
 
