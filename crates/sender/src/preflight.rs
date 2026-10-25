@@ -11,7 +11,9 @@
 //!   (`netmon.rs`);
 //! - clock offset against an NTP server (SNTP, 4 samples, smallest round trip wins);
 //! - platform id (`SLWLAB_PLATFORM`);
-//! - Windows Update / servicing waiting for a restart (three registry markers, `reg query`).
+//! - Windows Update / servicing waiting for a restart (`reg query`): `RebootRequired` and
+//!   `RebootPending` are refusal-grade (`Preflight::refusals`); a set
+//!   `PendingFileRenameOperations` alone is a warning and its entries are recorded.
 
 use serde_json::{Value, json};
 use std::net::UdpSocket;
@@ -73,38 +75,60 @@ fn wifi_power_saving() -> Option<(u64, u64)> {
     .and_then(|(_, o)| parse_powercfg(&o))
 }
 
+/// What Windows says is waiting for a restart. `blocking` are the servicing markers
+/// (WindowsUpdate `RebootRequired`, CBS `RebootPending`): Windows itself will restart. The
+/// `PendingFileRenameOperations` value alone is routine (installers and updaters leave entries
+/// that stay set across restarts), so it is only recorded, with its entries.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct RestartState {
+    pub blocking: Vec<&'static str>,
+    pub file_renames: Vec<String>,
+}
+
+/// Entries of `PendingFileRenameOperations` from `reg query ... /v` output (REG_MULTI_SZ is
+/// printed with a literal `\0` between strings; source/destination pairs, empty = delete).
+pub fn parse_pending_renames(out: &str) -> Vec<String> {
+    out.lines()
+        .find(|l| l.contains("PendingFileRenameOperations"))
+        .and_then(|l| l.split_once("REG_MULTI_SZ").map(|(_, d)| d))
+        .map(|d| {
+            d.split(r"\0")
+                .map(str::trim)
+                .filter(|e| !e.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// Registry markers of a pending restart; `reg query` exits 0 when the key/value exists.
-fn restart_pending() -> Vec<&'static str> {
-    let checks: [(&str, &[&str]); 3] = [
-        (
-            "WindowsUpdate RebootRequired",
-            &[
-                "query",
-                r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
-            ],
-        ),
-        (
-            "CBS RebootPending",
-            &[
-                "query",
-                r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending",
-            ],
-        ),
-        (
+fn restart_pending() -> RestartState {
+    let exists = |args: &[&str]| command("reg", args).is_some_and(|(c, _)| c == 0);
+    let mut st = RestartState::default();
+    if exists(&[
+        "query",
+        r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
+    ]) {
+        st.blocking.push("WindowsUpdate RebootRequired");
+    }
+    if exists(&[
+        "query",
+        r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending",
+    ]) {
+        st.blocking.push("CBS RebootPending");
+    }
+    if let Some((0, out)) = command(
+        "reg",
+        &[
+            "query",
+            r"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager",
+            "/v",
             "PendingFileRenameOperations",
-            &[
-                "query",
-                r"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager",
-                "/v",
-                "PendingFileRenameOperations",
-            ],
-        ),
-    ];
-    checks
-        .iter()
-        .filter(|(_, a)| command("reg", a).is_some_and(|(c, _)| c == 0))
-        .map(|(n, _)| *n)
-        .collect()
+        ],
+    ) {
+        st.file_renames = parse_pending_renames(&out);
+    }
+    st
 }
 
 fn ntp_secs(b: &[u8]) -> f64 {
@@ -162,10 +186,14 @@ pub fn clock_offset(server: &str) -> Result<(f64, f64), String> {
 pub struct Preflight {
     pub info: Value,
     pub warnings: Vec<String>,
+    /// Findings a caller may refuse to start on (today: a servicing restart marker). The
+    /// pre-flight itself only reports; every one of these is also in `warnings`.
+    pub refusals: Vec<String>,
 }
 
 pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
     let mut w = vec![];
+    let mut refusals = vec![];
     let sleep = power_timeout(STANDBYIDLE);
     let hib = power_timeout(HIBERNATEIDLE);
     match sleep {
@@ -255,10 +283,18 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
         w.push("platform: SLWLAB_PLATFORM is not set (required for calibration and confirmatory sessions)".into());
     }
     let pending = restart_pending();
-    if !pending.is_empty() {
-        w.push(format!(
+    if !pending.blocking.is_empty() {
+        let m = format!(
             "Windows is waiting for a restart ({}): restart before the session, or it may restart during it",
-            pending.join(", ")
+            pending.blocking.join(", ")
+        );
+        w.push(m.clone());
+        refusals.push(m);
+    }
+    if !pending.file_renames.is_empty() {
+        w.push(format!(
+            "PendingFileRenameOperations is set ({} entries, recorded in preflight.json); no RebootRequired/RebootPending marker, so not a restart request",
+            pending.file_renames.len()
         ));
     }
     // CTRL_SHUTDOWN_EVENT is not delivered to a console process that loaded user32/gdi32.
@@ -285,11 +321,38 @@ pub fn run(platform: Option<&str>, ntp_server: &str) -> Preflight {
             Err(e) => json!({"server": ntp_server, "error": e}),
         },
         "platform": platform,
-        "restart_pending": pending,
+        "restart_pending": pending.blocking,
+        "pending_file_rename_operations": pending.file_renames,
         "ui_dlls_loaded": ui,
         "shutdown_event_deliverable": ui.as_ref().map(|l| l.is_empty()),
     });
-    Preflight { info, warnings: w }
+    Preflight {
+        info,
+        warnings: w,
+        refusals,
+    }
+}
+
+/// Stop a live command (calibrate, measure, `live`) on a refusal-grade finding; a dry-run only
+/// warns (the warnings were already shown).
+pub fn enforce_refusals(refusals: &[String], live: bool) -> anyhow::Result<()> {
+    if live && !refusals.is_empty() {
+        anyhow::bail!(
+            "pre-flight refuses a live start: {}. Restart Windows, check that RebootRequired and \
+             RebootPending are gone, then start again (a dry-run only warns)",
+            refusals.join("; ")
+        );
+    }
+    Ok(())
+}
+
+/// The restart check alone, for commands that do not run the full pre-flight.
+pub fn restart_refusals() -> Vec<String> {
+    restart_pending()
+        .blocking
+        .iter()
+        .map(|m| format!("Windows is waiting for a restart ({m})"))
+        .collect()
 }
 
 #[cfg(test)]
@@ -303,6 +366,30 @@ mod tests {
                   Текущий индекс параметра питания от сети: 0x00000708\n  Текущий индекс параметра питания от батареи: 0x00000000\n";
         assert_eq!(parse_powercfg(ru), Some((1800, 0)));
         assert_eq!(parse_powercfg("nothing"), None);
+    }
+
+    #[test]
+    fn refusals_stop_live_but_not_dry_run() {
+        let r = vec!["Windows is waiting for a restart (CBS RebootPending)".to_string()];
+        let e = enforce_refusals(&r, true).unwrap_err().to_string();
+        assert!(e.contains("RebootPending") && e.contains("refuses"), "{e}");
+        assert!(enforce_refusals(&r, false).is_ok());
+        assert!(enforce_refusals(&[], true).is_ok());
+    }
+
+    #[test]
+    fn pending_renames_parse() {
+        let out = concat!(
+            "Session Manager\r\n",
+            "    PendingFileRenameOperations    REG_MULTI_SZ    ",
+            r"\??\C:\Program Files\Bitdefender\x\0\0",
+            r"!\??\C:\Program Files (x86)\Microsoft\EdgeUpdate\y\0\0",
+            "\r\n"
+        );
+        let v = parse_pending_renames(out);
+        assert_eq!(v.len(), 2, "{v:?}");
+        assert!(v[0].contains("Bitdefender") && v[1].contains("EdgeUpdate"));
+        assert!(parse_pending_renames("nothing").is_empty());
     }
 
     /// Manual: `cargo test -p slwlab-sender --lib preflight -- --ignored --nocapture`

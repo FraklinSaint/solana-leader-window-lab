@@ -560,6 +560,10 @@ async fn dispatch(ctx: &Ctx, cmd: Cmd, run_id: &str) -> Result<()> {
                     "--purpose measure requires --prereg <commit of the prereg-v1 tag>"
                 );
             }
+            slwlab_sender::preflight::enforce_refusals(
+                &slwlab_sender::preflight::restart_refusals(),
+                true,
+            )?;
             // Calibration and confirmatory windows: one registered Linux platform (host.rs).
             let here = slwlab_sender::host::HostInfo::detect();
             slwlab_sender::host::gate_live(
@@ -1056,6 +1060,8 @@ async fn run_session(ctx: &Ctx, a: SessionArgs) -> Result<()> {
     for w in &pf.warnings {
         println!("WARNING: {w}");
     }
+    // Before a session is opened: a refused live start leaves no session behind.
+    slwlab_sender::preflight::enforce_refusals(&pf.refusals, req.mode.is_live())?;
     let (st, resumed) = match session::open_or_resume(&paths, &req, now)? {
         Start::New(st) => (st, false),
         Start::Resumed(st) => (st, true),
