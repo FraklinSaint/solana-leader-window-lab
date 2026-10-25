@@ -111,8 +111,16 @@ pub(crate) fn record(state: &Shared, slot: u64, t: i128, source: &'static str) {
 }
 
 /// One WebSocket session; always ends with an error. `got` counts its slot notifications.
-async fn ws_loop(ws_url: &str, rpc: &Rpc, state: &Shared, got: &mut u64) -> anyhow::Result<()> {
-    let _permit = WS_PERMITS.clone().try_acquire_owned().map_err(|_| {
+/// `permits` is the pool of open-connection slots: the process-wide [`WS_PERMITS`] in
+/// production, a private pool in the cap test (a shared one would starve parallel tests).
+async fn ws_loop(
+    ws_url: &str,
+    rpc: &Rpc,
+    state: &Shared,
+    got: &mut u64,
+    permits: &Arc<Semaphore>,
+) -> anyhow::Result<()> {
+    let _permit = permits.clone().try_acquire_owned().map_err(|_| {
         anyhow::anyhow!("WebSocket cap reached ({MAX_WS_CONNECTIONS} open in this process)")
     })?;
     let (mut ws, _) = tokio_tungstenite::connect_async(ws_url)
@@ -167,7 +175,7 @@ pub fn spawn(ws_url: Option<String>, rpc: Rpc, state: Shared) -> tokio::task::Jo
         loop {
             if let Some(url) = &ws_url {
                 let mut got = 0;
-                if let Err(e) = ws_loop(url, &rpc, &state, &mut got).await {
+                if let Err(e) = ws_loop(url, &rpc, &state, &mut got, &WS_PERMITS).await {
                     let fast =
                         got > 0 && last_fast.is_none_or(|t| t.elapsed() >= FAST_RECONNECT_EVERY);
                     let error = redact(&format!("{e:#}")).into_owned();
@@ -219,18 +227,21 @@ mod tests {
     #[tokio::test]
     async fn websocket_connections_are_capped() {
         // Hold every permit, then a new feed connection must be refused before connecting.
-        let held = super::WS_PERMITS
+        // A private pool of the production size: the process-wide one is shared with every
+        // test that opens a feed, and holding all of it made them fail by chance.
+        let pool = std::sync::Arc::new(tokio::sync::Semaphore::new(super::MAX_WS_CONNECTIONS));
+        let held = pool
             .clone()
             .acquire_many_owned(super::MAX_WS_CONNECTIONS as u32)
             .await
             .unwrap();
         let rpc = crate::rpc::Rpc::new("http://127.0.0.1:9");
-        let e = super::ws_loop("ws://127.0.0.1:9", &rpc, &super::new_state(), &mut 0)
+        let e = super::ws_loop("ws://127.0.0.1:9", &rpc, &super::new_state(), &mut 0, &pool)
             .await
             .unwrap_err();
         assert!(e.to_string().contains("cap reached"), "{e}");
         drop(held);
-        assert_eq!(super::ws_open(), 0);
+        assert_eq!(pool.available_permits(), super::MAX_WS_CONNECTIONS);
     }
 
     #[test]
