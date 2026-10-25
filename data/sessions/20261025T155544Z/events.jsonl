@@ -1,0 +1,46 @@
+{"end":"2026-10-25T18:55:45Z","event":"start","mode":"calibrate","ts":"2026-10-25T15:55:45Z"}
+{"active":true,"blocks":"idle sleep only; not a sleep or sign-out requested by the user or Windows","event":"keep_awake","request":"ES_CONTINUOUS | ES_SYSTEM_REQUIRED","ts":"2026-10-25T15:55:47Z"}
+{"event":"run_start","left_secs":10798,"run":1,"ts":"2026-10-25T15:55:47Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:55:47Z","ran_secs":10393,"run":1,"to":"2026-10-25T18:49:00Z","ts":"2026-10-25T18:49:00Z"}
+{"event":"run_start","left_secs":405,"run":2,"ts":"2026-10-25T18:49:00Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:49:00Z","ran_secs":1,"run":2,"to":"2026-10-25T18:49:01Z","ts":"2026-10-25T18:49:01Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:49:31Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:49:01Z","secs":30,"to":"2026-10-25T18:49:31Z","ts":"2026-10-25T18:49:31Z"}
+{"event":"run_start","left_secs":374,"run":3,"ts":"2026-10-25T18:49:31Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:49:31Z","ran_secs":1,"run":3,"to":"2026-10-25T18:49:32Z","ts":"2026-10-25T18:49:32Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:50:03Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:49:32Z","secs":31,"to":"2026-10-25T18:50:03Z","ts":"2026-10-25T18:50:03Z"}
+{"event":"run_start","left_secs":342,"run":4,"ts":"2026-10-25T18:50:03Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:50:03Z","ran_secs":1,"run":4,"to":"2026-10-25T18:50:04Z","ts":"2026-10-25T18:50:04Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:50:34Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:50:04Z","secs":30,"to":"2026-10-25T18:50:34Z","ts":"2026-10-25T18:50:34Z"}
+{"event":"run_start","left_secs":311,"run":5,"ts":"2026-10-25T18:50:34Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:50:34Z","ran_secs":1,"run":5,"to":"2026-10-25T18:50:35Z","ts":"2026-10-25T18:50:35Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:51:05Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:50:35Z","secs":30,"to":"2026-10-25T18:51:05Z","ts":"2026-10-25T18:51:05Z"}
+{"event":"run_start","left_secs":280,"run":6,"ts":"2026-10-25T18:51:05Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:51:05Z","ran_secs":2,"run":6,"to":"2026-10-25T18:51:07Z","ts":"2026-10-25T18:51:07Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:51:37Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:51:07Z","secs":30,"to":"2026-10-25T18:51:37Z","ts":"2026-10-25T18:51:37Z"}
+{"event":"run_start","left_secs":248,"run":7,"ts":"2026-10-25T18:51:37Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:51:37Z","ran_secs":1,"run":7,"to":"2026-10-25T18:51:38Z","ts":"2026-10-25T18:51:38Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:52:08Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:51:38Z","secs":30,"to":"2026-10-25T18:52:08Z","ts":"2026-10-25T18:52:08Z"}
+{"event":"run_start","left_secs":217,"run":8,"ts":"2026-10-25T18:52:08Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:52:08Z","ran_secs":2,"run":8,"to":"2026-10-25T18:52:10Z","ts":"2026-10-25T18:52:10Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:52:40Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:52:10Z","secs":30,"to":"2026-10-25T18:52:40Z","ts":"2026-10-25T18:52:40Z"}
+{"event":"run_start","left_secs":185,"run":9,"ts":"2026-10-25T18:52:40Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:52:40Z","ran_secs":1,"run":9,"to":"2026-10-25T18:52:41Z","ts":"2026-10-25T18:52:41Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:53:11Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:52:41Z","secs":30,"to":"2026-10-25T18:53:11Z","ts":"2026-10-25T18:53:11Z"}
+{"event":"run_start","left_secs":154,"run":10,"ts":"2026-10-25T18:53:11Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:53:11Z","ran_secs":1,"run":10,"to":"2026-10-25T18:53:12Z","ts":"2026-10-25T18:53:12Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:53:43Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:53:12Z","secs":31,"to":"2026-10-25T18:53:43Z","ts":"2026-10-25T18:53:43Z"}
+{"event":"run_start","left_secs":122,"run":11,"ts":"2026-10-25T18:53:43Z"}
+{"event":"run_exit","exit_code":1,"from":"2026-10-25T18:53:43Z","ran_secs":1,"run":11,"to":"2026-10-25T18:53:44Z","ts":"2026-10-25T18:53:44Z"}
+{"event":"collect","exit_code":0,"ts":"2026-10-25T18:54:14Z"}
+{"detail":"worker exit 1, restart pause","event":"worker_down","from":"2026-10-25T18:53:44Z","secs":30,"to":"2026-10-25T18:54:14Z","ts":"2026-10-25T18:54:14Z"}
+{"detail":"end of session","event":"collect","exit_code":0,"ts":"2026-10-25T18:54:18Z"}
+{"covered_secs":10405,"event":"done","ts":"2026-10-25T18:54:18Z"}

@@ -1,0 +1,135 @@
+{
+ "label": "EXPLORATORY (calibration-derived nuisance; SIMULATION input)",
+ "n_calibration_txs": 936,
+ "estimates": {
+  "p_land": {
+   "value": 0.9743589743589743,
+   "method": "landed / sent",
+   "n": 936,
+   "preset_low": 0.75,
+   "preset_high": 0.9,
+   "deviation": true
+  },
+  "clock_sd_ms": {
+   "value": 119.72650309200002,
+   "method": "1.4826 MAD of err_prep_ms",
+   "n": 979,
+   "preset_low": 100.0,
+   "preset_high": 100.0,
+   "deviation": true
+  },
+  "offset_ms": {
+   "value": -200.0,
+   "method": "argmax usable rate",
+   "n": 156,
+   "deviation": false
+  },
+  "bg_between": {
+   "value": 1.0,
+   "method": "match median block span (Agave model, Arm P)",
+   "n": 40,
+   "preset_low": 0.5,
+   "preset_high": 10.0,
+   "deviation": false
+  },
+  "jitter_ms": {
+   "value": null,
+   "method": "not identifiable order-agnostically; preset levels kept; RTT proxy in network_path (upper bound, never a deviation by itself)",
+   "deviation": false
+  },
+  "exec_sigma": {
+   "value": null,
+   "method": "not identifiable order-agnostically; preset levels kept",
+   "deviation": false
+  },
+  "busy_max_ms": {
+   "value": null,
+   "method": "not identifiable order-agnostically; preset levels kept",
+   "deviation": false
+  }
+ },
+ "p_land_by_family": {
+  "agave": 0.9629629629629629,
+  "fd2": 1.0
+ },
+ "usable_rate_by_offset": {
+  "-300": 0.9347826086956522,
+  "-100": 0.8055555555555556,
+  "-200": 1.0,
+  "100": 0.8666666666666667,
+  "0": 0.8709677419354839,
+  "-500": 1.0
+ },
+ "span": {
+  "observed_median": 10.5,
+  "n_windows": 40,
+  "simulated_median_by_bg": {
+   "0.25": 7.0,
+   "0.5": 8.0,
+   "1": 10.0,
+   "2": 13.0,
+   "3": 17.0,
+   "5": 24.0,
+   "8": 37.0,
+   "10": 45.0,
+   "15": 69.0,
+   "20": 86.0,
+   "30": 132.5
+  }
+ },
+ "network_path": {
+  "label": "EXPLORATORY (Wi-Fi path record; proxy, not the delay of QUIC sends to a leader)",
+  "sessions": [
+   "20261025T152718Z",
+   "20261025T155544Z"
+  ],
+  "rtt": {
+   "n": 2330,
+   "n_ok": 2330,
+   "n_err": 0,
+   "min_ms": 40.3031,
+   "p50_ms": 53.5622,
+   "p90_ms": 95.57300000000001,
+   "p95_ms": 120.1258,
+   "p99_ms": 133.19500000000002,
+   "max_ms": 1052.6198,
+   "sigma_mad_ms": 6.801724019999996,
+   "jitter_ms": 19.960668470790377,
+   "n_pairs": 2328
+  },
+  "rtt_by_session": {
+   "20261025T152718Z": {
+    "n": 217,
+    "n_ok": 217,
+    "n_err": 0,
+    "min_ms": 48.065200000000004,
+    "p50_ms": 55.940200000000004,
+    "p90_ms": 119.3389,
+    "p95_ms": 123.3765,
+    "p99_ms": 137.1329,
+    "max_ms": 234.4957,
+    "sigma_mad_ms": 5.604079740000007,
+    "jitter_ms": 23.82054675925926,
+    "n_pairs": 216
+   },
+   "20261025T155544Z": {
+    "n": 2113,
+    "n_ok": 2113,
+    "n_err": 0,
+    "min_ms": 40.3031,
+    "p50_ms": 53.309200000000004,
+    "p90_ms": 82.0436,
+    "p95_ms": 119.7871,
+    "p99_ms": 132.7534,
+    "max_ms": 1052.6198,
+    "sigma_mad_ms": 7.037753940000005,
+    "jitter_ms": 19.56590819128788,
+    "n_pairs": 2112
+   }
+  },
+  "oneway_jitter_proxy_ms": 4.809545178301422,
+  "preset_jitter_high_ms": 3.0,
+  "proxy_above_preset_high": true
+ },
+ "any_deviation": true
+}

@@ -1,0 +1,5 @@
+{"timestamp":"2026-10-25T15:27:20.911801Z","level":"INFO","fields":{"message":"connected","cluster":"mainnet","data_root":"data","endpoint":"https://mainnet.helius-rpc.com/?api-key=REDACTED","rpc_rps":8.0,"send_tx_rps":1.0,"month_to_date_credits":1631.147460000011},"target":"sender"}
+{"timestamp":"2026-10-25T15:27:22.000953Z","level":"INFO","fields":{"message":"starting campaign","run_id":"live-20261025T152720Z","targets":10,"payers":32,"lps":5000,"rent_min":650240,"budget":300000,"hard_ceiling":50000000},"target":"sender"}
+{"timestamp":"2026-10-25T15:27:22.087151Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://mainnet.helius-rpc.com/?api-key=REDACTED","open":1},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-25T15:27:44.473846Z","level":"INFO","fields":{"message":"leader schedule snapshot saved","epoch":1067},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T15:40:15.093496Z","level":"INFO","fields":{"message":"estimated provider credits","run_id":"live-20261025T152720Z","credits":104.46100000001451,"ws_bytes":523050,"rate_limited":0,"month_to_date_credits":1734.6084600000256,"quota":1000000},"target":"sender"}

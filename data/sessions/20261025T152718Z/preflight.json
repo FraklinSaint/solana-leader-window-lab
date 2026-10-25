@@ -1,0 +1,70 @@
+{
+  "host": {
+    "arch": "x86_64",
+    "machine_id": "5efa0640ec933a8f",
+    "network_type": "wifi",
+    "os": "windows",
+    "os_build": "10.0.17763.9376",
+    "platform": "win-pc1",
+    "sender_sha256": "ee7c9c7a7e29104999f91a5f76a704fa7a9df7b2dc0b221e725ae3019396f352"
+  },
+  "info": {
+    "clock": {
+      "local_minus_server_ms": -8.497834205627441,
+      "round_trip_ms": 2.805948257446289,
+      "server": "time.cloudflare.com"
+    },
+    "hibernate_after_secs": {
+      "ac": 0,
+      "dc": 0
+    },
+    "memory": {
+      "available_bytes": 2901368832,
+      "total_bytes": 8539340800
+    },
+    "network": {
+      "description": "TP-Link Wireless USB Adapter",
+      "if_type": 71,
+      "name": "Беспроводная сеть",
+      "type": "wifi",
+      "wifi": true,
+      "wifi_link": {
+        "ap_id": "ac18fd41",
+        "band": "2.4 GHz",
+        "channel": 13,
+        "phy": "802.11n",
+        "rssi_dbm": null,
+        "rx_mbps": 150,
+        "signal_quality": 92,
+        "tx_mbps": 150
+      },
+      "wifi_power_saving_ac": 0
+    },
+    "pending_file_rename_operations": [
+      "*1\\??\\C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\1.3.299.15",
+      "*1\\??\\C:\\Program Files\\Bitdefender",
+      "*1\\??\\C:\\ProgramData\\Bitdefender",
+      "*1\\??\\C:\\ProgramData\\Bitdefender\\Atc",
+      "*1\\??\\C:\\ProgramData\\Bitdefender\\Gemma",
+      "*1\\??\\C:\\Program Files\\Bitdefender",
+      "*1\\??\\C:\\ProgramData\\Bitdefender",
+      "*1\\??\\C:\\ProgramData\\Bitdefender\\Atc",
+      "*1\\??\\C:\\ProgramData\\Bitdefender\\Gemma",
+      "*1\\??\\C:\\Program Files\\Bitdefender\\Bitdefender VPN"
+    ],
+    "platform": "win-pc1",
+    "restart_pending": [],
+    "shutdown_event_deliverable": true,
+    "sleep_after_secs": {
+      "ac": 0,
+      "dc": 0
+    },
+    "ui_dlls_loaded": []
+  },
+  "ts": "2026-10-25T15:27:19Z",
+  "warnings": [
+    "network: Wi-Fi (TP-Link Wireless USB Adapter). Registered path of this PC: recorded in every run and session (RTT and link state) and a separate platform stratum; not refused",
+    "wifi: connected on 2.4 GHz (channel 13); 5 GHz is steadier",
+    "PendingFileRenameOperations is set (10 entries, recorded in preflight.json); no RebootRequired/RebootPending marker, so not a restart request"
+  ]
+}

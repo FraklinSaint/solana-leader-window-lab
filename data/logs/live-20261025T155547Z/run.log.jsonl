@@ -1,0 +1,33 @@
+{"timestamp":"2026-10-25T15:55:47.577594Z","level":"INFO","fields":{"message":"connected","cluster":"mainnet","data_root":"data","endpoint":"https://mainnet.helius-rpc.com/?api-key=REDACTED","rpc_rps":8.0,"send_tx_rps":1.0,"month_to_date_credits":2076.9158600000246},"target":"sender"}
+{"timestamp":"2026-10-25T15:55:48.642095Z","level":"INFO","fields":{"message":"starting campaign","run_id":"live-20261025T155547Z","targets":10,"payers":32,"lps":5000,"rent_min":650240,"budget":4700000,"hard_ceiling":50000000},"target":"sender"}
+{"timestamp":"2026-10-25T15:55:48.645245Z","level":"INFO","fields":{"message":"continuing the allocation of earlier runs","windows":9,"through_slot":461308452},"target":"sender"}
+{"timestamp":"2026-10-25T15:55:48.753947Z","level":"INFO","fields":{"message":"slotSubscribe connected","ws_url":"wss://mainnet.helius-rpc.com/?api-key=REDACTED","open":1},"target":"slwlab_sender::feed"}
+{"timestamp":"2026-10-25T16:01:50.495619Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":4049},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:06:36.347050Z","level":"INFO","fields":{"message":"window skipped","window":"461318996-ana2y2Yv","reason":"QUIC connect failed: QUIC handshake timed out (1 s): deadline has elapsed"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:07:12.236079Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":1710},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:07:18.509378Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":2366},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:07:29.248260Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":3942},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:07:44.865902Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":1540},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:07:52.026811Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":3252},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:07:57.884546Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":2230},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:08:04.179091Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":2355},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:08:10.978445Z","level":"INFO","fields":{"message":"window skipped","window":"461319444-HEL1USMZ","reason":"payer pool exhausted (busy or underfunded)"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:08:15.018281Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":4034},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:08:17.144173Z","level":"INFO","fields":{"message":"window skipped","window":"461319472-JUPiTERr","reason":"payer pool exhausted (busy or underfunded)"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:08:44.297360Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":1844},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:08:50.255184Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":2227},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:10:25.669315Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":4424},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:10:26.978499Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":1308},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:10:35.598696Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":5973},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:10:46.119835Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":6563},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:12.718272Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":22806},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:22.887283Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":5932},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:25.017204Z","level":"INFO","fields":{"message":"window skipped","window":"461320356-JUPiTERr","reason":"payer pool exhausted (busy or underfunded)"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:28.253667Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":3232},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:30.699137Z","level":"INFO","fields":{"message":"window skipped","window":"461320384-EvnRmnMr","reason":"payer pool exhausted (busy or underfunded)"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:33.919501Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":3214},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:36.325358Z","level":"INFO","fields":{"message":"window skipped","window":"461320408-EvnRmnMr","reason":"payer pool exhausted (busy or underfunded)"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:47.212420Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":10611},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:11:49.084183Z","level":"INFO","fields":{"message":"window skipped","window":"461320468-JUPiTERr","reason":"payer pool exhausted (busy or underfunded)"},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T16:17:31.839938Z","level":"WARN","fields":{"message":"collector pass timed out","budget_ms":3254},"target":"slwlab_sender::runner"}
+{"timestamp":"2026-10-25T18:49:00.028513Z","level":"INFO","fields":{"message":"estimated provider credits","run_id":"live-20261025T155547Z","credits":1190.769480000225,"ws_bytes":7038474,"rate_limited":0,"month_to_date_credits":3266.6853400002497,"quota":1000000},"target":"sender"}

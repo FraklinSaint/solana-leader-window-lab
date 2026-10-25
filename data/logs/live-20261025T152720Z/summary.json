@@ -1,0 +1,165 @@
+{
+  "run_id": "live-20261025T152720Z",
+  "mode": "live",
+  "cluster": "mainnet",
+  "started": "2026-10-25T15:27:22.003876Z",
+  "finished": "2026-10-25T15:40:14.977197Z",
+  "windows_planned": 9,
+  "windows_executed": 9,
+  "skips": {
+    "lead # ms < min #": 2,
+    "planning budget: # + # > #": 269,
+    "too close to previous planned window": 9,
+    "window truncated by schedule range": 2
+  },
+  "txs_sent": 54,
+  "send_errors": 0,
+  "landed": 48,
+  "expired": 6,
+  "unresolved": 0,
+  "spent_run_lamports": 254448,
+  "reserved_run_lamports": 0,
+  "spent_total_lamports": 419448,
+  "clock_prep": {
+    "windows": 9,
+    "observed": 9,
+    "median_abs_err_ms": 122.28804,
+    "p95_abs_err_ms": 281.636828,
+    "max_abs_err_ms": 281.636828
+  },
+  "stopped_early": null,
+  "by_path": {
+    "quic": {
+      "sent": 54,
+      "send_errors": 0,
+      "landed": 48,
+      "expired": 6
+    }
+  },
+  "credits": {
+    "by_method": {
+      "getBalance": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getBlock": {
+        "calls": 9,
+        "credits": 9.0
+      },
+      "getBlockHeight": {
+        "calls": 20,
+        "credits": 20.0
+      },
+      "getClusterNodes": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getEpochInfo": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getFeeForMessage": {
+        "calls": 10,
+        "credits": 10.0
+      },
+      "getGenesisHash": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getLatestBlockhash": {
+        "calls": 10,
+        "credits": 10.0
+      },
+      "getLeaderSchedule": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getMinimumBalanceForRentExemption": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getMultipleAccounts": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getSignatureStatuses": {
+        "calls": 20,
+        "credits": 20.0
+      },
+      "getSlot": {
+        "calls": 7,
+        "credits": 7.0
+      },
+      "getSlotLeaders": {
+        "calls": 6,
+        "credits": 6.0
+      },
+      "simulateTransaction": {
+        "calls": 5,
+        "credits": 5.0
+      }
+    },
+    "ws_bytes": 522906,
+    "ws_credits": 10.458119999999871,
+    "rate_limited": 0,
+    "credits": 104.4581200000145
+  },
+  "month_to_date_credits": 1734.6055800000256,
+  "simulation_by_arm": {
+    "C": {
+      "simulated": 1,
+      "ok": 1,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 299,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    },
+    "F": {
+      "simulated": 1,
+      "ok": 1,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 235,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    },
+    "P": {
+      "simulated": 1,
+      "ok": 1,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 235,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    },
+    "R": {
+      "simulated": 1,
+      "ok": 1,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 235,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    },
+    "X": {
+      "simulated": 1,
+      "ok": 1,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 235,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    }
+  }
+}

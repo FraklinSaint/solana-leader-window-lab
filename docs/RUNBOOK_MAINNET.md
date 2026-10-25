@@ -344,8 +344,10 @@ if the window was closed: `$POST = 'data\snapshots\balances_<...>.json'`).
    ```
 
    Expect: `"ok": true`, `"problems": []`, `"open_reservations": 0`, and `wallet_delta`
-   equal to minus `ledger_fees` (the exact wording of the check is in `funding::reconcile`;
-   **unverified** here). `ledger_fees` for the whole calibration (smoke + S7) <= 5,000,000.
+   equal to `ledger_fees` (`wallet_delta` is before-total minus after-total, so it is
+   positive when fees were paid; seen on 2026-10-25: both 254,448 after the smoke and both
+   4,843,462 after the calibration). `ledger_fees` for the whole calibration (smoke + S7)
+   <= 5,000,000.
    STOP: `RECONCILIATION FAILED: ...`; fees above 5,000,000.
 
 3. Independent verification, offline:

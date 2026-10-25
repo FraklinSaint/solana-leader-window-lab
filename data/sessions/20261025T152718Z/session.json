@@ -1,0 +1,26 @@
+{
+  "id": "20261025T152718Z",
+  "mode": "calibrate",
+  "start_unix": 1792942039,
+  "end_unix": 1792943263,
+  "start_utc": "2026-10-25T15:27:19Z",
+  "end_utc": "2026-10-25T15:47:43Z",
+  "host": {
+    "platform": "win-pc1",
+    "os": "windows",
+    "arch": "x86_64",
+    "os_build": "10.0.17763.9376",
+    "machine_id": "5efa0640ec933a8f",
+    "sender_sha256": "ee7c9c7a7e29104999f91a5f76a704fa7a9df7b2dc0b221e725ae3019396f352",
+    "network_type": "wifi"
+  },
+  "max_spend_lamports": 300000,
+  "prereg": null,
+  "allocation": null,
+  "offsets": [
+    -300,
+    -100,
+    0,
+    100
+  ]
+}

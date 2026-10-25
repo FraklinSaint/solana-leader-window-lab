@@ -1,0 +1,79 @@
+{
+  "run_id": "live-20261025T154302Z",
+  "mode": "live",
+  "cluster": "mainnet",
+  "started": "2026-10-25T15:43:03.632278Z",
+  "finished": "2026-10-25T15:43:25.464809Z",
+  "windows_planned": 0,
+  "windows_executed": 0,
+  "skips": {
+    "planning budget: # + # > #": 103
+  },
+  "txs_sent": 0,
+  "send_errors": 0,
+  "landed": 0,
+  "expired": 0,
+  "unresolved": 0,
+  "spent_run_lamports": 0,
+  "reserved_run_lamports": 0,
+  "spent_total_lamports": 419448,
+  "clock_prep": {
+    "windows": 0,
+    "observed": 0,
+    "median_abs_err_ms": null,
+    "p95_abs_err_ms": null,
+    "max_abs_err_ms": null
+  },
+  "stopped_early": null,
+  "by_path": {},
+  "credits": {
+    "by_method": {
+      "getBalance": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getClusterNodes": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getEpochInfo": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getFeeForMessage": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getGenesisHash": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getLatestBlockhash": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getMinimumBalanceForRentExemption": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getMultipleAccounts": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getSlot": {
+        "calls": 3,
+        "credits": 3.0
+      },
+      "getSlotLeaders": {
+        "calls": 2,
+        "credits": 2.0
+      }
+    },
+    "ws_bytes": 15018,
+    "ws_credits": 0.3003599999999995,
+    "rate_limited": 0,
+    "credits": 13.30036000000002
+  },
+  "month_to_date_credits": 1778.1396200000252,
+  "simulation_by_arm": {}
+}

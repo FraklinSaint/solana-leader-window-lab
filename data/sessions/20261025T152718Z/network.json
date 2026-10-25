@@ -1,0 +1,100 @@
+{
+  "access_point_changes": 0,
+  "access_points": 1,
+  "bands": {
+    "2.4 GHz": 37
+  },
+  "channels": {
+    "13": 37
+  },
+  "label": "PATH RECORD (Wi-Fi limitation; README, PREREGISTRATION)",
+  "method": "rtt: JSON-RPC getSlot over a kept-alive HTTPS connection, one probe per 5 s, first probe of a connection excluded; a proxy for the path, not the delay of QUIC sends to a leader. wifi: WLAN API sample per 30 s (SSID never read).",
+  "network_types": {
+    "wifi": 37
+  },
+  "phys": {
+    "802.11n": 37
+  },
+  "preflight": {
+    "description": "TP-Link Wireless USB Adapter",
+    "if_type": 71,
+    "name": "Беспроводная сеть",
+    "type": "wifi",
+    "wifi": true,
+    "wifi_link": {
+      "ap_id": "ac18fd41",
+      "band": "2.4 GHz",
+      "channel": 13,
+      "phy": "802.11n",
+      "rssi_dbm": null,
+      "rx_mbps": 150,
+      "signal_quality": 92,
+      "tx_mbps": 150
+    },
+    "wifi_power_saving_ac": 0
+  },
+  "rssi_dbm": {
+    "max": null,
+    "median": null,
+    "min": null,
+    "p5": null,
+    "p95": null
+  },
+  "rtt": {
+    "jitter_ms": 23.820546759259248,
+    "loss_share": 0.0,
+    "max_ms": 234.4957,
+    "min_ms": 48.0652,
+    "n": 217,
+    "n_err": 0,
+    "n_ok": 217,
+    "n_pairs": 216,
+    "p50_ms": 55.9402,
+    "p90_ms": 119.3389,
+    "p95_ms": 123.3765,
+    "p99_ms": 137.1329,
+    "sigma_mad_ms": 5.604079739999997
+  },
+  "rtt_by_hour": [
+    {
+      "hour_utc": "2026-10-25T15:00:00Z",
+      "jitter_ms": 23.820546759259248,
+      "loss_share": 0.0,
+      "max_ms": 234.4957,
+      "min_ms": 48.0652,
+      "n": 217,
+      "n_err": 0,
+      "n_ok": 217,
+      "n_pairs": 216,
+      "p50_ms": 55.9402,
+      "p90_ms": 119.3389,
+      "p95_ms": 123.3765,
+      "p99_ms": 137.1329,
+      "sigma_mad_ms": 5.604079739999997
+    }
+  ],
+  "rtt_warmup_probes": 1,
+  "rx_mbps": {
+    "max": 150.0,
+    "median": 150.0,
+    "min": 150.0,
+    "p5": 150.0,
+    "p95": 150.0
+  },
+  "signal_quality": {
+    "max": 100.0,
+    "median": 98.0,
+    "min": 92.0,
+    "p5": 92.0,
+    "p95": 100.0
+  },
+  "tx_mbps": {
+    "max": 150.0,
+    "median": 150.0,
+    "min": 150.0,
+    "p5": 150.0,
+    "p95": 150.0
+  },
+  "wifi_link_samples": 37,
+  "wifi_samples": 37
+}

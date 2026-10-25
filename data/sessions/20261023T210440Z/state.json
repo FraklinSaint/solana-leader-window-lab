@@ -1,0 +1,20 @@
+{
+  "id": "20261023T210440Z",
+  "mode": "dryrun",
+  "start_unix": 1792789481,
+  "end_unix": 1792818281,
+  "start_utc": "2026-10-23T21:04:41Z",
+  "end_utc": "2026-10-24T05:04:41Z",
+  "host": {
+    "platform": "unregistered",
+    "os": "windows",
+    "arch": "x86_64",
+    "os_build": "10.0.17763.9376",
+    "machine_id": "5efa0640ec933a8f",
+    "sender_sha256": "b29c5229c22196b59f9a40a08da7a6616634ebd4d3efd92f0b270d58d792616c"
+  },
+  "max_spend_lamports": null,
+  "prereg": null,
+  "allocation": null,
+  "offsets": []
+}

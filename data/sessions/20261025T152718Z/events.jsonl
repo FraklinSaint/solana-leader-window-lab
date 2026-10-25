@@ -1,0 +1,24 @@
+{"end":"2026-10-25T15:47:43Z","event":"start","mode":"calibrate","ts":"2026-10-25T15:27:19Z"}
+{"active":true,"blocks":"idle sleep only; not a sleep or sign-out requested by the user or Windows","event":"keep_awake","request":"ES_CONTINUOUS | ES_SYSTEM_REQUIRED","ts":"2026-10-25T15:27:20Z"}
+{"event":"run_start","left_secs":1223,"run":1,"ts":"2026-10-25T15:27:20Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:27:20Z","ran_secs":775,"run":1,"to":"2026-10-25T15:40:15Z","ts":"2026-10-25T15:40:15Z"}
+{"event":"run_start","left_secs":448,"run":2,"ts":"2026-10-25T15:40:15Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:40:15Z","ran_secs":143,"run":2,"to":"2026-10-25T15:42:38Z","ts":"2026-10-25T15:42:38Z"}
+{"event":"run_start","left_secs":305,"run":3,"ts":"2026-10-25T15:42:38Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:42:38Z","ran_secs":24,"run":3,"to":"2026-10-25T15:43:02Z","ts":"2026-10-25T15:43:02Z"}
+{"event":"run_start","left_secs":281,"run":4,"ts":"2026-10-25T15:43:02Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:43:02Z","ran_secs":23,"run":4,"to":"2026-10-25T15:43:25Z","ts":"2026-10-25T15:43:25Z"}
+{"event":"run_start","left_secs":258,"run":5,"ts":"2026-10-25T15:43:25Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:43:25Z","ran_secs":23,"run":5,"to":"2026-10-25T15:43:48Z","ts":"2026-10-25T15:43:48Z"}
+{"event":"run_start","left_secs":235,"run":6,"ts":"2026-10-25T15:43:48Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:43:48Z","ran_secs":24,"run":6,"to":"2026-10-25T15:44:12Z","ts":"2026-10-25T15:44:12Z"}
+{"event":"run_start","left_secs":211,"run":7,"ts":"2026-10-25T15:44:12Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:44:12Z","ran_secs":23,"run":7,"to":"2026-10-25T15:44:35Z","ts":"2026-10-25T15:44:35Z"}
+{"event":"run_start","left_secs":188,"run":8,"ts":"2026-10-25T15:44:35Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:44:35Z","ran_secs":23,"run":8,"to":"2026-10-25T15:44:58Z","ts":"2026-10-25T15:44:58Z"}
+{"event":"run_start","left_secs":165,"run":9,"ts":"2026-10-25T15:44:58Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:44:58Z","ran_secs":23,"run":9,"to":"2026-10-25T15:45:21Z","ts":"2026-10-25T15:45:21Z"}
+{"event":"run_start","left_secs":142,"run":10,"ts":"2026-10-25T15:45:21Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-25T15:45:21Z","ran_secs":24,"run":10,"to":"2026-10-25T15:45:45Z","ts":"2026-10-25T15:45:45Z"}
+{"detail":"end of session","event":"collect","exit_code":0,"ts":"2026-10-25T15:45:47Z"}
+{"covered_secs":1105,"event":"done","ts":"2026-10-25T15:45:47Z"}

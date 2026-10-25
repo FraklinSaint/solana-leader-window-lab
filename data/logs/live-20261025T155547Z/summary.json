@@ -1,0 +1,163 @@
+{
+  "run_id": "live-20261025T155547Z",
+  "mode": "live",
+  "cluster": "mainnet",
+  "started": "2026-10-25T15:55:48.646992Z",
+  "finished": "2026-10-25T18:48:57.754571Z",
+  "windows_planned": 154,
+  "windows_executed": 147,
+  "skips": {
+    "QUIC connect failed: QUIC handshake timed out (# s): deadline has elapsed": 1,
+    "lead # ms < min #": 1,
+    "payer pool exhausted (busy or underfunded)": 6,
+    "planning budget: # + # > #": 2144,
+    "too close to previous planned window": 147,
+    "window truncated by schedule range": 15
+  },
+  "txs_sent": 882,
+  "send_errors": 12,
+  "landed": 864,
+  "expired": 18,
+  "unresolved": 0,
+  "spent_run_lamports": 4589014,
+  "reserved_run_lamports": 0,
+  "spent_total_lamports": 5008462,
+  "clock_prep": {
+    "windows": 154,
+    "observed": 154,
+    "median_abs_err_ms": 71.123436,
+    "p95_abs_err_ms": 224.253868,
+    "max_abs_err_ms": 397.744564
+  },
+  "stopped_early": null,
+  "by_path": {
+    "quic": {
+      "sent": 882,
+      "send_errors": 12,
+      "landed": 864,
+      "expired": 18
+    }
+  },
+  "credits": {
+    "by_method": {
+      "getBalance": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getBlock": {
+        "calls": 188,
+        "credits": 188.0
+      },
+      "getBlockHeight": {
+        "calls": 218,
+        "credits": 218.0
+      },
+      "getClusterNodes": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getEpochInfo": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getFeeForMessage": {
+        "calls": 149,
+        "credits": 149.0
+      },
+      "getGenesisHash": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getLatestBlockhash": {
+        "calls": 155,
+        "credits": 155.0
+      },
+      "getMinimumBalanceForRentExemption": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getMultipleAccounts": {
+        "calls": 1,
+        "credits": 1.0
+      },
+      "getSignatureStatuses": {
+        "calls": 218,
+        "credits": 218.0
+      },
+      "getSlot": {
+        "calls": 53,
+        "credits": 53.0
+      },
+      "getSlotLeaders": {
+        "calls": 52,
+        "credits": 52.0
+      },
+      "simulateTransaction": {
+        "calls": 11,
+        "credits": 11.0
+      }
+    },
+    "ws_bytes": 7037034,
+    "ws_credits": 140.74068000010158,
+    "rate_limited": 0,
+    "credits": 1190.740680000225
+  },
+  "month_to_date_credits": 3266.6565400002496,
+  "simulation_by_arm": {
+    "C": {
+      "simulated": 2,
+      "ok": 2,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 299,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    },
+    "F": {
+      "simulated": 1,
+      "ok": 1,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 235,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    },
+    "P": {
+      "simulated": 2,
+      "ok": 2,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 235,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    },
+    "R": {
+      "simulated": 3,
+      "ok": 3,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 235,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    },
+    "X": {
+      "simulated": 3,
+      "ok": 3,
+      "errors": {},
+      "units_min": 600,
+      "units_max": 600,
+      "cu_limit_min": 1000,
+      "loaded_bytes_max": 235,
+      "loaded_bytes_limit": 32768,
+      "within_limits": true
+    }
+  }
+}

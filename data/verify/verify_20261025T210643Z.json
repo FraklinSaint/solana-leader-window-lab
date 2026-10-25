@@ -1,0 +1,44 @@
+{
+ "label": "VERIFICATION",
+ "generated_utc": "2026-10-25T21:06:43Z",
+ "manifests": [
+  "exploratory\\calibration_manifest.jsonl"
+ ],
+ "summary": {
+  "offline": {
+   "txs": 936,
+   "landed": 912,
+   "payers": 33,
+   "saved_blocks": 206,
+   "ledger_entries": 1990
+  },
+  "platform": {
+   "platforms": {
+    "win-pc1/windows/5efa0640ec933a8f": 936
+   },
+   "network_types": {
+    "wifi": 936
+   },
+   "os_builds": {
+    "10.0.17763.9376": 936
+   },
+   "sender_sha256": {
+    "ee7c9c7a7e29104999f91a5f76a704fa7a9df7b2dc0b221e725ae3019396f352": 936
+   }
+  }
+ },
+ "checks_run": {
+  "B": 912,
+  "E": 156,
+  "H": 912,
+  "L": 936,
+  "M": 936,
+  "O": 156,
+  "P": 156,
+  "Q": 936,
+  "T": 912,
+  "X": 912
+ },
+ "problems": [],
+ "ok": true
+}

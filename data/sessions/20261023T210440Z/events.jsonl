@@ -1,2 +1,4 @@
 {"end":"2026-10-24T05:04:41Z","event":"start","mode":"dryrun","ts":"2026-10-23T21:04:41Z"}
 {"event":"run_start","left_secs":28799,"run":1,"ts":"2026-10-23T21:04:42Z"}
+{"detail":"the supervisor ended without a stopped or done event: sign-out, power loss, forced kill or crash (the cause is not recorded by the sender)","event":"abnormal_end","last_event":"run_start","last_event_ts":"2026-10-23T21:04:42Z","last_heartbeat":"2026-10-23T21:47:12Z","secs_since_heartbeat":149988,"session_end":"2026-10-24T05:04:41Z","ts":"2026-10-25T15:27:00Z"}
+{"detail":"closed by the operator before its end","event":"reset","ts":"2026-10-25T15:27:00Z"}

@@ -1,0 +1,26 @@
+{
+  "hours": [
+    {
+      "err": {
+        "max_abs_ms": 281.636828,
+        "mean_ms": 1.3537057777777792,
+        "median_abs_ms": 122.28804,
+        "p90_abs_ms": 170.55118,
+        "p95_abs_ms": 281.636828,
+        "share_within_100ms": 0.3333333333333333,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-25T15:00:00Z",
+      "observed": 9,
+      "unobserved": 0,
+      "windows_executed": 9,
+      "windows_skipped": 0
+    }
+  ],
+  "label": "EXPLORATORY",
+  "metric": "window-start prediction error at prep time: arrival of the window's first slot notification at this machine minus the prediction. NOT the leader's real block start; real window-hit accuracy is judged in calibration by the landing slot.",
+  "runs": [
+    "data\\logs\\live-20261025T152720Z"
+  ]
+}
