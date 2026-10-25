@@ -1,0 +1,15 @@
+{
+  "ts": "2026-10-25T13:45:32Z",
+  "cluster": "mainnet",
+  "slot": 461279137,
+  "accounts": {
+    "6y9XVG2LZZAJ7T8eHK2Ei3LPHxpzwpCrow1asYg1r1Tq": [
+      "sink",
+      0
+    ],
+    "Bset9FvfcP58xfAuV5uAao1g7pMTXgZfaQ9dg7zHcswr": [
+      "master",
+      100000000
+    ]
+  }
+}
