@@ -30,7 +30,7 @@ import time
 
 import numpy as np
 
-from . import power, rules, sim
+from . import calibrate, power, rules, sim
 
 N = 6
 W_GRID = [10, 15, 20, 25, 30, 40, 50, 60, 80]
@@ -221,8 +221,17 @@ def main() -> None:
     ap.add_argument("--reps", type=int, default=200)
     ap.add_argument("--out", required=True)
     ap.add_argument("--md")
+    ap.add_argument("--nuisance-file", help="nuisance_calibrated.json from slwlab.calibrate: adds the "
+                    "calibrated point (and the Wi-Fi sensitivity point) as extra scenarios under "
+                    "`scenarios`; the top-level allocation (MEDIUM, what the sender reads) is unchanged")
     a = ap.parse_args()
     res = run(a.seed, a.reps, log=lambda m: print(m, flush=True))
+    if a.nuisance_file:
+        res["scenarios"] = {}
+        for i, (name, nz) in enumerate(calibrate.scenarios_from_file(a.nuisance_file).items(), 1):
+            sc = run(a.seed + i, a.reps, nz, log=lambda m, n=name: print(f"[{n}] {m}", flush=True))
+            sc["scenario"] = name
+            res["scenarios"][name] = sc
     with open(a.out, "w", encoding="utf-8") as f:
         json.dump(res, f, indent=1, sort_keys=True)
     if a.md:

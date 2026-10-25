@@ -28,7 +28,7 @@ from dataclasses import asdict, replace
 
 import numpy as np
 
-from . import rules, sim, stats
+from . import calibrate, rules, sim, stats
 from .model import ArmConfig, design
 
 ARMS = ["P", "X", "R", "C", "F"]
@@ -172,23 +172,26 @@ def spend_per_window(n: int) -> dict[str, float]:
     return out
 
 
-def run(seed: int, reps: int, log=print) -> dict:
+def _run(seed: int, reps: int, log, primary: sim.Nuisance, grid: dict[str, sim.Nuisance], pkey: str) -> dict:
+    """One full simulation. `primary` is the nuisance level of power, thresholds, FPR and Arm F/X
+    (the pre-registered MEDIUM), `grid` the levels of ceilings and the positive control, `pkey` the
+    grid key of `primary`. The defaults of `run` are the pre-registered ones."""
     t0 = time.time()
     rng = np.random.default_rng(seed)
     res: dict = {
         "label": "SIMULATION", "seed": seed, "reps": reps,
         "alpha_one_sided_holm": ALPHA, "window_tau_norm": WINDOW_TAU_NORM, "min_ceiling": MIN_CEILING,
         "usable_min": {n: usable_min(n) for n in NS},
-        "nuisance": {k: asdict(v) for k, v in sim.NUISANCE_GRID.items()},
+        "nuisance": {k: asdict(v) for k, v in grid.items()},
         "schedulers": {k: asdict(v) for k, v in sim.SCHEDULERS.items()},
         "spend_per_window_lamports": {n: spend_per_window(n) for n in NS},
-        "usable_rate": {n: {lvl: usable_rate(n, nz.p_land) for lvl, nz in sim.NUISANCE_GRID.items()} for n in NS},
+        "usable_rate": {n: {lvl: usable_rate(n, nz.p_land) for lvl, nz in grid.items()} for n in NS},
         "ceilings": {}, "cells": {}, "fpr": {}, "fpr_exact": {}, "arm_f": {}, "x_curve": {},
         "positive_control": {},
     }
     # 1) ceilings of every cell (N = 8, 400 windows, each nuisance level)
     for fam, arm, rule in cells():
-        for lvl, nz in sim.NUISANCE_GRID.items():
+        for lvl, nz in grid.items():
             pl = pool(model_for(fam, rule), arm, 8, nz, 1, 400, rng)[0]
             t = np.array([x[rule][0] for x in pl])
             res["ceilings"].setdefault(fam, {}).setdefault(arm, {}).setdefault(rule, {})[lvl] = {
@@ -196,14 +199,14 @@ def run(seed: int, reps: int, log=print) -> dict:
     log(f"ceilings done {time.time() - t0:.0f}s")
     # 2) power and STRICT thresholds for identifiable cells
     for fam, arm, rule in cells():
-        ceil = res["ceilings"][fam][arm][rule]["medium"]["mean_tau"]
+        ceil = res["ceilings"][fam][arm][rule][pkey]["mean_tau"]
         if ceil < MIN_CEILING or fam in SENSITIVITY_FAMILIES:
             continue
         names = rules.RULES_BY_ARM[arm]
         model = model_for(fam, rule)
         for n in NS:
-            full = pool(model, arm, n, sim.MEDIUM, reps, max(WS), rng)
-            half = pool(sim.Scheduler("mix", base_sched=model, p_rule=0.5), arm, n, sim.MEDIUM, reps, max(WS), rng)
+            full = pool(model, arm, n, primary, reps, max(WS), rng)
+            half = pool(sim.Scheduler("mix", base_sched=model, p_rule=0.5), arm, n, primary, reps, max(WS), rng)
             for w in WS:
                 sf = cell_stats(full, names, rule, w, ceil, rng)
                 sh = cell_stats(half, names, rule, w, ceil, rng)
@@ -219,7 +222,7 @@ def run(seed: int, reps: int, log=print) -> dict:
     for arm in ARMS:
         names = rules.RULES_BY_ARM[arm]
         for n in NS:
-            nul = pool(sim.RANDOM, arm, n, sim.MEDIUM, reps, max(WS), rng)
+            nul = pool(sim.RANDOM, arm, n, primary, reps, max(WS), rng)
             for w in WS:
                 res["fpr"][f"{arm}/N{n}/W{w}"] = float(np.mean(
                     [any(v < ALPHA for v in holm_normal(x[:w], names).values() if not math.isnan(v)) for x in nul]))
@@ -232,7 +235,7 @@ def run(seed: int, reps: int, log=print) -> dict:
     names = rules.RULES_BY_ARM["F"]
     for fam in ["fd2", "agave"]:
         for n in NS:
-            pl = pool(sim.SCHEDULERS[fam], "F", n, sim.MEDIUM, reps, max(WS), rng)
+            pl = pool(sim.SCHEDULERS[fam], "F", n, primary, reps, max(WS), rng)
             for w in WS:
                 ph = [holm_normal(x[:w], names) for x in pl]
                 res["arm_f"][f"{fam}/N{n}/W{w}"] = {
@@ -240,14 +243,14 @@ def run(seed: int, reps: int, log=print) -> dict:
     # 5) Arm X gap response: mean tau of R_PRICE and R_FIFO per send gap, per family (N = 8)
     for fam in ["agave", "fd2", "fifo", "fba50"]:
         for g in ArmConfig().x_gaps_ms:
-            pl = pool(sim.SCHEDULERS[fam], "X", 8, sim.MEDIUM, 1, 300, rng, x_gap_ms=g)[0]
+            pl = pool(sim.SCHEDULERS[fam], "X", 8, primary, 1, 300, rng, x_gap_ms=g)[0]
             res["x_curve"].setdefault(fam, {})[str(g)] = {
                 r: float(np.nanmean([x[r][0] for x in pl])) for r in ("R_PRICE", "R_FIFO")}
     # 6) positive control: 95% predictive interval of the mean raw tau of R_RATIO_AGAVE, Arm P
     for n in NS:
         for w in WS:
             pc = {}
-            for lvl, nz in sim.NUISANCE_GRID.items():
+            for lvl, nz in grid.items():
                 pl = pool(sim.AGAVE, "P", n, nz, reps, w, rng)
                 means = [np.nanmean([x["R_RATIO_AGAVE"][0] for x in wins]) for wins in pl]
                 pc[lvl] = [float(np.quantile(means, 0.025)), float(np.quantile(means, 0.975))]
@@ -257,13 +260,32 @@ def run(seed: int, reps: int, log=print) -> dict:
     return res
 
 
+def run(seed: int, reps: int, log=print, scenarios: dict[str, sim.Nuisance] | None = None) -> dict:
+    """The pre-registered simulation (MEDIUM primary, low/medium/high grid). `scenarios` adds
+    extra nuisance points, each a complete separate simulation with that point as its primary
+    level and its own derived seed (seed + i), stored under `scenarios`; nothing in the base
+    result (same seed, same random stream) depends on them."""
+    res = _run(seed, reps, log, sim.MEDIUM, sim.NUISANCE_GRID, "medium")
+    if scenarios:
+        res["scenarios"] = {}
+        for i, (name, nz) in enumerate(scenarios.items(), 1):
+            sc = _run(seed + i, reps, lambda m, n=name: log(f"[{n}] {m}"), nz, {name: nz}, name)
+            sc["scenario"] = name
+            res["scenarios"][name] = sc
+    return res
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=20261022)
     ap.add_argument("--reps", type=int, default=200)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--nuisance-file", help="nuisance_calibrated.json from slwlab.calibrate: adds the "
+                    "calibrated point (and the Wi-Fi sensitivity point if the RTT proxy exceeds the preset "
+                    "high jitter) as extra scenarios; the pre-registered grid is unchanged")
     a = ap.parse_args()
-    res = run(a.seed, a.reps, log=lambda m: print(m, flush=True))
+    scenarios = calibrate.scenarios_from_file(a.nuisance_file) if a.nuisance_file else None
+    res = run(a.seed, a.reps, log=lambda m: print(m, flush=True), scenarios=scenarios)
     with open(a.out, "w", encoding="utf-8") as f:
         json.dump(res, f, indent=1, sort_keys=True)
     print(f"SIMULATION written to {a.out} in {res['elapsed_s']} s")

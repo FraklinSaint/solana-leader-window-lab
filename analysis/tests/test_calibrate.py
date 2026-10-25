@@ -111,3 +111,60 @@ def test_estimate_carries_the_path_record_and_never_overrides_jitter(tmp_path):
     # a quiet path needs no extra simulator run
     est["network_path"]["proxy_above_preset_high"] = False
     assert calibrate.wifi_sensitivity_nuisance(est) is None
+
+
+def test_offset_used_ignores_offsets_with_few_windows(tmp_path):
+    # Arm F's extra lead moves its effective offset off the sweep: those few windows must not
+    # decide the offset the simulation uses (PREREGISTRATION §0, LOGBOOK 2026-10-25).
+    lines = synth(tmp_path, sim.AGAVE, windows=40, seed=11)
+    for l in lines:
+        k = int(l["tx"]["window_id"].split("-")[1])
+        l["tx"]["offset_ms"] = -200 if k >= 35 else -300
+    write_cal(tmp_path, lines, [0.0, 10.0, -10.0])
+    est = calibrate.estimate(tmp_path)
+    assert est["windows_by_offset"] == {-300: 35, -200: 5}
+    u = est["offset_used"]
+    assert u["value"] == -300.0 and u["n_windows"] == 35 and u["min_windows"] == 30
+    assert u["excluded_offsets_windows"] == {-200: 5} and "Arm F" in u["reason"]
+    assert calibrate.calibrated_nuisance(est).offset_ms == -300.0
+    # the all-offsets estimate stays visible and untouched
+    assert est["estimates"]["offset_ms"]["method"] == "argmax usable rate"
+
+
+def test_scenarios_from_file_reads_only_and_uses_offset_used(tmp_path):
+    est = {"estimates": {"p_land": {"value": 0.97}, "clock_sd_ms": {"value": 119.7},
+                         "offset_ms": {"value": -200.0}, "bg_between": {"value": 1.0}},
+           "offset_used": {"value": -300.0},
+           "network_path": {"proxy_above_preset_high": True, "oneway_jitter_proxy_ms": 4.8}}
+    p = tmp_path / "n.json"
+    p.write_text(json.dumps(est))
+    before = p.read_text()
+    sc = calibrate.scenarios_from_file(str(p))
+    assert list(sc) == ["calibrated", "wifi_sensitivity"]
+    assert sc["calibrated"].offset_ms == -300.0 and sc["calibrated"].p_land == 0.97
+    assert sc["calibrated"].jitter_ms == sim.MEDIUM.jitter_ms  # preset jitter kept
+    assert sc["wifi_sensitivity"].jitter_ms == 4.8 and sc["wifi_sensitivity"].offset_ms == -300.0
+    assert p.read_text() == before
+    est["network_path"]["proxy_above_preset_high"] = False
+    p.write_text(json.dumps(est))
+    assert list(calibrate.scenarios_from_file(str(p))) == ["calibrated"]
+
+
+def test_power_run_default_is_the_preregistered_call(monkeypatch):
+    from slwlab import power
+
+    calls = []
+
+    def fake(seed, reps, log, primary, grid, pkey):
+        calls.append((seed, primary, dict(grid), pkey))
+        return {"elapsed_s": 0.0}
+
+    monkeypatch.setattr(power, "_run", fake)
+    power.run(20261022, 5)
+    assert calls == [(20261022, sim.MEDIUM, sim.NUISANCE_GRID, "medium")]
+    calls.clear()
+    nz = sim.MEDIUM.__class__(p_land=0.97)
+    res = power.run(20261022, 5, scenarios={"calibrated": nz})
+    assert calls[0] == (20261022, sim.MEDIUM, sim.NUISANCE_GRID, "medium")  # base untouched
+    assert calls[1] == (20261023, nz, {"calibrated": nz}, "calibrated")
+    assert set(res["scenarios"]) == {"calibrated"}

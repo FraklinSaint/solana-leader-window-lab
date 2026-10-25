@@ -60,6 +60,25 @@
   "0": 0.8709677419354839,
   "-500": 1.0
  },
+ "windows_by_offset": {
+  "-300": 46,
+  "-100": 36,
+  "-200": 8,
+  "100": 30,
+  "0": 31,
+  "-500": 5
+ },
+ "offset_used": {
+  "value": -300.0,
+  "n_windows": 46,
+  "usable_rate": 0.9347826086956522,
+  "min_windows": 30,
+  "excluded_offsets_windows": {
+   "-500": 5,
+   "-200": 8
+  },
+  "reason": "best usable rate among offsets with >= 30 windows. Excluded for fewer windows: {-500: 5, -200: 8}. Arm F is sent earlier by its extra lead, which shifts its effective offset off the sweep, so those offsets are Arm F only; the argmax over all offsets (-200.0) is not used."
+ },
  "span": {
   "observed_median": 10.5,
   "n_windows": 40,

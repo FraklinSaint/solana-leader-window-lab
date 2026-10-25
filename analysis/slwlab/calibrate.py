@@ -33,6 +33,7 @@ import numpy as np
 from . import parse, sim
 from .analyze import FAMILY_OF_STRATUM
 
+MIN_OFFSET_WINDOWS = 30
 BG_GRID = [0.25, 0.5, 1, 2, 3, 5, 8, 10, 15, 20, 30]
 
 
@@ -147,6 +148,22 @@ def estimate(data_root: pathlib.Path, seed: int = 20261022) -> dict:
         rates = {o: a / b for o, (a, b) in by_off.items()}
         best = max(rates, key=lambda o: (rates[o], -abs(o)))
         out["usable_rate_by_offset"] = rates
+        out["windows_by_offset"] = {o: b for o, (a, b) in by_off.items()}
+        # The offset the simulation uses: the best usable rate among offsets with enough windows.
+        # An offset seen in only a few windows is not part of the sweep: Arm F's extra lead moves
+        # its effective offset (arms.rs), so a few F-only offsets can top the argmax above.
+        big = {o: r for o, r in rates.items() if by_off[o][1] >= MIN_OFFSET_WINDOWS}
+        if big:
+            used = max(big, key=lambda o: (big[o], -abs(o)))
+            small = {o: by_off[o][1] for o in sorted(rates) if o not in big}
+            out["offset_used"] = {
+                "value": float(used), "n_windows": by_off[used][1], "usable_rate": big[used],
+                "min_windows": MIN_OFFSET_WINDOWS,
+                "excluded_offsets_windows": small,
+                "reason": (f"best usable rate among offsets with >= {MIN_OFFSET_WINDOWS} windows. "
+                           f"Excluded for fewer windows: {small}. Arm F is sent earlier by its extra "
+                           f"lead, which shifts its effective offset off the sweep, so those offsets are "
+                           f"Arm F only; the argmax over all offsets ({float(best)}) is not used.")}
         out["estimates"]["offset_ms"] = {"value": float(best), "method": "argmax usable rate", "n": len(windows),
                                          "deviation": False}
 
@@ -181,6 +198,8 @@ def calibrated_nuisance(est: dict) -> sim.Nuisance:
         v = est["estimates"].get(f, {}).get("value")
         if v is not None:
             kw[f] = v
+    if "offset_used" in est:  # never the all-offsets argmax, see estimate()
+        kw["offset_ms"] = est["offset_used"]["value"]
     return dataclasses.replace(sim.MEDIUM, **kw)
 
 
@@ -191,6 +210,17 @@ def wifi_sensitivity_nuisance(est: dict) -> sim.Nuisance | None:
     if not path.get("proxy_above_preset_high"):
         return None
     return dataclasses.replace(calibrated_nuisance(est), jitter_ms=float(path["oneway_jitter_proxy_ms"]))
+
+
+def scenarios_from_file(path: str) -> dict[str, sim.Nuisance]:
+    """Extra simulation scenarios from a nuisance_calibrated.json (read only): the calibrated point
+    and, when the RTT jitter proxy exceeds the preset high level, the Wi-Fi sensitivity point."""
+    est = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    out = {"calibrated": calibrated_nuisance(est)}
+    wifi = wifi_sensitivity_nuisance(est)
+    if wifi is not None:
+        out["wifi_sensitivity"] = wifi
+    return out
 
 
 def main() -> None:
