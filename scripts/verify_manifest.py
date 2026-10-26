@@ -36,6 +36,10 @@ Offline, from `data/` alone (no trust in the collector):
      listed in the summary, not failed.
   L  ledger (`data/ledger.jsonl`, if present): every measure/calibrate reservation has a
      manifest line and vice versa, and the landed fees match.
+  K  slot lists (`logs/<run>/blocklist.json`, `python -m slwlab.blocklist fetch`): the getBlocks
+     record that decides the PREREGISTRATION §9 `skipped_slot` exclusion exists for every
+     confirmatory window, is finalized, covers all of the window's slots, and agrees with the blocks
+     we hold and the slots our txs landed in. Missing for exploratory (calibrate) runs: listed only.
 Online (`--online`, RPC_URL from env; the key is never printed or stored):
   R  every saved block (or a seeded sample, `--sample K`) is re-fetched and must have the
      same blockhash, parent and signature list, in the same order.
@@ -242,6 +246,103 @@ def check_send_order_windows(run_dir: pathlib.Path, rep: Report) -> None:
         rep.ok("O") if ok else rep.fail("O", "sent in a different order than send_rank",
                                         run_id=w.get("run_id"), window_id=w["window"]["window_id"],
                                         arm=w["window"]["design"]["arm"])
+
+
+def blocklist_windows(lines: list[dict]) -> dict[str, dict[str, dict]]:
+    """run_id -> window_id -> {first_slot, n_slots, purpose, landed_slots} for ordering-eligible
+    calibration/confirmatory windows."""
+    out: dict[str, dict[str, dict]] = defaultdict(dict)
+    for l in lines:
+        t = l["tx"]
+        if t["purpose"] not in ORDERING_PURPOSES or not t.get("ordering_eligible", True):
+            continue
+        w = out[t["run_id"]].setdefault(t["window_id"], {"first_slot": t["first_slot"], "n_slots": t["n_slots"],
+                                                         "purpose": t["purpose"], "landed_slots": set()})
+        if l["outcome"]["status"] == "landed" and l["outcome"].get("slot") is not None:
+            w["landed_slots"].add(l["outcome"]["slot"])
+    return out
+
+
+def check_blocklists(lines: list[dict], data_root: pathlib.Path, rep: Report) -> dict:
+    """K  every window has a stored getBlocks list (`logs/<run>/blocklist.json`, written by
+    `python -m slwlab.blocklist fetch`) that is the source of the PREREGISTRATION §9
+    `skipped_slot` exclusion. Checked: finalized commitment, the list covers every slot of the
+    window, only slots inside the window, sorted and unique, fetched after the last slot was
+    finalized, and consistent with the chain data we hold: every saved block inside a window
+    and every slot a tx landed in must be in the list (the list is never derived from our txs,
+    this only catches a wrong list). A missing list FAILS for `measure` windows. For `calibrate`
+    windows (exploratory, collected before the lists existed) it is only listed in the summary."""
+    saved = set(saved_slots(data_root))
+    runs = blocklist_windows(lines)
+    summary = {"runs": len(runs), "windows": 0, "windows_with_skipped_slot": 0,
+               "runs_without_list_calibrate": [], "runs_without_list_measure": []}
+    for run_id, wins in sorted(runs.items()):
+        p = data_root / "logs" / run_id / "blocklist.json"
+        purposes = {w["purpose"] for w in wins.values()}
+        if not p.exists():
+            if "measure" in purposes:
+                summary["runs_without_list_measure"].append(run_id)
+                rep.fail("K", "no stored getBlocks list for a run with confirmatory windows", run=run_id)
+            else:
+                summary["runs_without_list_calibrate"].append(run_id)
+            continue
+        rec = json.loads(p.read_text(encoding="utf-8"))
+        if rec.get("method") != "getBlocks" or rec.get("commitment") != "finalized" or rec.get("run_id") != run_id:
+            rep.fail("K", "list is not a finalized getBlocks record of this run", run=run_id)
+            continue
+        covered = [(c["start"], c["end"]) for c in rec.get("calls", [])]
+        fin = rec.get("finalized_slot_at_fetch", -1)
+        for wid, w in sorted(wins.items()):
+            summary["windows"] += 1
+            r = rec.get("windows", {}).get(wid)
+            first, n = w["first_slot"], w["n_slots"]
+            if r is None or (r["first_slot"], r["n_slots"]) != (first, n):
+                rep.fail("K", "window missing from the list or with different slots", run=run_id, window=wid)
+                continue
+            got = r["slots_with_blocks"]
+            rng = range(first, first + n)
+            problems = []
+            if got != sorted(set(got)) or any(s not in rng for s in got):
+                problems.append("slots not sorted/unique or outside the window")
+            if not all(any(a <= s <= b for a, b in covered) for s in rng):
+                problems.append("a window slot is not covered by any getBlocks call")
+            if first + n - 1 > fin:
+                problems.append("list fetched before the window's last slot was finalized")
+            miss_saved = [s for s in saved if s in rng and s not in got]
+            miss_landed = [s for s in w["landed_slots"] if s in rng and s not in got]
+            if miss_saved or miss_landed:
+                problems.append("a block we hold or a slot our tx landed in is absent from the list")
+            if problems:
+                rep.fail("K", "; ".join(problems), run=run_id, window=wid)
+            else:
+                rep.ok("K")
+            summary["windows_with_skipped_slot"] += len(got) < n
+    return summary
+
+
+def check_blocklists_online(lines: list[dict], data_root: pathlib.Path, rpc, rep: Report) -> dict:
+    """K (online)  every stored list is re-fetched with getBlocks over its recorded ranges and
+    must contain exactly the same slots for the window slots."""
+    n_calls = 0
+    for run_id, wins in sorted(blocklist_windows(lines).items()):
+        p = data_root / "logs" / run_id / "blocklist.json"
+        if not p.exists():
+            continue
+        rec = json.loads(p.read_text(encoding="utf-8"))
+        fresh: set[int] = set()
+        for c in rec["calls"]:
+            fresh |= {int(s) for s in rpc.call("getBlocks", [c["start"], c["end"], {"commitment": "finalized"}])}
+            n_calls += 1
+        for wid, w in sorted(wins.items()):
+            r = rec["windows"].get(wid)
+            if r is None:
+                continue
+            want = sorted(s for s in fresh if w["first_slot"] <= s < w["first_slot"] + w["n_slots"])
+            if want != r["slots_with_blocks"]:
+                rep.fail("K", "stored list differs from the cluster's getBlocks", run=run_id, window=wid)
+            else:
+                rep.ok("K")
+    return {"getBlocks_calls": n_calls}
 
 
 def check_platform(lines: list[dict], rep: Report) -> dict:
@@ -539,6 +640,7 @@ def main(argv: list[str] | None = None) -> int:
     check_schedules(lines, data_root, rep)
     summary["platform"] = check_platform(lines, rep)
     check_send_order(lines, rep)
+    summary["slot_lists"] = check_blocklists(lines, data_root, rep)
     for d in a.windows or []:
         check_send_order_windows(pathlib.Path(d), rep)
     url = os.environ.get("RPC_URL", "")
@@ -546,7 +648,9 @@ def main(argv: list[str] | None = None) -> int:
         if not url:
             print("--online needs RPC_URL in the environment", file=sys.stderr)
             return 2
-        summary["online"] = check_online(lines, data_root, Rpc(url), a.sample, a.seed, rep)
+        rpc = Rpc(url)
+        summary["online"] = check_online(lines, data_root, rpc, a.sample, a.seed, rep)
+        summary["online"]["slot_lists"] = check_blocklists_online(lines, data_root, rpc, rep)
         summary["online"]["endpoint"] = redact(url)
 
     now = dt.datetime.now(dt.timezone.utc)

@@ -47,6 +47,9 @@ class Window:
     usable: bool = False
     reason: str | None = None
     paths: Counter = field(default_factory=Counter)
+    # §9 skipped slots, from the stored getBlocks list (slwlab.blocklist), never from our txs
+    slot_status: str = "unknown"  # "unknown" (no list given), "complete" or "skipped"
+    skipped: list[int] = field(default_factory=list)
 
     @property
     def n(self) -> int:
@@ -63,7 +66,14 @@ def read_jsonl(path: pathlib.Path) -> list[dict]:
     return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
-def windows_from_manifest(lines: list[dict]) -> list[Window]:
+def windows_from_manifest(lines: list[dict], present: dict[str, set[int]] | None = None,
+                          include_skipped: bool = False, require_slot_status: bool = False) -> list[Window]:
+    """`present`: window_id -> slots that have a block (getBlocks, `slwlab.blocklist.present_map`).
+    With it, a window with any of its `n_slots` slots missing is excluded as `skipped_slot`
+    (PREREGISTRATION §9); `include_skipped=True` is the sensitivity analysis that keeps them.
+    `require_slot_status`: a window with no stored list is excluded as `slot_status_missing`
+    (confirmatory data must never be classified without the list). Without `present` nothing
+    changes, so exploratory code paths behave as before."""
     by: dict[str, Window] = {}
     for line in lines:
         t, o = line["tx"], line["outcome"]
@@ -86,18 +96,29 @@ def windows_from_manifest(lines: list[dict]) -> list[Window]:
         order = sorted(range(len(w.txs)), key=lambda i: w.txs[i].idx)
         w.txs = [w.txs[i] for i in order]
         w.lines = [w.lines[i] for i in order]
-        classify(w)
+        got = present.get(w.window_id) if present is not None else None
+        if got is not None:
+            w.skipped = [s for s in range(w.first_slot, w.first_slot + w.n_slots) if s not in got]
+            w.slot_status = "skipped" if w.skipped else "complete"
+        classify(w, include_skipped, require_slot_status)
     return sorted(by.values(), key=lambda w: (w.first_slot, w.window_id))
 
 
-def classify(w: Window) -> None:
+def classify(w: Window, include_skipped: bool = False, require_slot_status: bool = False) -> None:
     """Usable = ordering-eligible, >= usable_min(N) txs landed in ONE slot of the intended
-    window, produced by the intended leader, with no collector exclusion."""
+    window, produced by the intended leader, with no collector exclusion, and (when the
+    getBlocks list is known) none of the window's slots skipped."""
     if any(not l["tx"].get("ordering_eligible", True) for l in w.lines):
         w.reason = "delivery_check_path"
         return
     if any(l["tx"]["first_slot"] < ALPENGLOW_GENESIS_SLOT for l in w.lines):
         w.reason = "pre_alpenglow"
+        return
+    if w.slot_status == "unknown" and require_slot_status:
+        w.reason = "slot_status_missing"
+        return
+    if w.skipped and not include_skipped:
+        w.reason = "skipped_slot"
         return
     # PREREGISTRATION §6c: the actual send order must be the planned send_rank order.
     sent = sorted((l for l in w.lines if l["tx"]["send"].get("error") is None),
@@ -158,6 +179,22 @@ def supplementary(w: Window, data_root: pathlib.Path) -> dict:
     return {"label": "SUPPLEMENTARY", "block_txs": n,
             "our_first_index": min(w.positions), "our_last_index": max(w.positions),
             "our_span": max(w.positions) - min(w.positions) + 1}
+
+
+def skipped_report(windows: list[Window]) -> dict[str, dict]:
+    """§9: per validator, the windows with a skipped slot, the windows total and the share.
+    Only ordering-eligible windows whose slot list is known count."""
+    out: dict[str, dict] = {}
+    for w in windows:
+        if w.slot_status == "unknown" or w.reason in ("delivery_check_path", "pre_alpenglow"):
+            continue
+        r = out.setdefault(w.identity, {"windows": 0, "windows_with_skipped_slot": 0, "skipped_slots": 0})
+        r["windows"] += 1
+        r["windows_with_skipped_slot"] += bool(w.skipped)
+        r["skipped_slots"] += len(w.skipped)
+    for r in out.values():
+        r["share"] = r["windows_with_skipped_slot"] / r["windows"] if r["windows"] else None
+    return dict(sorted(out.items()))
 
 
 def by_validator_arm(windows: list[Window]) -> dict[tuple[str, str], list[Window]]:

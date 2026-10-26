@@ -288,14 +288,48 @@ the same pipeline). Simulated null false-positive rate: see above.
   validators in the selection snapshot that run the picked validators' version (the picked
   ones plus the candidates listed in SESSIONS.md); a window counts for the pool whoever the
   leader is. All other strata keep per-validator quotas (as in option A).
-  - The stratum verdict (§7) is computed on the pooled windows. It is a claim about the vanilla
-    Agave stratum and holds only if the pooled validators follow the same rule. Pooled power
-    is not comparable to a per-validator power.
+  - **The pooled test is stratified by independence unit** (§6c), not a sum over all windows.
+    The sum of window taus of §6 would let the unit with the most windows decide the verdict.
+    Code: `stats.stratified_randomization_pvalue`, `analyze.analyze_pooled`.
+    1. *Units and estimate.* Per cell (arm × rule) each unit's estimate is the mean tau of its
+       usable windows. The pooled statistic is the mean of the unit means over the units that
+       have ≥ 5 usable windows in that cell, each with weight 1/K. A unit with fewer windows is
+       descriptive only and is listed. With fewer than 2 such units there is no pooled test and
+       the cell is INCONCLUSIVE.
+    2. *Permutation.* One-sided randomization test (H1: the rule predicts the order). In every
+       window of every unit the order is redrawn from that window's own exact null (§6), so
+       the permutation is inside each window (finer than inside each validator), and the
+       statistic is recomputed with the same unit weights. p = (1 + #null ≥ observed) / (1 +
+       20,000). Holm across the rules of the arm.
+    3. *Interval and strictness.* Stratified percentile bootstrap (windows resampled inside
+       each unit, same weights); tau_norm and the share of windows with tau_norm ≥ 0.5 use the
+       same weights. STRICT thresholds and the half-strength power are SIMULATED at the actual
+       usable windows per unit (`poolpower.cell_reference`), not read from the single-stream
+       W grid of §7.
+    4. *What changed in the simulation* (`pool_v2.json`, Agave cells only, 200 replications,
+       SIMULATION, preset medium and the calibrated scenario): with the planned pool sizes and
+       balanced units (60/40, or six units in proportion to their leader windows), stratified
+       half-strength power is 0.94–1.00, against 0.98–1.00 for the sum. The false-positive
+       rate stays at or below 0.055 in every split (200 replications, so ±0.015). What it
+       costs: units with < 5 windows in a cell are dropped. With a 90/10 split the second unit
+       has 3–8 windows: at 3–4 windows the cell has no pooled test (power 0.00, Arms C, R and
+       X), at 5–8 windows half-strength power falls to 0.79–0.88 (Arms P and R). The planner
+       should therefore keep each pooled validator at ≥ 5 windows per cell or cap its share.
+       **Stratifying
+       limits the weight of a unit; it does not test that the units agree.** If one unit follows
+       a rule fully and the other is random, the pooled test still rejects (simulated: 0.99–1.00).
+       Heterogeneity is shown, not tested: the per-unit tau_norm table is reported next to the
+       pooled verdict.
+  - The stratum verdict (§7) is a claim about the vanilla Agave stratum and holds only if the
+    pooled validators follow the same rule. Pooled power is not comparable to a per-validator
+    power.
   - **Per-validator results inside the pool are DESCRIPTIVE ONLY**: mean tau, tau_norm and
     landing rate per validator and arm, with the window count, and no verdict, no p-value
-    claim and no power claim at validator level. Counts of validators in the pool use the
-    independence units of §6c.
+    claim and no power claim at validator level.
   - The positive control (Agave Arm C, §7) is evaluated on the pool.
+  - [OPEN: the sender's planner counts quotas per validator (`planner.rs`, `arm_counts` keyed by
+    leader). A pooled quota, and a selection that includes the extra vanilla Agave validators,
+    need a planner change. Not done.]
 - Minimum per cell: ≥ 30 usable windows over ≥ 3 UTC dates. For the pooled Agave cells this is
   the pool total; there is no per-validator minimum inside the pool.
 - **Budgets** (`limits.rs`): calibration ≤ 5,000,000; confirmatory ≤ 38,000,000;
@@ -313,15 +347,28 @@ the same pipeline). Simulated null false-positive rate: see above.
   reported result**, not only a filter. The `rpc-helius-staked` delivery check (one tx per
   window) is reported as a landing comparison with QUIC only.
 - **Skipped slots (decided 2026-10-26).** A window with any of its slots skipped (4 slots for a
-  normal window; all slots of a merged window) is **excluded**, with reason `skipped_slot`
-  [OPEN: collector and manifest do not have this reason code yet]. The decision comes from the
-  chain's own record of which slots have blocks: `getBlocks` over the window's slot range,
-  fetched after the window. A slot missing from that list is skipped. It does **not** come
-  from our transactions (whether they landed, or where). Otherwise the exclusion would depend on
-  the outcome we measure. These exclusions are counted and reported **per validator** (windows
-  with a skipped slot, windows total, share), next to the landing rate. A **sensitivity
-  analysis** repeats the verdict table with these windows included (their usable txs, same-slot
-  pairs only, §5b) and labels any cell whose verdict class changes.
+  normal window; all slots of a merged window) is **excluded**, with reason `skipped_slot`.
+  The decision comes from the chain's own record of which slots have blocks: `getBlocks`
+  (finalized) over the window's slot range, fetched after the window. A slot missing from that
+  list is skipped. It does **not** come from our transactions (whether they landed, or where).
+  Otherwise the exclusion would depend on the outcome we measure.
+  - *Where it lives.* The collector and the sender binary are unchanged (the collector saves
+    only blocks that hold our txs, so it cannot see an empty slot). After a run, once its last
+    window is finalized, `python -m slwlab.blocklist fetch` saves
+    `data/logs/<run_id>/blocklist.json` (the slots with blocks per window, the `getBlocks` calls,
+    the finalized slot at fetch time). `parse.windows_from_manifest` classifies from it. A
+    confirmatory window without a stored list is excluded as `slot_status_missing`, never guessed.
+  - *Verifier.* `scripts/verify_manifest.py` check K fails when a confirmatory run has no list, or
+    a list is not finalized, does not cover a window's slots, or contradicts the blocks we hold or
+    the slots our txs landed in (it only catches a wrong list; it never derives one). `--online`
+    re-fetches the lists.
+  - *Reporting.* Counted and reported **per validator** (windows with a skipped slot, windows
+    total, share) next to the landing rate (`skipped_slots_by_validator`). A **sensitivity
+    analysis** (`analyze --include-skipped`) repeats the verdict table with these windows
+    included (their usable txs, same-slot pairs only, §5b) and labels any cell whose verdict
+    class changes.
+  - *Status.* Implemented and unit-tested on synthetic data. Not yet run on mainnet data: the
+    existing calibration runs have no lists (check K lists them and does not fail them).
 
 ## 10. Sensitivity analyses
 
@@ -348,6 +395,23 @@ against slot-notification arrival at our machine, not the leader's real block st
   extrapolated to it.
 - **Pooled Agave.** Per-validator Agave results are descriptive; the Agave verdict is a
   stratum-level claim (§8).
+- **Groups with one validator** (HarmonicAgave, HarmonicFiredancer, BamAgave, Rakurai): a
+  finding is about that one validator (its software build, configuration, stake, network
+  position and the path from our PC to it). It is not a finding about the client family, the
+  scheduler type or the product name, and it is not extrapolated to other validators of that
+  group.
+- **The DRpbCBMx pattern** (BamAgave). In calibration, 3 of the 4 windows in which no tx landed
+  were at `DRpbCBMx`, and 18 of its 138 txs (13%) were lost, against 6 of 120 at JitoAgave
+  `E1r4Psq8` (1 window) and none at the other 8 validators (LOGBOOK 2026-10-25 21:55). All 16
+  slots of those four windows produced blocks, so skipped slots do not explain it. This is
+  reported as a result about that validator. It is not extrapolated to other BAM validators,
+  and it says nothing about BAM as a class until more than one BAM validator is measured.
+- **Calibration coverage.** The calibration windows fell into a span of about 23 minutes
+  (15:56–16:19 UTC on Sunday 2026-10-25), although the session ran 3 hours, because spend was
+  not paced over the session (fixed by the pacing rule of 2026-10-25). One Sunday evening is
+  one time of day and one day of the week. Calibrated nuisance values (p_land, clock sd,
+  offset) are not known to hold at other hours; they are EXPLORATORY inputs to a labeled
+  scenario, and the preset grid (§0b) stays the primary level.
 - **One PC, one Wi-Fi path, one stratum** (§6d), as registered.
 - **Calibrated scenario.** It is a SIMULATION built from 936 calibration txs (EXPLORATORY), with
   deviations disclosed in §0b.

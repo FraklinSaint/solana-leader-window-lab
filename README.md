@@ -150,6 +150,10 @@ cargo build --release --locked -p slwlab-sender           # once, and after ever
 .\target\release\sender.exe session --mode dryrun --hours 8   # in a normal PowerShell, repo root
 ```
 
+Disk rule: every debug build, `cargo test` and `clippy` uses
+`$env:CARGO_TARGET_DIR = "D:\slwlab-target-debug"` (never C:; delete the folder when done).
+`target\release` (the final release rebuild too), `data\`, `secrets\` and the repo stay on C:.
+
 `sender session --mode dryrun|calibrate|measure --hours <= 10`:
 - **pre-flight** (`crates/sender/src/preflight.rs`), recorded in `data/sessions/<id>/preflight.json`
   and printed as warnings: sleep and hibernate timeouts (`powercfg`), free RAM, the
@@ -314,6 +318,13 @@ Offline, from the committed `data/` alone:
 | H | no tx marked "not landed" appears in any saved block, and no tx paid by one of our payers appears without a manifest line (no hidden or dropped data) |
 | L | `data/ledger.jsonl`: every measure/calibrate reservation (= every tx sent) has a manifest line and vice versa; landed slot and fee agree |
 | Q | every calibration and confirmatory tx carries a host record and all of them come from one registered machine (platform id, OS, machine id); OS builds and sender hashes are listed |
+| K | every confirmatory window has a stored `getBlocks` list (`data/logs/<run>/blocklist.json`) that decides the `skipped_slot` exclusion (PREREGISTRATION §9): finalized, covers all the window's slots, agrees with the blocks we hold and the slots our txs landed in. Missing for exploratory (calibrate) runs: listed only |
+
+The lists are written after a run, once its last window is finalized, by
+`RPC_URL=<mainnet rpc> python -m slwlab.blocklist fetch --data data --manifest <manifest>` (run in
+`analysis/`; read-only, a few `getBlocks` calls per run; the sender binary is not involved).
+`python -m slwlab.analyze --data data --require-blocklists` excludes `skipped_slot` windows and
+reports them per validator; `--include-skipped` is the sensitivity run.
 
 Online (`--online`, any mainnet `RPC_URL`): **R** each saved block is re-fetched and must have
 the same blockhash, parent and signature order (`--sample K` for a seeded subset); **S** the

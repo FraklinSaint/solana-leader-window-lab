@@ -123,6 +123,72 @@ def randomization_pvalue(scores: Sequence[Sequence[float]], taus: Sequence[float
     return float((np.sum(total >= obs - 1e-9) + 1) / (draws + 1))
 
 
+MIN_UNIT_WINDOWS = 5  # PREREGISTRATION §8: a unit with fewer usable windows in a cell is descriptive only
+
+
+def stratified_units(strata_taus: Sequence[Sequence[float]], min_n: int = MIN_UNIT_WINDOWS) -> list[int]:
+    """Indices of the strata (independence units) that enter a pooled test: at least `min_n`
+    windows with a defined tau."""
+    return [k for k, t in enumerate(strata_taus)
+            if sum(1 for x in t if not math.isnan(x)) >= min_n]
+
+
+def stratified_mean(strata_taus: Sequence[Sequence[float]], min_n: int = MIN_UNIT_WINDOWS) -> float:
+    """Pooled estimate: the mean over the kept strata of each stratum's mean window tau (every
+    kept stratum has the same weight, whatever its number of windows)."""
+    keep = stratified_units(strata_taus, min_n)
+    if len(keep) < 2:
+        return float("nan")
+    return float(np.mean([np.nanmean(np.asarray(strata_taus[k], float)) for k in keep]))
+
+
+def stratified_randomization_pvalue(strata_scores: Sequence[Sequence[Sequence[float]]],
+                                    strata_taus: Sequence[Sequence[float]],
+                                    rng: np.random.Generator, draws: int = 20_000,
+                                    min_n: int = MIN_UNIT_WINDOWS) -> float:
+    """Pooled one-sided randomization test (PREREGISTRATION §8, option B).
+
+    Statistic: the mean over strata (independence units) of the stratum's mean window tau, so
+    that each kept stratum has weight 1/K and no stratum, however many windows it has, can
+    carry the pooled verdict. Null: inside every window of every stratum the order is
+    redrawn from that window's own exact null (as in `randomization_pvalue`), and the
+    statistic is recomputed with the same weights. Strata with fewer than `min_n` windows
+    with a defined tau are left out (descriptive only). Fewer than two kept strata: NaN, since
+    there is nothing to pool.
+    """
+    keep = stratified_units(strata_taus, min_n)
+    if len(keep) < 2:
+        return float("nan")
+    obs = stratified_mean(strata_taus, min_n)
+    total = np.zeros(draws)
+    for k in keep:
+        win = [(s, t) for s, t in zip(strata_scores[k], strata_taus[k]) if not math.isnan(t)]
+        sub = np.zeros(draws)
+        for s, _ in win:
+            nt = null_taus(s)
+            sub += nt[rng.integers(0, len(nt), size=draws)]
+        total += sub / len(win)
+    total /= len(keep)
+    return float((np.sum(total >= obs - 1e-9) + 1) / (draws + 1))
+
+
+def stratified_bootstrap_ci(strata_values: Sequence[Sequence[float]], rng: np.random.Generator,
+                            b: int = 10_000, level: float = 0.95,
+                            min_n: int = MIN_UNIT_WINDOWS) -> tuple[float, float]:
+    """Percentile CI of the stratified mean: windows are resampled inside each kept stratum."""
+    keep = stratified_units(strata_values, min_n)
+    if len(keep) < 2:
+        return (float("nan"), float("nan"))
+    acc = np.zeros(b)
+    for k in keep:
+        v = np.asarray(strata_values[k], float)
+        v = v[~np.isnan(v)]
+        acc += v[rng.integers(0, len(v), size=(b, len(v)))].mean(axis=1)
+    acc /= len(keep)
+    a = (1 - level) / 2
+    return float(np.quantile(acc, a)), float(np.quantile(acc, 1 - a))
+
+
 def holm(pvals: dict[str, float]) -> dict[str, float]:
     """Holm-Bonferroni adjusted p-values."""
     items = sorted((p, k) for k, p in pvals.items() if not math.isnan(p))
@@ -153,10 +219,16 @@ def verdict(tau_norm: Sequence[float], p_holm: float, ci: tuple[float, float],
     v = v[~np.isnan(v)]
     if len(v) == 0:
         return "INCONCLUSIVE"
+    share = float(np.mean(v >= thresholds["window_tau_norm"])) if thresholds is not None else float("nan")
+    return verdict_values(float(v.mean()), share, p_holm, ci, thresholds, power_ok, alpha)
+
+
+def verdict_values(mean: float, share: float, p_holm: float, ci: tuple[float, float],
+                   thresholds: dict | None, power_ok: bool, alpha: float = 0.05) -> str:
+    """The same decision from summary numbers (the pooled, stratified analysis supplies a
+    stratified mean and share instead of window-level values)."""
     significant = p_holm < alpha
     if significant and thresholds is not None:
-        mean = float(v.mean())
-        share = float(np.mean(v >= thresholds["window_tau_norm"]))
         if (mean >= thresholds["strict_mean"] and ci[0] >= thresholds["strict_ci_lower"]
                 and share >= thresholds["strict_window_share"]):
             return "STRICT_RULE"

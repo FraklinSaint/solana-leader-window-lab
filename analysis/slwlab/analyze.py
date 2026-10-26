@@ -17,7 +17,7 @@ import pathlib
 
 import numpy as np
 
-from . import parse, rules, stats
+from . import blocklist, independence, parse, rules, sim as simmod, stats
 
 FAMILY_OF_STRATUM = {
     "Agave": "agave", "JitoAgave": "agave", "HarmonicAgave": "agave", "BamAgave": "agave",
@@ -70,10 +70,15 @@ def power_ok(sim: dict, family: str, arm: str, rule: str, n: int, n_windows: int
     return bool(ref and ref["power_half"] >= 0.9)
 
 
-def analyze(lines: list[dict], sim: dict, seed: int = 20261022) -> dict:
+def analyze(lines: list[dict], sim: dict, seed: int = 20261022, present: dict[str, set[int]] | None = None,
+            include_skipped: bool = False, require_slot_status: bool = False) -> dict:
+    """Per validator x arm. `present` (window_id -> slots with a block, from the stored getBlocks
+    lists) turns on the §9 skipped-slot exclusion; `include_skipped=True` is its sensitivity run."""
     rng = np.random.default_rng(seed)
-    windows = parse.windows_from_manifest(lines)
+    windows = parse.windows_from_manifest(lines, present, include_skipped, require_slot_status)
     out = {"label": "MEASUREMENT", "simulation_ref": {"seed": sim["seed"], "label": "SIMULATION"},
+           "skipped_slots_included": include_skipped,
+           "skipped_slots_by_validator": parse.skipped_report(windows),
            "cells": []}
     for (identity, arm), ws in sorted(parse.by_validator_arm(windows).items()):
         usable = [w for w in ws if w.usable]
@@ -126,18 +131,113 @@ def analyze(lines: list[dict], sim: dict, seed: int = 20261022) -> dict:
     return out
 
 
+def analyze_pooled(lines: list[dict], sim: dict, stratum: str = "Agave", seed: int = 20261022,
+                   present: dict[str, set[int]] | None = None, include_skipped: bool = False,
+                   require_slot_status: bool = False, ref_reps: int = 200,
+                   nuisance: simmod.Nuisance = simmod.MEDIUM) -> dict:
+    """PREREGISTRATION §8 option B: one pooled, STRATIFIED verdict per arm x rule for `stratum`.
+
+    Units = independence units (§6c: validators that share a TPU IP are one unit). The
+    statistic is the mean over units (with >= MIN_UNIT_WINDOWS usable windows in the cell) of the
+    unit's mean window tau, so no unit carries the verdict because it has more windows. Per
+    validator numbers are DESCRIPTIVE ONLY (no p-value, no verdict). Thresholds and the
+    half-strength power come from a SIMULATION at the actual window counts per unit."""
+    from . import poolpower  # lazy: poolpower -> power -> calibrate -> analyze
+
+    rng = np.random.default_rng(seed)
+    windows = parse.windows_from_manifest(lines, present, include_skipped, require_slot_status)
+    unit_of = independence.units_from_manifest(lines)
+    pool = [w for w in windows if w.stratum == stratum]
+    fam = FAMILY_OF_STRATUM.get(stratum, "agave")
+    out = {"label": "MEASUREMENT", "pooled_stratum": stratum,
+           "design": "option B: stratified by independence unit, equal unit weights",
+           "min_unit_windows": stats.MIN_UNIT_WINDOWS, "skipped_slots_included": include_skipped,
+           "units": {u: sorted(i for i, x in unit_of.items() if x == u and any(w.identity == i for w in pool))
+                     for u in sorted({unit_of[w.identity] for w in pool})},
+           "skipped_slots_by_validator": parse.skipped_report(pool), "cells": []}
+    for arm in sorted({w.arm for w in pool}):
+        ws = [w for w in pool if w.arm == arm]
+        usable = [w for w in ws if w.usable]
+        names = rules.RULES_BY_ARM[arm]
+        units = sorted({unit_of[w.identity] for w in usable})
+        per_unit = {u: [window_scores(w, names) for w in usable if unit_of[w.identity] == u] for u in units}
+        kept = stats.stratified_units([[p[names[0]][1] for p in per_unit[u]] for u in units])
+        cell = {"arm": arm, "windows_sent": len(ws), "windows_usable": len(usable),
+                "usable_by_unit": {u: len(per_unit[u]) for u in units},
+                "units_in_test": [units[k] for k in kept], "dates": sorted({w.date for w in usable}),
+                "by_validator_descriptive": {}, "rules": {}}
+        for ident in sorted({w.identity for w in ws}):
+            wi = [w for w in ws if w.identity == ident]
+            ui = [w for w in wi if w.usable]
+            sc = [window_scores(w, names) for w in ui]
+            sent = sum(w.n for w in wi)
+            landed = sum(1 for w in wi for l in w.lines if l["outcome"]["status"] == "landed")
+            cell["by_validator_descriptive"][ident] = {
+                "label": "DESCRIPTIVE ONLY", "windows_sent": len(wi), "windows_usable": len(ui),
+                "landing_rate": landed / sent if sent else None,
+                "mean_tau": {r: float(np.nanmean([p[r][1] for p in sc])) if sc else None for r in names}}
+        if len(kept) >= 2:
+            pv = {r: stats.stratified_randomization_pvalue(
+                [[p[r][0] for p in per_unit[u]] for u in units], [[p[r][1] for p in per_unit[u]] for u in units], rng)
+                for r in names}
+            ph = stats.holm(pv)
+            counts = [len(per_unit[units[k]]) for k in kept]
+            for r in names:
+                taus = [[p[r][1] for p in per_unit[u]] for u in units]
+                c = ceiling(sim, fam, arm, r)
+                tn = [np.asarray(t, float) / c if c else np.asarray(t, float) for t in taus]
+                ci = stats.stratified_bootstrap_ci(tn, rng)
+                mean_tn = stats.stratified_mean(tn)
+                share = float(np.mean([np.nanmean(tn[k] >= 0.5) for k in kept])) if c else None
+                ref = poolpower.cell_reference(fam, arm, r, counts, nuisance, c, ref_reps, rng) if c else None
+                th = ref["thresholds"] if ref else None
+                v = stats.verdict_values(mean_tn, share if share is not None else float("nan"),
+                                         ph[r] if not math.isnan(ph[r]) else 1.0, ci, th,
+                                         bool(ref and ref["power_half"] >= 0.9))
+                if v == "STRICT_RULE" and ref and (ref["p_strict_half"] or 0) > MAX_FALSE_STRICT:
+                    v = "STRICT_RULE_LOW_SEPARATION"
+                cell["rules"][r] = {
+                    "mean_tau_stratified": stats.stratified_mean(taus), "tau_ceiling_sim": c,
+                    "identifiable": c is not None, "mean_tau_norm_stratified": mean_tn if c else None, "ci95": ci,
+                    "p_one_sided": pv[r], "p_holm": ph[r], "share_windows_tau_norm_ge_0.5": share,
+                    "reference_sim": ref, "verdict": v}
+        else:
+            cell["note"] = f"fewer than 2 units with >= {stats.MIN_UNIT_WINDOWS} usable windows: no pooled test"
+            cell["rules"] = {r: {"verdict": "INCONCLUSIVE"} for r in names}
+        out["cells"].append(cell)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--sim", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--data", help="data dir with logs/<run_id>/blocklist.json (§9 skipped slots)")
+    ap.add_argument("--require-blocklists", action="store_true",
+                    help="a window without a stored getBlocks list is excluded (confirmatory data)")
+    ap.add_argument("--include-skipped", action="store_true",
+                    help="sensitivity analysis: keep windows with a skipped slot")
+    ap.add_argument("--pooled", metavar="STRATUM", help="also write the pooled, stratified analysis of this stratum")
     a = ap.parse_args()
     lines = parse.read_jsonl(pathlib.Path(a.manifest))
     sim = json.loads(pathlib.Path(a.sim).read_text(encoding="utf-8"))
-    res = analyze(lines, sim)
+    present = None
+    if a.data:
+        present = blocklist.present_map(pathlib.Path(a.data), sorted({l["tx"]["run_id"] for l in lines}))
+    elif a.require_blocklists:
+        raise SystemExit("--require-blocklists needs --data")
+    res = analyze(lines, sim, present=present, include_skipped=a.include_skipped,
+                  require_slot_status=a.require_blocklists)
     pathlib.Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     pathlib.Path(a.out).write_text(json.dumps(res, indent=1), encoding="utf-8")
     print(f"{len(res['cells'])} validator x arm cells -> {a.out}")
+    if a.pooled:
+        pooled = analyze_pooled(lines, sim, a.pooled, present=present, include_skipped=a.include_skipped,
+                                require_slot_status=a.require_blocklists)
+        p = pathlib.Path(a.out).with_name(pathlib.Path(a.out).stem + f"_pooled_{a.pooled}.json")
+        p.write_text(json.dumps(pooled, indent=1), encoding="utf-8")
+        print(f"{len(pooled['cells'])} pooled {a.pooled} arm cells -> {p}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,2069 @@
+{
+ "label": "SIMULATION",
+ "levels": {
+  "calibrated": {
+   "cells": {
+    "agave/C/R_FBA50/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.91,
+      "strict_mean": 0.97,
+      "strict_window_share": 0.97
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_FBA50/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_FBA50/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.9,
+      "strict_mean": 0.97,
+      "strict_window_share": 0.96
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/C/R_PRICE/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.92,
+      "strict_mean": 0.98,
+      "strict_window_share": 0.97
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_PRICE/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_PRICE/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.92,
+      "strict_mean": 0.98,
+      "strict_window_share": 0.96
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/C/R_RATIO_AGAVE/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.9,
+      "strict_mean": 0.97,
+      "strict_window_share": 0.96
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_RATIO_AGAVE/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_RATIO_AGAVE/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.87,
+      "strict_mean": 0.96,
+      "strict_window_share": 0.96
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/C/R_RATIO_FD/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.9,
+      "strict_mean": 0.97,
+      "strict_window_share": 0.97
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_RATIO_FD/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_RATIO_FD/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.87,
+      "strict_mean": 0.96,
+      "strict_window_share": 0.94
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/C/R_TOTAL/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.9,
+      "strict_mean": 0.97,
+      "strict_window_share": 0.97
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_TOTAL/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_TOTAL/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.99,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.87,
+      "strict_mean": 0.96,
+      "strict_window_share": 0.94
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/P/R_FBA50/2 units 60/40": {
+     "counts": [
+      30,
+      20
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.78,
+      "strict_mean": 0.94,
+      "strict_window_share": 0.77
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_FBA50/2 units 90/10": {
+     "counts": [
+      45,
+      5
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.905,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.54,
+      "strict_mean": 0.85,
+      "strict_window_share": 0.7
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_FBA50/6 units by leader rate": {
+     "counts": [
+      24,
+      15,
+      4,
+      4,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.72,
+      "strict_mean": 0.92,
+      "strict_window_share": 0.75
+     },
+     "units_in_test": 2,
+     "windows_in_test": 39
+    },
+    "agave/P/R_PRICE/2 units 60/40": {
+     "counts": [
+      30,
+      20
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.84,
+      "strict_mean": 1.01,
+      "strict_window_share": 0.78
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_PRICE/2 units 90/10": {
+     "counts": [
+      45,
+      5
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.85,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.64,
+      "strict_mean": 0.88,
+      "strict_window_share": 0.71
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_PRICE/6 units by leader rate": {
+     "counts": [
+      24,
+      15,
+      4,
+      4,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.76,
+      "strict_mean": 0.96,
+      "strict_window_share": 0.76
+     },
+     "units_in_test": 2,
+     "windows_in_test": 39
+    },
+    "agave/P/R_RATIO_AGAVE/2 units 60/40": {
+     "counts": [
+      30,
+      20
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.79,
+      "strict_mean": 0.96,
+      "strict_window_share": 0.76
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_RATIO_AGAVE/2 units 90/10": {
+     "counts": [
+      45,
+      5
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.875,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.58,
+      "strict_mean": 0.88,
+      "strict_window_share": 0.72
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_RATIO_AGAVE/6 units by leader rate": {
+     "counts": [
+      24,
+      15,
+      4,
+      4,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.75,
+      "strict_mean": 0.95,
+      "strict_window_share": 0.76
+     },
+     "units_in_test": 2,
+     "windows_in_test": 39
+    },
+    "agave/P/R_RATIO_FD/2 units 60/40": {
+     "counts": [
+      30,
+      20
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.8,
+      "strict_mean": 0.97,
+      "strict_window_share": 0.78
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_RATIO_FD/2 units 90/10": {
+     "counts": [
+      45,
+      5
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.925,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.6,
+      "strict_mean": 0.88,
+      "strict_window_share": 0.73
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_RATIO_FD/6 units by leader rate": {
+     "counts": [
+      24,
+      15,
+      4,
+      4,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.99,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.75,
+      "strict_mean": 0.95,
+      "strict_window_share": 0.75
+     },
+     "units_in_test": 2,
+     "windows_in_test": 39
+    },
+    "agave/P/R_TOTAL/2 units 60/40": {
+     "counts": [
+      30,
+      20
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.81,
+      "strict_mean": 0.98,
+      "strict_window_share": 0.77
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_TOTAL/2 units 90/10": {
+     "counts": [
+      45,
+      5
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.87,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.61,
+      "strict_mean": 0.89,
+      "strict_window_share": 0.72
+     },
+     "units_in_test": 2,
+     "windows_in_test": 50
+    },
+    "agave/P/R_TOTAL/6 units by leader rate": {
+     "counts": [
+      24,
+      15,
+      4,
+      4,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.75,
+      "strict_mean": 0.95,
+      "strict_window_share": 0.76
+     },
+     "units_in_test": 2,
+     "windows_in_test": 39
+    },
+    "agave/R/R_RATIO_AGAVE/2 units 60/40": {
+     "counts": [
+      24,
+      16
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.74,
+      "strict_mean": 0.91,
+      "strict_window_share": 0.78
+     },
+     "units_in_test": 2,
+     "windows_in_test": 40
+    },
+    "agave/R/R_RATIO_AGAVE/2 units 90/10": {
+     "counts": [
+      36,
+      4
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 36
+    },
+    "agave/R/R_RATIO_AGAVE/6 units by leader rate": {
+     "counts": [
+      19,
+      12,
+      3,
+      3,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.98,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.7,
+      "strict_mean": 0.91,
+      "strict_window_share": 0.77
+     },
+     "units_in_test": 2,
+     "windows_in_test": 31
+    },
+    "agave/R/R_RATIO_FD/2 units 60/40": {
+     "counts": [
+      24,
+      16
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.78,
+      "strict_mean": 0.96,
+      "strict_window_share": 0.76
+     },
+     "units_in_test": 2,
+     "windows_in_test": 40
+    },
+    "agave/R/R_RATIO_FD/2 units 90/10": {
+     "counts": [
+      36,
+      4
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 36
+    },
+    "agave/R/R_RATIO_FD/6 units by leader rate": {
+     "counts": [
+      19,
+      12,
+      3,
+      3,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.985,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.74,
+      "strict_mean": 0.96,
+      "strict_window_share": 0.75
+     },
+     "units_in_test": 2,
+     "windows_in_test": 31
+    },
+    "agave/R/R_TOTAL/2 units 60/40": {
+     "counts": [
+      24,
+      16
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.76,
+      "strict_mean": 0.96,
+      "strict_window_share": 0.76
+     },
+     "units_in_test": 2,
+     "windows_in_test": 40
+    },
+    "agave/R/R_TOTAL/2 units 90/10": {
+     "counts": [
+      36,
+      4
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 36
+    },
+    "agave/R/R_TOTAL/6 units by leader rate": {
+     "counts": [
+      19,
+      12,
+      3,
+      3,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.98,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.71,
+      "strict_mean": 0.94,
+      "strict_window_share": 0.75
+     },
+     "units_in_test": 2,
+     "windows_in_test": 31
+    },
+    "agave/X/R_FBA50/2 units 60/40": {
+     "counts": [
+      24,
+      16
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.985,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.65,
+      "strict_mean": 0.84,
+      "strict_window_share": 0.6
+     },
+     "units_in_test": 2,
+     "windows_in_test": 40
+    },
+    "agave/X/R_FBA50/2 units 90/10": {
+     "counts": [
+      36,
+      4
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 36
+    },
+    "agave/X/R_FBA50/6 units by leader rate": {
+     "counts": [
+      19,
+      12,
+      3,
+      3,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.975,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.63,
+      "strict_mean": 0.83,
+      "strict_window_share": 0.61
+     },
+     "units_in_test": 2,
+     "windows_in_test": 31
+    },
+    "agave/X/R_FIFO/2 units 60/40": {
+     "counts": [
+      24,
+      16
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.985,
+     "power_half_window_weighted": 0.985,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.51,
+      "strict_mean": 0.76,
+      "strict_window_share": 0.65
+     },
+     "units_in_test": 2,
+     "windows_in_test": 40
+    },
+    "agave/X/R_FIFO/2 units 90/10": {
+     "counts": [
+      36,
+      4
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 0.985,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 36
+    },
+    "agave/X/R_FIFO/6 units by leader rate": {
+     "counts": [
+      19,
+      12,
+      3,
+      3,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.975,
+     "power_half_window_weighted": 0.985,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.47,
+      "strict_mean": 0.75,
+      "strict_window_share": 0.64
+     },
+     "units_in_test": 2,
+     "windows_in_test": 31
+    }
+   },
+   "dominance": {
+    "agave/C/R_FBA50": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/C/R_PRICE": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/C/R_RATIO_AGAVE": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/C/R_RATIO_FD": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/C/R_TOTAL": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_FBA50": {
+     "counts": [
+      30,
+      20
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_PRICE": {
+     "counts": [
+      30,
+      20
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_RATIO_AGAVE": {
+     "counts": [
+      30,
+      20
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_RATIO_FD": {
+     "counts": [
+      30,
+      20
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_TOTAL": {
+     "counts": [
+      30,
+      20
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/R/R_RATIO_AGAVE": {
+     "counts": [
+      24,
+      16
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/R/R_RATIO_FD": {
+     "counts": [
+      24,
+      16
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/R/R_TOTAL": {
+     "counts": [
+      24,
+      16
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/X/R_FBA50": {
+     "counts": [
+      24,
+      16
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/X/R_FIFO": {
+     "counts": [
+      24,
+      16
+     ],
+     "reject_stratified": 0.995,
+     "reject_window_weighted": 1.0
+    }
+   },
+   "fpr": {
+    "C/2 units 60/40": {
+     "stratified": 0.04,
+     "window_weighted": 0.04
+    },
+    "C/2 units 90/10": {
+     "stratified": 0.0,
+     "window_weighted": 0.04
+    },
+    "C/6 units by leader rate": {
+     "stratified": 0.035,
+     "window_weighted": 0.04
+    },
+    "F/2 units 60/40": {
+     "stratified": 0.05,
+     "window_weighted": 0.055
+    },
+    "F/2 units 90/10": {
+     "stratified": 0.0,
+     "window_weighted": 0.055
+    },
+    "F/6 units by leader rate": {
+     "stratified": 0.035,
+     "window_weighted": 0.055
+    },
+    "P/2 units 60/40": {
+     "stratified": 0.005,
+     "window_weighted": 0.01
+    },
+    "P/2 units 90/10": {
+     "stratified": 0.005,
+     "window_weighted": 0.01
+    },
+    "P/6 units by leader rate": {
+     "stratified": 0.01,
+     "window_weighted": 0.01
+    },
+    "R/2 units 60/40": {
+     "stratified": 0.02,
+     "window_weighted": 0.025
+    },
+    "R/2 units 90/10": {
+     "stratified": 0.0,
+     "window_weighted": 0.025
+    },
+    "R/6 units by leader rate": {
+     "stratified": 0.025,
+     "window_weighted": 0.025
+    },
+    "X/2 units 60/40": {
+     "stratified": 0.035,
+     "window_weighted": 0.04
+    },
+    "X/2 units 90/10": {
+     "stratified": 0.0,
+     "window_weighted": 0.04
+    },
+    "X/6 units by leader rate": {
+     "stratified": 0.04,
+     "window_weighted": 0.04
+    }
+   },
+   "nuisance": "calibrated",
+   "w_pool": {
+    "C": 30,
+    "F": 40,
+    "P": 50,
+    "R": 40,
+    "X": 40
+   }
+  },
+  "preset_medium": {
+   "cells": {
+    "agave/C/R_FBA50/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.99,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.72,
+      "strict_mean": 0.88,
+      "strict_window_share": 0.78
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_FBA50/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_FBA50/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.98,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.65,
+      "strict_mean": 0.86,
+      "strict_window_share": 0.78
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/C/R_PRICE/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.73,
+      "strict_mean": 0.91,
+      "strict_window_share": 0.79
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_PRICE/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_PRICE/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.975,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.7,
+      "strict_mean": 0.89,
+      "strict_window_share": 0.76
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/C/R_RATIO_AGAVE/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.71,
+      "strict_mean": 0.88,
+      "strict_window_share": 0.8
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_RATIO_AGAVE/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_RATIO_AGAVE/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.985,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.68,
+      "strict_mean": 0.88,
+      "strict_window_share": 0.78
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/C/R_RATIO_FD/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.7,
+      "strict_mean": 0.89,
+      "strict_window_share": 0.8
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_RATIO_FD/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_RATIO_FD/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.99,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.64,
+      "strict_mean": 0.86,
+      "strict_window_share": 0.78
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/C/R_TOTAL/2 units 60/40": {
+     "counts": [
+      18,
+      12
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.71,
+      "strict_mean": 0.89,
+      "strict_window_share": 0.79
+     },
+     "units_in_test": 2,
+     "windows_in_test": 30
+    },
+    "agave/C/R_TOTAL/2 units 90/10": {
+     "counts": [
+      27,
+      3
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 27
+    },
+    "agave/C/R_TOTAL/6 units by leader rate": {
+     "counts": [
+      14,
+      9,
+      3,
+      2,
+      1,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.975,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.64,
+      "strict_mean": 0.87,
+      "strict_window_share": 0.78
+     },
+     "units_in_test": 2,
+     "windows_in_test": 23
+    },
+    "agave/P/R_FBA50/2 units 60/40": {
+     "counts": [
+      48,
+      32
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.71,
+      "strict_mean": 0.92,
+      "strict_window_share": 0.61
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_FBA50/2 units 90/10": {
+     "counts": [
+      72,
+      8
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.805,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.49,
+      "strict_mean": 0.8,
+      "strict_window_share": 0.53
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_FBA50/6 units by leader rate": {
+     "counts": [
+      38,
+      24,
+      7,
+      6,
+      3,
+      2
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.95,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.59,
+      "strict_mean": 0.85,
+      "strict_window_share": 0.57
+     },
+     "units_in_test": 4,
+     "windows_in_test": 75
+    },
+    "agave/P/R_PRICE/2 units 60/40": {
+     "counts": [
+      48,
+      32
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.82,
+      "strict_mean": 1.04,
+      "strict_window_share": 0.62
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_PRICE/2 units 90/10": {
+     "counts": [
+      72,
+      8
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.825,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.54,
+      "strict_mean": 0.92,
+      "strict_window_share": 0.55
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_PRICE/6 units by leader rate": {
+     "counts": [
+      38,
+      24,
+      7,
+      6,
+      3,
+      2
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.945,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.69,
+      "strict_mean": 0.97,
+      "strict_window_share": 0.57
+     },
+     "units_in_test": 4,
+     "windows_in_test": 75
+    },
+    "agave/P/R_RATIO_AGAVE/2 units 60/40": {
+     "counts": [
+      48,
+      32
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.77,
+      "strict_mean": 0.99,
+      "strict_window_share": 0.61
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_RATIO_AGAVE/2 units 90/10": {
+     "counts": [
+      72,
+      8
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.785,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.56,
+      "strict_mean": 0.91,
+      "strict_window_share": 0.56
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_RATIO_AGAVE/6 units by leader rate": {
+     "counts": [
+      38,
+      24,
+      7,
+      6,
+      3,
+      2
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.935,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.62,
+      "strict_mean": 0.89,
+      "strict_window_share": 0.57
+     },
+     "units_in_test": 4,
+     "windows_in_test": 75
+    },
+    "agave/P/R_RATIO_FD/2 units 60/40": {
+     "counts": [
+      48,
+      32
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.99,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.8,
+      "strict_mean": 1.03,
+      "strict_window_share": 0.62
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_RATIO_FD/2 units 90/10": {
+     "counts": [
+      72,
+      8
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.84,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.53,
+      "strict_mean": 0.88,
+      "strict_window_share": 0.57
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_RATIO_FD/6 units by leader rate": {
+     "counts": [
+      38,
+      24,
+      7,
+      6,
+      3,
+      2
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.93,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.65,
+      "strict_mean": 0.94,
+      "strict_window_share": 0.58
+     },
+     "units_in_test": 4,
+     "windows_in_test": 75
+    },
+    "agave/P/R_TOTAL/2 units 60/40": {
+     "counts": [
+      48,
+      32
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.73,
+      "strict_mean": 0.95,
+      "strict_window_share": 0.59
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_TOTAL/2 units 90/10": {
+     "counts": [
+      72,
+      8
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.85,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.48,
+      "strict_mean": 0.84,
+      "strict_window_share": 0.55
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/P/R_TOTAL/6 units by leader rate": {
+     "counts": [
+      38,
+      24,
+      7,
+      6,
+      3,
+      2
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.935,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.64,
+      "strict_mean": 0.89,
+      "strict_window_share": 0.58
+     },
+     "units_in_test": 4,
+     "windows_in_test": 75
+    },
+    "agave/R/R_RATIO_AGAVE/2 units 60/40": {
+     "counts": [
+      48,
+      32
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 1.0,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.67,
+      "strict_mean": 0.87,
+      "strict_window_share": 0.62
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/R/R_RATIO_AGAVE/2 units 90/10": {
+     "counts": [
+      72,
+      8
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.855,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.43,
+      "strict_mean": 0.78,
+      "strict_window_share": 0.55
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/R/R_RATIO_AGAVE/6 units by leader rate": {
+     "counts": [
+      38,
+      24,
+      7,
+      6,
+      3,
+      2
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.94,
+     "power_half_window_weighted": 1.0,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.54,
+      "strict_mean": 0.79,
+      "strict_window_share": 0.58
+     },
+     "units_in_test": 4,
+     "windows_in_test": 75
+    },
+    "agave/R/R_RATIO_FD/2 units 60/40": {
+     "counts": [
+      48,
+      32
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.77,
+      "strict_mean": 1.01,
+      "strict_window_share": 0.6
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/R/R_RATIO_FD/2 units 90/10": {
+     "counts": [
+      72,
+      8
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.83,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.52,
+      "strict_mean": 0.88,
+      "strict_window_share": 0.56
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/R/R_RATIO_FD/6 units by leader rate": {
+     "counts": [
+      38,
+      24,
+      7,
+      6,
+      3,
+      2
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.91,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.63,
+      "strict_mean": 0.92,
+      "strict_window_share": 0.56
+     },
+     "units_in_test": 4,
+     "windows_in_test": 75
+    },
+    "agave/R/R_TOTAL/2 units 60/40": {
+     "counts": [
+      48,
+      32
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.99,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.72,
+      "strict_mean": 0.93,
+      "strict_window_share": 0.6
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/R/R_TOTAL/2 units 90/10": {
+     "counts": [
+      72,
+      8
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.85,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.45,
+      "strict_mean": 0.8,
+      "strict_window_share": 0.53
+     },
+     "units_in_test": 2,
+     "windows_in_test": 80
+    },
+    "agave/R/R_TOTAL/6 units by leader rate": {
+     "counts": [
+      38,
+      24,
+      7,
+      6,
+      3,
+      2
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.92,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.61,
+      "strict_mean": 0.91,
+      "strict_window_share": 0.59
+     },
+     "units_in_test": 4,
+     "windows_in_test": 75
+    },
+    "agave/X/R_FBA50/2 units 60/40": {
+     "counts": [
+      24,
+      16
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.995,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.53,
+      "strict_mean": 0.78,
+      "strict_window_share": 0.69
+     },
+     "units_in_test": 2,
+     "windows_in_test": 40
+    },
+    "agave/X/R_FBA50/2 units 90/10": {
+     "counts": [
+      36,
+      4
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 36
+    },
+    "agave/X/R_FBA50/6 units by leader rate": {
+     "counts": [
+      19,
+      12,
+      3,
+      3,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.975,
+     "power_half_window_weighted": 0.995,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.47,
+      "strict_mean": 0.74,
+      "strict_window_share": 0.68
+     },
+     "units_in_test": 2,
+     "windows_in_test": 31
+    },
+    "agave/X/R_FIFO/2 units 60/40": {
+     "counts": [
+      24,
+      16
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.985,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.53,
+      "strict_mean": 0.74,
+      "strict_window_share": 0.65
+     },
+     "units_in_test": 2,
+     "windows_in_test": 40
+    },
+    "agave/X/R_FIFO/2 units 90/10": {
+     "counts": [
+      36,
+      4
+     ],
+     "power_exact_stratified": 0.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.0,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": null,
+      "strict_mean": null,
+      "strict_window_share": null
+     },
+     "units_in_test": 1,
+     "windows_in_test": 36
+    },
+    "agave/X/R_FIFO/6 units by leader rate": {
+     "counts": [
+      19,
+      12,
+      3,
+      3,
+      2,
+      1
+     ],
+     "power_exact_stratified": 1.0,
+     "power_exact_window_weighted": 1.0,
+     "power_half_stratified": 0.97,
+     "power_half_window_weighted": 0.99,
+     "thresholds_stratified": {
+      "strict_ci_lower": 0.45,
+      "strict_mean": 0.71,
+      "strict_window_share": 0.63
+     },
+     "units_in_test": 2,
+     "windows_in_test": 31
+    }
+   },
+   "dominance": {
+    "agave/C/R_FBA50": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/C/R_PRICE": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/C/R_RATIO_AGAVE": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/C/R_RATIO_FD": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/C/R_TOTAL": {
+     "counts": [
+      18,
+      12
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_FBA50": {
+     "counts": [
+      48,
+      32
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_PRICE": {
+     "counts": [
+      48,
+      32
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_RATIO_AGAVE": {
+     "counts": [
+      48,
+      32
+     ],
+     "reject_stratified": 0.995,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_RATIO_FD": {
+     "counts": [
+      48,
+      32
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/P/R_TOTAL": {
+     "counts": [
+      48,
+      32
+     ],
+     "reject_stratified": 0.995,
+     "reject_window_weighted": 1.0
+    },
+    "agave/R/R_RATIO_AGAVE": {
+     "counts": [
+      48,
+      32
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/R/R_RATIO_FD": {
+     "counts": [
+      48,
+      32
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/R/R_TOTAL": {
+     "counts": [
+      48,
+      32
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/X/R_FBA50": {
+     "counts": [
+      24,
+      16
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    },
+    "agave/X/R_FIFO": {
+     "counts": [
+      24,
+      16
+     ],
+     "reject_stratified": 1.0,
+     "reject_window_weighted": 1.0
+    }
+   },
+   "fpr": {
+    "C/2 units 60/40": {
+     "stratified": 0.02,
+     "window_weighted": 0.02
+    },
+    "C/2 units 90/10": {
+     "stratified": 0.0,
+     "window_weighted": 0.02
+    },
+    "C/6 units by leader rate": {
+     "stratified": 0.01,
+     "window_weighted": 0.02
+    },
+    "F/2 units 60/40": {
+     "stratified": 0.03,
+     "window_weighted": 0.04
+    },
+    "F/2 units 90/10": {
+     "stratified": 0.055,
+     "window_weighted": 0.04
+    },
+    "F/6 units by leader rate": {
+     "stratified": 0.04,
+     "window_weighted": 0.04
+    },
+    "P/2 units 60/40": {
+     "stratified": 0.015,
+     "window_weighted": 0.02
+    },
+    "P/2 units 90/10": {
+     "stratified": 0.025,
+     "window_weighted": 0.02
+    },
+    "P/6 units by leader rate": {
+     "stratified": 0.025,
+     "window_weighted": 0.02
+    },
+    "R/2 units 60/40": {
+     "stratified": 0.055,
+     "window_weighted": 0.045
+    },
+    "R/2 units 90/10": {
+     "stratified": 0.05,
+     "window_weighted": 0.045
+    },
+    "R/6 units by leader rate": {
+     "stratified": 0.04,
+     "window_weighted": 0.045
+    },
+    "X/2 units 60/40": {
+     "stratified": 0.025,
+     "window_weighted": 0.02
+    },
+    "X/2 units 90/10": {
+     "stratified": 0.0,
+     "window_weighted": 0.02
+    },
+    "X/6 units by leader rate": {
+     "stratified": 0.03,
+     "window_weighted": 0.02
+    }
+   },
+   "nuisance": "preset_medium",
+   "w_pool": {
+    "C": 30,
+    "F": 60,
+    "P": 80,
+    "R": 80,
+    "X": 40
+   }
+  }
+ },
+ "min_unit_windows": 5,
+ "n": 6,
+ "reps": 200,
+ "seed": 20261022,
+ "splits": {
+  "2 units 60/40": [
+   0.6,
+   0.4
+  ],
+  "2 units 90/10": [
+   0.9,
+   0.1
+  ],
+  "6 units by leader rate": [
+   17.91,
+   11.16,
+   3.2,
+   2.74,
+   1.61,
+   1.22
+  ]
+ }
+}

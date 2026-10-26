@@ -109,7 +109,24 @@ def build(tmp, windows=4, n=6, arm="P", seed=0):
     logs = tmp / "logs" / "live-20261101T000000Z"
     logs.mkdir(parents=True, exist_ok=True)
     (logs / "plan.jsonl").write_text("".join(json.dumps(p) + "\n" for p in plan))
+    write_blocklist(tmp, windows)
     return lines, ledger
+
+
+def write_blocklist(tmp, windows, skip=None, finalized=10 ** 9, commitment="finalized"):
+    """logs/<run>/blocklist.json as slwlab.blocklist writes it; `skip`: {window index: slot offset}."""
+    skip = skip or {}
+    slots = {k: [s for s in range(460_200_000 + 8 * k, 460_200_000 + 8 * k + 4)
+                 if skip.get(k) != s - (460_200_000 + 8 * k)] for k in range(windows)}
+    rec = {"label": "SLOT LIST (getBlocks)", "method": "getBlocks", "commitment": commitment,
+           "run_id": "live-20261101T000000Z", "fetched_utc": "2026-11-01T01:00:00Z",
+           "finalized_slot_at_fetch": finalized,
+           "calls": [{"start": 460_200_000, "end": 460_200_000 + 8 * windows, "n_blocks": 0}],
+           "windows": {f"{460_200_000 + 8 * k}-{k}": {"first_slot": 460_200_000 + 8 * k, "n_slots": 4,
+                                                     "slots_with_blocks": v} for k, v in slots.items()}}
+    p = tmp / "logs" / "live-20261101T000000Z" / "blocklist.json"
+    p.write_text(json.dumps(rec), encoding="utf-8")
+    return rec
 
 
 HOST = {"platform": "win-pc1", "os": "windows", "arch": "x86_64", "os_build": "10.0.17763.6893",
@@ -123,6 +140,7 @@ def run(tmp, lines, ledger):
     vm.check_schedules(lines, tmp, rep)
     vm.check_platform(lines, rep)
     vm.check_send_order(lines, rep)
+    vm.check_blocklists(lines, tmp, rep)
     return rep
 
 
@@ -131,7 +149,7 @@ def test_clean_data_passes(tmp_path):
         lines, ledger = build(tmp_path / arm, arm=arm)
         rep = run(tmp_path / arm, lines, ledger)
         assert rep.problems == [], rep.problems
-        assert {"M", "B", "T", "P", "E", "X", "H", "L", "Q", "O"} <= set(rep.checked)
+        assert {"M", "B", "T", "P", "E", "X", "H", "L", "Q", "O", "K"} <= set(rep.checked)
 
 
 def test_main_writes_report_and_exit_code(tmp_path):
@@ -319,3 +337,62 @@ def test_a_second_network_type_is_a_second_stratum(tmp_path):
     rep = vm.Report()
     vm.check_platform(lines, rep)
     assert any("more than one network type" in p["problem"] for p in rep.problems)
+
+
+def test_k_missing_list_fails_for_measure_but_not_for_calibrate(tmp_path):
+    lines, ledger = build(tmp_path)
+    (tmp_path / "logs" / "live-20261101T000000Z" / "blocklist.json").unlink()
+    rep = run(tmp_path, lines, ledger)
+    assert checks_failed(rep) == {"K"}
+    for l in lines:
+        l["tx"]["purpose"] = "calibrate"
+    rep = vm.Report()
+    summary = vm.check_blocklists(lines, tmp_path, rep)
+    assert rep.problems == [] and summary["runs_without_list_calibrate"] == ["live-20261101T000000Z"]
+
+
+def test_k_skipped_slot_is_fine_unless_it_contradicts_our_blocks(tmp_path):
+    lines, ledger = build(tmp_path)
+    # window 1: slot offset 3 is skipped on chain; our txs landed in offset 0 (the block we hold)
+    write_blocklist(tmp_path, 4, skip={1: 3})
+    rep = vm.Report()
+    summary = vm.check_blocklists(lines, tmp_path, rep)
+    assert rep.problems == [] and summary["windows_with_skipped_slot"] == 1
+    # a list that says the slot we landed in has no block is wrong and must be caught
+    write_blocklist(tmp_path, 4, skip={1: 0})
+    rep = vm.Report()
+    vm.check_blocklists(lines, tmp_path, rep)
+    assert checks_failed(rep) == {"K"}
+
+
+def test_k_unfinalized_and_wrong_commitment_are_caught(tmp_path):
+    lines, ledger = build(tmp_path)
+    write_blocklist(tmp_path, 4, finalized=460_200_005)
+    rep = vm.Report()
+    vm.check_blocklists(lines, tmp_path, rep)
+    assert checks_failed(rep) == {"K"}
+    write_blocklist(tmp_path, 4, commitment="confirmed")
+    rep = vm.Report()
+    vm.check_blocklists(lines, tmp_path, rep)
+    assert checks_failed(rep) == {"K"}
+
+
+def test_k_online_refetch_must_match(tmp_path):
+    lines, ledger = build(tmp_path)
+    rec = write_blocklist(tmp_path, 4, skip={2: 1})
+    have = sorted(s for w in rec["windows"].values() for s in w["slots_with_blocks"])
+
+    class FakeRpc:
+        def __init__(self, extra=()):
+            self.extra = set(extra)
+
+        def call(self, method, params):
+            assert method == "getBlocks"
+            return sorted(set(have) | self.extra)
+
+    rep = vm.Report()
+    vm.check_blocklists_online(lines, tmp_path, FakeRpc(), rep)
+    assert rep.problems == [] and rep.checked["K"] == 4
+    rep = vm.Report()
+    vm.check_blocklists_online(lines, tmp_path, FakeRpc(extra=[460_200_000 + 8 * 2 + 1]), rep)
+    assert checks_failed(rep) == {"K"}
