@@ -68,8 +68,10 @@ every session header and every manifest row, and Windows locks the file while a 
   `enforce_refusals`); `PendingFileRenameOperations` alone only warns.
 - All other apps closed (free RAM >= 2 GiB or a warning; 3.3 of 8 GiB free was seen on 10-25).
 - At least 10 GB free on C: (`Get-PSDrive C`). The pre-flight refuses a live start under 5 GB and
-  warns under 10 GB; a running session stops before its next reservation under 1 GB. Delete
-  `target\debug` after any test run (it grows to 14 GB).
+  warns under 10 GB; a running session stops before its next reservation under 1 GB. Debug
+  builds, `cargo test` and `clippy` never run on C: (they grow to 14 GB): set
+  `$env:CARGO_TARGET_DIR = "D:\slwlab-target-debug"` first (create it) and delete that folder
+  when done. Only `target\release` stays on C:; `data\`, `secrets\` and the repo stay on C:.
 - Plugged in (AC). The pre-flight warns if the PC sleeps or hibernates after N s idle on AC.
 - Wi-Fi: PC next to the router, TP-Link USB adapter on 2.4 GHz ch 13. The pre-flight warns
   below signal quality 60 %; power saving must stay at Maximum Performance (AC index 0).
@@ -199,10 +201,11 @@ STOP: the command exits with `RECONCILIATION FAILED: ...`; `transfers_missing` i
 There is **no dedicated pre-flight subcommand.** What exists:
 
 1. Environment pre-flight only (power plan, RAM, network, Wi-Fi, clock, restart markers). It
-   runs the ignored unit test, builds a debug binary in `target\debug` (the release
+   runs the ignored unit test, builds a debug binary in `D:\slwlab-target-debug` (the release
    `sender.exe` and its hash are not touched) and sends nothing but one NTP exchange:
 
    ```powershell
+   $env:CARGO_TARGET_DIR = "D:\slwlab-target-debug"
    cargo test -p slwlab-sender --lib preflight::tests::on_this_machine -- --ignored --nocapture
    ```
 
