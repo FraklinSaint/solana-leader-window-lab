@@ -1,4 +1,4 @@
-# Pre-registration (DRAFT, not yet frozen)
+# Pre-registration (DRAFT 2, 2026-10-26, not yet frozen)
 
 ## 0. What is pre-registered, and when it is frozen
 
@@ -27,6 +27,31 @@ Timeline (enforced where code can enforce it):
    run without `--prereg <commit>` and `--allocation <file>`. After the tag nothing changes.
    Any later deviation is labeled in REPORT.md.
 
+## 0b. Operator decisions of 2026-10-26 (DRAFT; they take effect with `prereg-v1`)
+
+1. **Frozen simulation set.** (a) The pre-registered preset grid, unchanged: low / medium / high,
+   medium primary (p_land 0.90, clock sd 100 ms, offset −100 ms, jitter 1.0 ms). (b) A declared
+   **calibrated scenario**: p_land 0.974, clock sd 119.7 ms, bg_between 1.0, offset −300 ms,
+   other nuisance at the preset medium (jitter stays at the preset, as step 2 above requires).
+   Both are SIMULATION and are frozen together (`sim_v2.json`, `alloc_v2.json`, seed 20261022,
+   200 replications; the calibrated one is under `scenarios`). The **Wi-Fi sensitivity**
+   (scenario b with jitter 4.8 ms, the RTT proxy, §6d) stays a labeled sensitivity.
+2. **Deviations disclosed.** The calibrated p_land (0.974) lies above the preset range
+   (0.75–0.90), and the calibrated clock sd (119.7 ms) is above the preset 100 ms. Both are
+   `deviation: true` in `nuisance_calibrated.json`. The calibrated offset is a choice, not a
+   deviation flag: see 3.
+3. **Offset −300 ms.** The calibration sweep was −300, −100, 0, +100 ms. Among offsets with
+   ≥ 30 windows, −300 had the best usable rate (0.935; 0: 0.871, +100: 0.867, −100: 0.806).
+   The first estimate (−200) was an Arm F artifact (Arm F is sent 200 ms earlier), so it is not
+   used. −300 is registered as the burst offset of the calibrated scenario. The preset grid keeps −100. All
+   calibration data stays EXPLORATORY.
+4. **Which allocation the sender reads is not changed by this draft.** `--allocation` reads the
+   top-level (preset medium) allocation of `alloc_v2.json`. Quotas from the calibrated scenario
+   are smaller (e.g. Agave Arm P W = 25 instead of 40). [OPEN: quotas follow the preset
+   allocation (recommended: larger W, covers the high-nuisance case) or the calibrated one.]
+5. **Option B** (§8), **BamFiredancer dropped** (§8, §12), **gap rules** (§5b) and the
+   **skipped-slot rule** (§9) are decided and written below.
+
 ## 1. Data classes
 
 | Class | Source | Used for |
@@ -50,7 +75,7 @@ R_RANDOM (null). Implementation: `analysis/slwlab/rules.py`.
 |---|---|---|---|
 | P | geometric price ladder 10k–1M µL/CU, CU limit 1000 | seeded random, no gap | fee rules vs random |
 | F | identical price (50k) and CU limit | fixed, 10 ms gap, sent **200 ms earlier** than other arms | tie-break hypotheses (§4) |
-| X | price ascending in send order | fixed, gap swept {0, 10, 25, 60, 120} ms | fee vs arrival; batching granularity (§5b) |
+| X | price ascending in send order | fixed, gap swept {0, 10, 25, 60} ms (confirmatory) and 120 ms (EXPLORATORY only, §5b) | fee vs arrival; batching granularity (§5b) |
 | R | equal price 200k, CU-limit ladder 1000…6000 | seeded random, no gap | R_PRICE vs R_TOTAL vs R_RATIO |
 | C | as P, plus one shared writable account | seeded random, no gap | conflict chain (§5), **reported separately** |
 
@@ -117,6 +142,12 @@ binding for g ≥ 60 ms):
    `prereg-v1`. The simulated numbers above were computed without a slot model, so they are
    superseded for g ≥ 60 ms. If half-strength power at the allocated W is < 0.9 for a gap, that
    gap is reported as EXPLORATORY and the granularity estimate is restricted to g ≤ 25 ms.
+
+**Confirmatory and exploratory gaps (decided 2026-10-26).** Gaps up to 60 ms (0, 10, 25, 60)
+are confirmatory. The 120 ms gap is **EXPLORATORY only**, whatever its power: at 120 ms a burst
+of N = 6 spans 600 ms, about 2.8 slots, so many pairs land in different slots and fewer
+within-slot pairs remain. Its windows are still sent and reported (gap response, slot-split rate), but they
+enter no verdict and no granularity estimate. The granularity estimate uses g ≤ 60 ms.
 
 ## 6. Statistics
 
@@ -241,8 +272,9 @@ the same pipeline). Simulated null false-positive rate: see above.
     rule is detected with ≥ 90% power. Arm X W is rounded up to a multiple of 5 (equal counts
     per gap).
   - Required groups (Agave, JitoAgave, Firedancer; 2 validators each) get arms P, X, R, C, F.
-    Bonus groups (HarmonicAgave, HarmonicFiredancer, BamAgave, BamFiredancer, Rakurai; 1 each)
-    get P, X, C. F is added for bonus groups only if the budget allows.
+    Bonus groups (HarmonicAgave, HarmonicFiredancer, BamAgave, Rakurai; 1 each) get P, X, C.
+    F is added for bonus groups only if the budget allows. **BamFiredancer is dropped** (§12):
+    the selection snapshot has no such validator, and its quota cannot be filled.
   - If the total is over budget, bonus cells are trimmed one grid step at a time, most
     expensive first. Required cells are never trimmed.
   - Provisional result: Agave-family P and R need W = 40, C W = 15, X W = 20, F W = 30.
@@ -250,7 +282,22 @@ the same pipeline). Simulated null false-positive rate: see above.
     power 0.85). Bonus F does not fit. Confirmatory total ≈ 37.7M lamports.
   - The sender plans by these quotas (`--allocation`, `plan_quota` = attempted windows per
     validator, i.e. W / P(≥ 5 of 6 land)).
-- Minimum per validator: ≥ 30 usable windows over ≥ 3 UTC dates.
+- **Option B: vanilla Agave is pooled (decided 2026-10-26; `docs/SESSIONS.md`).** The Agave
+  stratum is one cell owner, "Agave (pooled)". Its quota is the allocation's per-validator
+  Agave quota × 2 (the two required validators). Windows come from all vanilla Agave
+  validators in the selection snapshot that run the picked validators' version (the picked
+  ones plus the candidates listed in SESSIONS.md); a window counts for the pool whoever the
+  leader is. All other strata keep per-validator quotas (as in option A).
+  - The stratum verdict (§7) is computed on the pooled windows. It is a claim about the vanilla
+    Agave stratum and holds only if the pooled validators follow the same rule. Pooled power
+    is not comparable to a per-validator power.
+  - **Per-validator results inside the pool are DESCRIPTIVE ONLY**: mean tau, tau_norm and
+    landing rate per validator and arm, with the window count, and no verdict, no p-value
+    claim and no power claim at validator level. Counts of validators in the pool use the
+    independence units of §6c.
+  - The positive control (Agave Arm C, §7) is evaluated on the pool.
+- Minimum per cell: ≥ 30 usable windows over ≥ 3 UTC dates. For the pooled Agave cells this is
+  the pool total; there is no per-validator minimum inside the pool.
 - **Budgets** (`limits.rs`): calibration ≤ 5,000,000; confirmatory ≤ 38,000,000;
   funding/sweep/retry reserve ≤ 5,000,000; total ≤ 48,000,000 lamports, under the
   50,000,000 hard ceiling. Funding and sweep fees count as spend. Locked rent does not.
@@ -265,10 +312,20 @@ the same pipeline). Simulated null false-positive rate: see above.
 - Every exclusion is reported with its reason and count. **Landing rate per validator is a
   reported result**, not only a filter. The `rpc-helius-staked` delivery check (one tx per
   window) is reported as a landing comparison with QUIC only.
+- **Skipped slots (decided 2026-10-26).** A window with any of its slots skipped (4 slots for a
+  normal window; all slots of a merged window) is **excluded**, with reason `skipped_slot`
+  [OPEN: collector and manifest do not have this reason code yet]. The decision comes from the
+  chain's own record of which slots have blocks: `getBlocks` over the window's slot range,
+  fetched after the window. A slot missing from that list is skipped. It does **not** come
+  from our transactions (whether they landed, or where). Otherwise the exclusion would depend on
+  the outcome we measure. These exclusions are counted and reported **per validator** (windows
+  with a skipped slot, windows total, share), next to the landing rate. A **sensitivity
+  analysis** repeats the verdict table with these windows included (their usable txs, same-slot
+  pairs only, §5b) and labels any cell whose verdict class changes.
 
 ## 10. Sensitivity analyses
 
-By send gap (Arm X, §5b), by path (QUIC vs RPC delivery check: landing only), by path quality
+With windows that have a skipped slot included (§9), by send gap (Arm X, §5b), by path (QUIC vs RPC delivery check: landing only), by path quality
 (exploratory: windows split at the median of the concurrent RTT jitter and of the signal
 quality, §6d), by date, by window
 length (4 vs merged 8+ slots), by burst offset, Firedancer `fd4` vs `fd2` ceilings, and
@@ -282,6 +339,18 @@ error and landing probability are not knowable before measurement. The Wi-Fi hop
 sending PC (§6d) adds delay and jitter that is recorded (RTT, link state) but not removed. They are swept low /
 medium / high, and medium is primary. Window-start "prediction error" in our logs is measured
 against slot-notification arrival at our machine, not the leader's real block start.
+
+## 12. Registered limitations (2026-10-26)
+
+- **BamFiredancer is not measured.** The selection snapshot (`selection_20261022T163227Z.json`)
+  has no BamFiredancer validator, so the group is dropped from the allocation. This study makes
+  no statement about BAM-scheduled Firedancer. Nothing from BamAgave or Firedancer is
+  extrapolated to it.
+- **Pooled Agave.** Per-validator Agave results are descriptive; the Agave verdict is a
+  stratum-level claim (§8).
+- **One PC, one Wi-Fi path, one stratum** (§6d), as registered.
+- **Calibrated scenario.** It is a SIMULATION built from 936 calibration txs (EXPLORATORY), with
+  deviations disclosed in §0b.
 
 ## Source-derived predictions already registered
 
