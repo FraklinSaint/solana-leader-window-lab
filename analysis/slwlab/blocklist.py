@@ -46,6 +46,12 @@ def windows_by_run(lines: list[dict]) -> dict[str, dict[str, tuple[int, int]]]:
     return out
 
 
+def runs_with_purpose(lines: list[dict], purpose: str) -> list[str]:
+    """Runs that have ordering-eligible windows of this purpose (e.g. "measure" = confirmatory)."""
+    return sorted({l["tx"]["run_id"] for l in lines
+                   if l["tx"]["purpose"] == purpose and l["tx"].get("ordering_eligible", True)})
+
+
 def merge_spans(spans: list[tuple[int, int]], max_gap: int = MAX_GAP, max_span: int = MAX_SPAN) -> list[tuple[int, int]]:
     """Inclusive (start, end) slot ranges, merged when close; no merged range is longer than max_span."""
     out: list[list[int]] = []

@@ -353,7 +353,27 @@ if the window was closed: `$POST = 'data\snapshots\balances_<...>.json'`).
    wording in `main.rs` `collect_all`) and exit 0.
    STOP: a non-zero `still pending` count after two runs.
 
-2. Reconcile wallets, ledger and on-chain fees since funding:
+2. Save which slots of every window have a block (`getBlocks`, finalized; PREREGISTRATION §9
+   `skipped_slot`). Read-only: 1 `getSlot` and 1 to a few `getBlocks` per run (4 calls for the
+   smoke and the calibration together). The key is put in this window's environment and removed
+   again, never printed. Run it after step 1 and before reconcile and verify. There is no hard
+   deadline (the provider served blocks 200 days back when probed on 2026-10-26, and the tool
+   refuses until the finalized slot has passed the last window slot), but do it the same day, while the run is fresh:
+
+   ```powershell
+   $env:RPC_URL = ((Select-String -Path .env -Pattern '^RPC_URL=').Line -replace '^RPC_URL=','').Trim('"')
+   cd analysis
+   ..\.venv\Scripts\python.exe -m slwlab.blocklist fetch --data ..\data --manifest ..\data\exploratory\calibration_manifest.jsonl
+   cd ..
+   Remove-Item Env:RPC_URL
+   ```
+
+   For confirmatory sessions use `--manifest ..\data\manifest.jsonl`. Expect one line per run
+   (`<run_id>: N windows, K getBlocks call(s)`) and `M RPC calls`; existing lists are skipped (add
+   `--overwrite` only on purpose). STOP: `not finalized yet` (wait a minute, run again); any
+   other error.
+
+3. Reconcile wallets, ledger and on-chain fees since funding:
 
    ```powershell
    & $S reconcile --since $POST
@@ -366,15 +386,17 @@ if the window was closed: `$POST = 'data\snapshots\balances_<...>.json'`).
    <= 5,000,000.
    STOP: `RECONCILIATION FAILED: ...`; fees above 5,000,000.
 
-3. Independent verification, offline:
+4. Independent verification, offline:
 
    ```powershell
    .\.venv\Scripts\python.exe scripts\verify_manifest.py
    ```
 
-   Expect: `txs N, landed N, saved blocks N`, per-check lines `M: n/n ok` ... `Q: n/n ok`,
-   and `OK -> data\verify\verify_<UTC>.json`, exit 0. Check Q needs every calibration row to
-   carry your registered platform and one network type (`wifi`).
+   Expect: `txs N, landed N, saved blocks N`, per-check lines `M: n/n ok` ... `Q: n/n ok`
+   (and `K: n/n ok` once step 2 has run), and `OK -> data\verify\verify_<UTC>.json`, exit 0.
+   Check Q needs every calibration row to carry your registered platform and one network type
+   (`wifi`). Check K fails a confirmatory run that has no list (calibration runs without one are
+   only listed).
    STOP: any `FAIL` line or `N PROBLEMS`.
    Optional online re-fetch of 20 saved blocks (read-only; the key is put in this window's
    environment and removed again, never printed):
@@ -387,7 +409,7 @@ if the window was closed: `$POST = 'data\snapshots\balances_<...>.json'`).
 
    Credits used by this are **unverified**; STOP on any `FAIL`.
 
-4. Estimate the nuisance parameters (order-agnostic, EXPLORATORY):
+5. Estimate the nuisance parameters (order-agnostic, EXPLORATORY):
 
    ```powershell
    cd analysis
@@ -401,7 +423,7 @@ if the window was closed: `$POST = 'data\snapshots\balances_<...>.json'`).
    it as a labeled deviation, PREREGISTRATION §0.4).
    STOP: a traceback; an estimate that is `null` (too little data, tell Claude).
 
-5. Check the tree has no secrets, add a LOGBOOK entry (UTC times, from `date -u`; Claude
+6. Check the tree has no secrets, add a LOGBOOK entry (UTC times, from `date -u`; Claude
    writes it with you), regenerate and test, then commit locally:
 
    ```powershell

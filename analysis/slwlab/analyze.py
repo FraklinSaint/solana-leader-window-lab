@@ -208,27 +208,38 @@ def analyze_pooled(lines: list[dict], sim: dict, stratum: str = "Agave", seed: i
     return out
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--sim", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--data", help="data dir with logs/<run_id>/blocklist.json (§9 skipped slots)")
+    ap.add_argument("--data", help="data dir with logs/<run_id>/blocklist.json (§9 skipped slots); "
+                                   "required when the manifest holds confirmatory (measure) windows")
     ap.add_argument("--require-blocklists", action="store_true",
-                    help="a window without a stored getBlocks list is excluded (confirmatory data)")
+                    help="demand a list for every run, also exploratory ones (confirmatory runs always need one)")
     ap.add_argument("--include-skipped", action="store_true",
                     help="sensitivity analysis: keep windows with a skipped slot")
     ap.add_argument("--pooled", metavar="STRATUM", help="also write the pooled, stratified analysis of this stratum")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     lines = parse.read_jsonl(pathlib.Path(a.manifest))
     sim = json.loads(pathlib.Path(a.sim).read_text(encoding="utf-8"))
+    confirmatory = blocklist.runs_with_purpose(lines, "measure")
+    needed = sorted({l["tx"]["run_id"] for l in lines}) if a.require_blocklists else confirmatory
+    if needed and not a.data:
+        raise SystemExit("this manifest needs the stored getBlocks lists (PREREGISTRATION §9): pass --data <data dir>")
     present = None
     if a.data:
-        present = blocklist.present_map(pathlib.Path(a.data), sorted({l["tx"]["run_id"] for l in lines}))
-    elif a.require_blocklists:
-        raise SystemExit("--require-blocklists needs --data")
+        data = pathlib.Path(a.data)
+        missing = [r for r in needed if blocklist.load(data, r) is None]
+        if missing:
+            raise SystemExit(
+                "no stored getBlocks list for run(s) " + ", ".join(missing) + f" (expected {blocklist.FILE} in "
+                "data/logs/<run_id>/). Windows with a skipped slot cannot be told apart without it, so no "
+                "analysis is written. Run: python -m slwlab.blocklist fetch --data <data> --manifest <manifest> "
+                "(RUNBOOK_MAINNET S8 step 2).")
+        present = blocklist.present_map(data, sorted({l["tx"]["run_id"] for l in lines}))
     res = analyze(lines, sim, present=present, include_skipped=a.include_skipped,
-                  require_slot_status=a.require_blocklists)
+                  require_slot_status=bool(needed))
     pathlib.Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     pathlib.Path(a.out).write_text(json.dumps(res, indent=1), encoding="utf-8")
     print(f"{len(res['cells'])} validator x arm cells -> {a.out}")

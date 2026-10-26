@@ -46,9 +46,14 @@ Timeline (enforced where code can enforce it):
    used. −300 is registered as the burst offset of the calibrated scenario. The preset grid keeps −100. All
    calibration data stays EXPLORATORY.
 4. **Which allocation the sender reads is not changed by this draft.** `--allocation` reads the
-   top-level (preset medium) allocation of `alloc_v2.json`. Quotas from the calibrated scenario
-   are smaller (e.g. Agave Arm P W = 25 instead of 40). [OPEN: quotas follow the preset
-   allocation (recommended: larger W, covers the high-nuisance case) or the calibrated one.]
+   top-level (preset medium) allocation of `alloc_v2.json`; the calibrated one
+   (`scenarios.calibrated.allocation`) would have to be written to a file of its own. Its quotas
+   are smaller (e.g. Agave Arm P W = 25 instead of 40) and cost less (30.1M against 37.7M
+   lamports). In 32 hours the preset quotas cannot be met for `5Us18hLZ` and the calibrated ones
+   can (§8). [OPEN: quotas follow the calibrated allocation (now recommended: feasible in 32 h;
+   half-strength power ≥ 0.90 in the calibrated scenario and the Wi-Fi sensitivity; its power at
+   the preset low and high levels was not computed) or the preset one (larger W, not feasible
+   for `5Us18hLZ`).]
 5. **Option B** (§8), **BamFiredancer dropped** (§8, §12), **gap rules** (§5b) and the
    **skipped-slot rule** (§9) are decided and written below.
 
@@ -282,12 +287,12 @@ the same pipeline). Simulated null false-positive rate: see above.
     power 0.85). Bonus F does not fit. Confirmatory total ≈ 37.7M lamports.
   - The sender plans by these quotas (`--allocation`, `plan_quota` = attempted windows per
     validator, i.e. W / P(≥ 5 of 6 land)).
-- **Option B: vanilla Agave is pooled (decided 2026-10-26; `docs/SESSIONS.md`).** The Agave
-  stratum is one cell owner, "Agave (pooled)". Its quota is the allocation's per-validator
-  Agave quota × 2 (the two required validators). Windows come from all vanilla Agave
-  validators in the selection snapshot that run the picked validators' version (the picked
-  ones plus the candidates listed in SESSIONS.md); a window counts for the pool whoever the
-  leader is. All other strata keep per-validator quotas (as in option A).
+- **Option B: vanilla Agave is pooled at analysis level (decided 2026-10-26; `docs/SESSIONS.md`).**
+  The sender is unchanged: quotas stay per validator (`plan_quota["Agave"]` is the same for the
+  two picked vanilla Agave validators, `7QQGNm3p` and `5Us18hLZ`). The pool is those two
+  validators; the pooled claim, the stratified test and the descriptive per-validator tables are
+  made by the analysis. The pool's target is 2 × the per-validator quota. All other strata are
+  as in option A.
   - **The pooled test is stratified by independence unit** (§6c), not a sum over all windows.
     The sum of window taus of §6 would let the unit with the most windows decide the verdict.
     Code: `stats.stratified_randomization_pvalue`, `analyze.analyze_pooled`.
@@ -308,8 +313,8 @@ the same pipeline). Simulated null false-positive rate: see above.
        W grid of §7.
     4. *What changed in the simulation* (`pool_v2.json`, Agave cells only, 200 replications,
        SIMULATION, preset medium and the calibrated scenario): with the planned pool sizes and
-       balanced units (60/40, or six units in proportion to their leader windows), stratified
-       half-strength power is 0.94–1.00, against 0.98–1.00 for the sum. The false-positive
+       balanced units (60/40; the plan's equal quotas give about 50/50), stratified
+       half-strength power is 0.98–1.00, the same as for the sum (0.98–1.00). The false-positive
        rate stays at or below 0.055 in every split (200 replications, so ±0.015). What it
        costs: units with < 5 windows in a cell are dropped. With a 90/10 split the second unit
        has 3–8 windows: at 3–4 windows the cell has no pooled test (power 0.00, Arms C, R and
@@ -327,9 +332,23 @@ the same pipeline). Simulated null false-positive rate: see above.
     landing rate per validator and arm, with the window count, and no verdict, no p-value
     claim and no power claim at validator level.
   - The positive control (Agave Arm C, §7) is evaluated on the pool.
-  - [OPEN: the sender's planner counts quotas per validator (`planner.rs`, `arm_counts` keyed by
-    leader). A pooled quota, and a selection that includes the extra vanilla Agave validators,
-    need a planner change. Not done.]
+  - *Planner and feasibility (no planner change).* The planner reads one quota per stratum and
+    applies it to every validator of that stratum (`planner.rs`), so unequal quotas inside the
+    stratum cannot be expressed. They are not needed. Simulated for 32 h (4 × 8 h, 15% or 30%
+    of windows lost, 5 s spacing, global spend pacing, 20 seeds, SIMULATION,
+    `analysis/sim/feasibility_32h.py`): with the
+    calibrated allocation (per validator P 26, X 21, R 21, C 16, F 21 = 105) every quota of the
+    plan is met in 20/20 runs. Over 32 h `5Us18hLZ` has 357 leader windows and can supply about
+    142 (15% lost) or 124 (30% lost) attempted windows under pacing, which is 35% or 18% slack
+    over 105; `7QQGNm3p` has 573 and supplies 222 or 187. A 25% margin on the Agave quotas
+    (131 per validator) is met at 15% lost (19/20 runs) and not at 30% (1/20). With the preset
+    allocation (166 per validator), `5Us18hLZ` can supply only 99–151, so its quota is not met.
+  - *Spreading over sessions.* The planner has no per-session quota; left alone, `7QQGNm3p`
+    would fill its quota in the first one or two sessions. Each session therefore gets its own
+    allocation file with cumulative quotas (¼, ½, ¾, 1 of each quota, rounded up).
+    `prior_plan_state` counts the windows of earlier sessions from the ledger, so a shortfall
+    carries over and no planner change is needed. [OPEN: the small script that writes these
+    files is not written yet.]
 - Minimum per cell: ≥ 30 usable windows over ≥ 3 UTC dates. For the pooled Agave cells this is
   the pool total; there is no per-validator minimum inside the pool.
 - **Budgets** (`limits.rs`): calibration ≤ 5,000,000; confirmatory ≤ 38,000,000;
@@ -356,8 +375,13 @@ the same pipeline). Simulated null false-positive rate: see above.
     only blocks that hold our txs, so it cannot see an empty slot). After a run, once its last
     window is finalized, `python -m slwlab.blocklist fetch` saves
     `data/logs/<run_id>/blocklist.json` (the slots with blocks per window, the `getBlocks` calls,
-    the finalized slot at fetch time). `parse.windows_from_manifest` classifies from it. A
-    confirmatory window without a stored list is excluded as `slot_status_missing`, never guessed.
+    the finalized slot at fetch time). `parse.windows_from_manifest` classifies from it. It is
+    never guessed: `python -m slwlab.analyze` refuses to run on a manifest with a confirmatory
+    run that has no list (message names the run and the command), and at library level such a
+    window is excluded as `slot_status_missing`. The provider served `getBlocks` and `getBlock`
+    200 days back when probed (2026-10-26), so there is no hard deadline; the runbook (S8 step 2)
+    has the fetch run the same day, after `collect` and before `reconcile` and `verify`. First
+    run on mainnet data: the smoke and the calibration (156 windows, 0 skipped slots, check K ok).
   - *Verifier.* `scripts/verify_manifest.py` check K fails when a confirmatory run has no list, or
     a list is not finalized, does not cover a window's slots, or contradicts the blocks we hold or
     the slots our txs landed in (it only catches a wrong list; it never derives one). `--online`
@@ -367,9 +391,8 @@ the same pipeline). Simulated null false-positive rate: see above.
     analysis** (`analyze --include-skipped`) repeats the verdict table with these windows
     included (their usable txs, same-slot pairs only, §5b) and labels any cell whose verdict
     class changes.
-  - *Status.* Implemented and unit-tested on synthetic data. Not yet run on mainnet data: the
-    existing calibration runs have no lists (check K lists them and does not fail them). The
-    comparison of the two verdict tables (with and without these windows) is done by running
+  - *Status.* Implemented, unit-tested on synthetic data, and run once on the two calibration
+    runs (read-only RPC). The comparison of the two verdict tables (with and without these windows) is done by running
     `analyze` twice and comparing; there is no automatic label yet.
 
 ## 10. Sensitivity analyses

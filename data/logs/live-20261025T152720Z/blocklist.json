@@ -1,0 +1,107 @@
+{
+ "label": "SLOT LIST (getBlocks)",
+ "method": "getBlocks",
+ "commitment": "finalized",
+ "run_id": "live-20261025T152720Z",
+ "fetched_utc": "2026-10-26T07:56:49Z",
+ "finalized_slot_at_fetch": 461587342,
+ "calls": [
+  {
+   "start": 461308032,
+   "end": 461308455,
+   "n_blocks": 424
+  }
+ ],
+ "windows": {
+  "461308032-DRpbCBMx": {
+   "first_slot": 461308032,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308032,
+    461308033,
+    461308034,
+    461308035
+   ]
+  },
+  "461308096-9eGrDohd": {
+   "first_slot": 461308096,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308096,
+    461308097,
+    461308098,
+    461308099
+   ]
+  },
+  "461308172-EvnRmnMr": {
+   "first_slot": 461308172,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308172,
+    461308173,
+    461308174,
+    461308175
+   ]
+  },
+  "461308212-ana2y2Yv": {
+   "first_slot": 461308212,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308212,
+    461308213,
+    461308214,
+    461308215
+   ]
+  },
+  "461308244-Fd7btgyS": {
+   "first_slot": 461308244,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308244,
+    461308245,
+    461308246,
+    461308247
+   ]
+  },
+  "461308296-EvnRmnMr": {
+   "first_slot": 461308296,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308296,
+    461308297,
+    461308298,
+    461308299
+   ]
+  },
+  "461308356-DRpbCBMx": {
+   "first_slot": 461308356,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308356,
+    461308357,
+    461308358,
+    461308359
+   ]
+  },
+  "461308400-DRpbCBMx": {
+   "first_slot": 461308400,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308400,
+    461308401,
+    461308402,
+    461308403
+   ]
+  },
+  "461308452-E1r4Psq8": {
+   "first_slot": 461308452,
+   "n_slots": 4,
+   "slots_with_blocks": [
+    461308452,
+    461308453,
+    461308454,
+    461308455
+   ]
+  }
+ }
+}
