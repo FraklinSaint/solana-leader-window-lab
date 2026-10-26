@@ -338,18 +338,48 @@ total stays at or below the cap. STOP: one hour holds more than 1.5x the average
 reserved total is above `--max-spend-lamports`. If a worker ends normally with less than one
 window's worst-case cost left (39,600), the session ends as done (event `cap_reached`).
 
-## S7b) Confirmatory session k (measure; k = 1..4, 8 h, cap 9,500,000)
+## S7b) Confirmatory session k (measure; k = 1..4)
 
-Only after the user has said go and `prereg-v1` is tagged. Open a NEW PowerShell window and do A1
-(`$S`) and A3 (binary hash) first. The binary is final: `903525409e18...`.
+Only after the user has said go and `prereg-v1` is tagged. The binary is final: `903525409e18...`.
+Every block below works in a fresh PowerShell window if step 0 was pasted first.
 
-**1. Pre-start check (read-only).** The binary does not verify what it is given: it stores the
-`--prereg` string and the `--allocation` path as typed (`session.json`, `run.json`). This check does:
+**0. Variables** (start of every window; also after a crash, see step 7):
 
 ```powershell
-$K = 1                                    # session number
+cd C:\Users\user\solana-leader-window-lab
+Remove-Item Env:SLWLAB_ENV_FILE, Env:RPC_URL, Env:RPC_WS_URL, Env:MASTER_KEYPAIR, Env:SLWLAB_RATELIMIT_DIR, Env:CONFIRM_LIVE -ErrorAction SilentlyContinue
+$S = '.\target\release\sender.exe'
+$K = 1                                                  # session number, 1..4
+$H = 8                                                  # hours of this session, at most 10
 $F = "analysis\sim\results\sessions\alloc_calibrated_session${K}of4.json"
 $PRE = (git rev-parse 'prereg-v1^{commit}').Trim()      # fails until the tag exists
+$POST = $null                                           # set in step 2
+(Get-FileHash $S -Algorithm SHA256).Hash.ToLower()      # expect 903525409e18f5ad4aedfaffcdc2fb60e3b63ff0fc596ae834769469e4687317
+```
+
+**1. Cap and pre-start check (read-only).** The pacing curve runs from 0 to the session cap over the
+session's hours, so the cap must match what the session has to do: a cap larger than the quota
+(9.5M for a quarter plan of about 7.6M) makes the plan fill early and leaves the last hours idle.
+The helper computes it from the allocation file and the ledger:
+`cap = ceil((cumulative quota of this file - windows already attempted) x fee per window x 1.05 x H / 8)`.
+Earlier sessions' shortfalls are inside it (printed as "carried over"); a shorter session gets a
+proportionally smaller cap.
+
+```powershell
+.\.venv\Scripts\python.exe -I scripts\session_cmd.py --k $K --hours $H
+$CAP = [int64](.\.venv\Scripts\python.exe -I scripts\session_cmd.py --k $K --hours $H --print cap)
+$TARGET = [int64](.\.venv\Scripts\python.exe -I scripts\session_cmd.py --k $K --hours $H --print target)
+"cap $CAP, payer target $TARGET"
+```
+
+Session 1 with H = 8 prints: 239 windows, 7,569,190 lamports remaining, cap 7,947,650, payer target
+905,205, pacing line 993,456 lamports per hour (about 31 windows an hour), first-hour check
+795,000 to 1,043,000 lamports. STOP: a warning line, or a cap you cannot explain.
+
+The binary does not verify what it is given: it stores the `--prereg` string and the `--allocation`
+path as typed (`session.json`, `run.json`). This check does:
+
+```powershell
 $sha = (Get-FileHash $F -Algorithm SHA256).Hash.ToLower()
 $fg = $F -replace '\\','/'
 "tag prereg-v1 -> $PRE"
@@ -362,29 +392,30 @@ $fg = $F -replace '\\','/'
 
 Expect: three `True` lines, an empty list after the last heading. STOP: any `False`.
 
-**2. Fund top-up** (payer target for 9,500,000: 650,240 + 296,875 + 6,600 = 953,715). Dry run first:
+**2. Fund top-up** to the payer target of step 1 (for a cap of 7,947,650: 905,205 = 650,240 + 248,365 +
+6,600). Dry run first:
 
 ```powershell
-& $S fund --payer-target-lamports 953715
+& $S fund --payer-target-lamports $TARGET
 ```
 
-Expect: the transfers needed to bring each payer to 953,715, ending `dry-run: nothing sent`. STOP: a
-transfer count or total you cannot explain from the payers' balances. Then live:
+Expect: the transfers needed to bring each payer to the target, ending `dry-run: nothing sent`.
+STOP: a transfer count or total you cannot explain from the payers' balances. Then live:
 
 ```powershell
 $env:CONFIRM_LIVE = 'yes'
-& $S fund --payer-target-lamports 953715 --live --max-spend-lamports 200000
+& $S fund --payer-target-lamports $TARGET --live --max-spend-lamports 200000
 Remove-Item Env:CONFIRM_LIVE
 $POST = (Get-ChildItem data\snapshots\balances_*.json | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
 $POST
 ```
 
-Expect `"ok": true`, `"problems": []`. Keep `$POST`. STOP: `RECONCILIATION FAILED`.
+Expect `"ok": true`, `"problems": []`, `$POST` = the closing snapshot. STOP: `RECONCILIATION FAILED`.
 
 **3. Pre-flight.** A4 checklist first (AC power, sleep never, Windows Update paused, other apps closed,
-stay signed in, no `Win+L` logoff). The session repeats the power, RAM, Wi-Fi, clock, restart, disk
-and payer checks before it opens and sends nothing if one refuses. Optional full environment test
-(first debug build takes minutes; debug builds only on D:):
+stay signed in, no `Win+L` logoff). The session repeats the power, RAM, Wi-Fi, clock, restart, disk and
+payer checks before it opens and sends nothing if one refuses. Optional full environment test (first
+debug build takes minutes; debug builds only on D:):
 
 ```powershell
 $env:CARGO_TARGET_DIR = "D:\slwlab-target-debug"
@@ -392,12 +423,11 @@ cargo test -p slwlab-sender --lib preflight::tests::on_this_machine -- --ignored
 Remove-Item Env:CARGO_TARGET_DIR
 ```
 
-**4. Start** (this window stays open for 8 hours; do not close it):
+**4. Start** (this window stays open for H hours; do not close it):
 
 ```powershell
-$PRE = (git rev-parse 'prereg-v1^{commit}').Trim()
 $env:CONFIRM_LIVE = 'yes'
-& $S session --mode measure --hours 8 --max-spend-lamports 9500000 --prereg $PRE --allocation $F
+& $S session --mode measure --hours $H --max-spend-lamports $CAP --prereg $PRE --allocation $F
 Remove-Item Env:CONFIRM_LIVE
 ```
 
@@ -441,20 +471,45 @@ foreach ($r in $runs) {
 "DISK  C: free {0:N1} GB   D: free {1:N1} GB" -f ((Get-PSDrive C).Free / 1GB), ((Get-PSDrive D -ErrorAction SilentlyContinue).Free / 1GB)
 ```
 
-**6. First-hour check** (at start + 60 min, from the monitor output). All must hold:
+**6. First-hour check** (at start + 60 min, from the monitor output). Numbers for session 1, H = 8
+(cap 7,947,650); for another K or H run the helper of step 1, which prints the same lines for its cap.
+Rule: line = cap / H per hour, ratio = reserved / line.
 
 | What | Expect after 60 min | If not |
 |---|---|---|
-| SPEND ratio | 0.80 to 1.05 (reserved about 0.95M to 1.23M of the 1.19M line, which is 1/8 of 9.5M) | below 0.8 or above 1.05: do not intervene; read SKIP REASONS; above 1.05 means the pacing is not working: Ctrl+C once, S9 |
-| WINDOWS | about 30 to 45 windows in the first 60 minutes (add the first two UTC-hour lines pro rata), and every 15-min bin of `LAST 60 MIN` above 0 (typically 7 to 12) | fewer than 15, or a 0 bin: read SKIP REASONS; a 0 bin of 15 minutes is a gap, wait one more bin, then Ctrl+C once, S9 |
-| WORKER RUNS | 1 | 2 or more and `worker_down` events: a restart loop; Ctrl+C once, S9 |
+| SPEND ratio | 0.80 to 1.05: reserved 795,000 to 1,043,000 of the 993,456 line | below 0.8: do not intervene, read SKIP REASONS. Above 1.05: the pacing is not working, Ctrl+C once, S9 |
+| WINDOWS | 25 to 33 windows in the first 60 minutes (31 at the line; add the first two UTC-hour lines pro rata); every 15-min bin of `LAST 60 MIN` at least 3 (expected 8) | fewer than 15, or a bin of 0: read SKIP REASONS; wait one more bin, then Ctrl+C once, S9 |
+| WORKER RUNS | 1 | 2 or more with `worker_down` events: a restart loop; Ctrl+C once, S9 |
 | DEAD CONNECTION | `conn_dead` events 0 to a few; a few `skipped` or `reconnected` per hour at most | dozens: network or peer problem; keep running, note it, tell Claude |
 | LAST EVENT / heartbeat | within 2 minutes of now | older: the PC slept or the worker hangs; check, do not reset blindly |
 | SKIP REASONS | `pacing: # + # > #` and `too close to previous planned window` dominate | `payer pool exhausted`, `QUIC connect failed`, `lead # ms < min #` in the hundreds: stop and tell Claude |
 | DISK | C: free above 5 GB | below 5 GB: the session stops itself at 1 GB; free space or stop |
 
-Do not run `--reset` or start a second session to fix a warning: a live session is never resumed
-(S9). Ctrl+C once in the session window, then S9.
+The quota is used up after about H / 1.05 hours (7.6 of 8 h), and `allocation quota met` then appears
+as the skip reason for the last 25 minutes: that is the plan, not a failure. Do not run `--reset` or
+start a second session to fix a warning: a live session is never resumed (S9). Ctrl+C once in the
+session window, then S9.
+
+**7. Recovery: the window or the PC died, the variables are lost.** In a fresh window run step 0 up
+to `$S`, then rebuild the rest from what the session recorded (read-only):
+
+```powershell
+$ss = Get-ChildItem data\sessions -Directory | Sort-Object Name | Select-Object -Last 1 | ForEach-Object { Get-Content "$($_.FullName)\session.json" -Raw | ConvertFrom-Json }
+if ($ss.mode -ne 'measure') { throw "the newest session is $($ss.mode), not measure" }
+$F = $ss.allocation
+$K = [int]($F -replace '.*session(\d)of4.*','$1')
+$PRE = (git rev-parse 'prereg-v1^{commit}').Trim()
+$POST = (Get-ChildItem data\snapshots\balances_*.json | Where-Object { ($_.Name -replace '^balances_(\d{8}T\d{6}Z).*','$1') -le $ss.id } | Sort-Object Name | Select-Object -Last 1).FullName
+"session $($ss.id): K=$K  allocation $F  prereg recorded $($ss.prereg)  tag commit $PRE"
+"POST = $POST"
+```
+
+Expect: the recorded prereg string equals the tag commit, `$F` names the session you meant, `$POST` is the
+newest balances snapshot taken before the session started (the top-up's closing snapshot; if you ran
+`& $S balances` between the top-up and the start, take the one before it). Then follow
+S9 (`--reset`, `collect`, `reconcile --since $POST`) and start the next session with step 1 again: the
+helper subtracts the windows already attempted, so the new session's cap covers only what is left, with
+`$H` = the hours you actually have.
 
 ## S8) Afterwards
 
@@ -587,7 +642,7 @@ Expect: `--reset` prints `session <id> closed` (after an `abnormal_end` line if 
 died); `collect` ends with nothing pending; reconcile `"ok": true`.
 STOP: `session <id> may still be running (heartbeat N s ago)` (wait 90 s, or close the other
 window); reconcile `"ok": false`.
-Then start a new `session --mode calibrate` (S7 command). The new session continues the
+Then start a new `session --mode calibrate` (S7 command; for a confirmatory session, S7b steps 1 and 4 with the hours you have left). The new session continues the
 allocation from the ledger (`runner.rs` `prior_plan_state`): no window attempted before is
 planned again. Set `--max-spend-lamports` to the amount you still want to allow (5,000,000
 minus everything calibration has reserved so far, from `ledger_fees` of the reconcile); the

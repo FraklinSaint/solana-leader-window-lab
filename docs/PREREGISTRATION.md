@@ -378,8 +378,14 @@ the same pipeline). Simulated null false-positive rate: see above.
   | 4 | `alloc_calibrated_session4of4.json` | `d6a663ac94bd5dd76afd46a2d0a242f0447014a378077a281c6217e1c31959e8` |
 
   Cumulative planned cost: 7,569,190 / 14,346,268 / 21,344,952 / 28,053,630 lamports. Each
-  session is run with `--max-spend-lamports 9,500,000` (38,000,000 / 4), paced along the straight
-  line (planner `Pace`): a session needs about 80% of its cap, so the cap is slack, not a target.
+  session is paced along a straight line from 0 to its cap over its hours (planner `Pace`), so the
+  cap must match what the session has to do, or the quota fills early and the last hours stay idle
+  (a cap of 9,500,000 for a quarter of about 7.6M would). The cap is computed by
+  `scripts/session_cmd.py` from the allocation file and the ledger: `ceil((cumulative quota of the
+  session's file − windows already attempted) × fee per window × 1.05 × H / 8)`, H = the session's
+  hours. Earlier shortfalls are inside it, a shorter session gets a proportionally smaller cap.
+  Session 1 with H = 8: 239 windows, 7,569,190 lamports, cap 7,947,650 (a pacing line of 993,456
+  lamports an hour, about 31 windows an hour; the quota is used up after about 7.6 h).
 - **Supplementary sessions (outcome-blind).** After each session, and after the fourth, usable
   windows (§9) and UTC dates are counted per validator and arm. A cell is in deficit if it has
   fewer usable windows than its registered target (the `W_usable_per_validator` of the
