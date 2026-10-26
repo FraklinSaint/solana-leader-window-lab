@@ -393,14 +393,17 @@ the same pipeline). Simulated null false-positive rate: see above.
   windows or fewer than 3 UTC dates once the planned sessions are done. While a deficit exists
   and confirmatory budget remains, a supplementary session runs on a spare day with the same
   mechanism: the same binary, `--mode measure`, a paced cap from what is left, and an allocation
-  file whose cumulative quota for the deficient cells is raised by deficit / 0.991 (the
-  registered usable rate), rounded up. It stops when every cell is filled or the 38,000,000 are
+  file written by a script (procedure below). It stops when every cell is filled or the 38,000,000 are
   used. **The decision uses only counts of usable windows and dates.** It never uses tau,
   p-values, ranks, verdicts or which rule wins. Budget: the spare 9,946,370 buys about 314 more
   windows (35% of the 886 planned), enough if the usable rate turns out as low as about 0.73
-  (planned 0.99; preset medium 0.89), not at the preset-high 0.53. [OPEN: the script that writes
-  the supplementary allocation file from the counts is not written; it is not needed before the
-  planned sessions are done.]
+  (planned 0.99; preset medium 0.89), not at the preset-high 0.53.
+  **Procedure for the supplementary allocation.** The file is written by a script that reads ONLY
+  the per-cell counts of usable windows (from `parse.windows_from_manifest`) and the registered
+  target per cell; it takes no tau, p-value or verdict as input. Its quota per cell is
+  `max(0, target - usable windows)`, in the same file format as the session allocation files. The
+  script is committed and its SHA-256 recorded in the LOGBOOK BEFORE any supplementary session
+  starts; no supplementary session starts before session 4 is finished and verified.
 - **Budgets** (`limits.rs`): calibration ≤ 5,000,000; confirmatory ≤ 38,000,000;
   funding/sweep/retry reserve ≤ 5,000,000; total ≤ 48,000,000 lamports, under the
   50,000,000 hard ceiling. Funding and sweep fees count as spend. Locked rent does not.
