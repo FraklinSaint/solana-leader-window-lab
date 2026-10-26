@@ -387,10 +387,9 @@ $fg = $F -replace '\\','/'
 "allocation file == the one in the tag : " + ((git rev-parse "${PRE}:$fg").Trim() -eq (git hash-object $F).Trim())
 "PREREGISTRATION == the one in the tag : " + ((git rev-parse "${PRE}:docs/PREREGISTRATION.md").Trim() -eq (git hash-object docs\PREREGISTRATION.md).Trim())
 "allocation SHA-256 $sha is listed in the tagged PREREGISTRATION : " + ((git show "${PRE}:docs/PREREGISTRATION.md") -join "`n").Contains($sha)
-"tree clean apart from data\ and sim logs :"; git status --short | Where-Object { $_ -notmatch '^\?\? (data/|analysis/sim/results/(alloc|sim)_v2\.)' }
 ```
 
-Expect: three `True` lines, an empty list after the last heading. STOP: any `False`.
+Expect: three `True` lines. STOP: any `False`. (The clean-tree check comes in step 2, after the fund commit.)
 
 **2. Fund top-up** to the payer target of step 1 (for a cap of 7,947,650: 905,205 = 650,240 + 248,365 +
 6,600). Dry run first:
@@ -411,6 +410,18 @@ $POST
 ```
 
 Expect `"ok": true`, `"problems": []`, `$POST` = the closing snapshot. STOP: `RECONCILIATION FAILED`.
+
+**2b. Commit the fund run, then check the tree.** The fund run always appends to `data\ledger.jsonl`
+and `data\credits\credits.jsonl`; commit them BEFORE the clean-tree check, or the check lists them:
+
+```powershell
+git add data
+git commit -m "fund top-up $((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm'))Z"
+"tree clean apart from data\ and sim logs :"; git status --short | Where-Object { $_ -notmatch '^\?\? (data/|analysis/sim/results/(alloc|sim)_v2\.)' }
+```
+
+Expect: an empty list after the heading. STOP: any listed file. (The tag checks of step 1 stay `True`:
+the commit changes only `data\`.)
 
 **3. Pre-flight.** A4 checklist first (AC power, sleep never, Windows Update paused, other apps closed,
 stay signed in, no `Win+L` logoff). The session repeats the power, RAM, Wi-Fi, clock, restart, disk and

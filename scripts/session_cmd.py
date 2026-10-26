@@ -168,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"$env:CONFIRM_LIVE = 'yes'")
     print(f"& $S fund --payer-target-lamports {r['payer_target']} --live --max-spend-lamports 200000")
     print(f"Remove-Item Env:CONFIRM_LIVE")
+    print('git add data')
+    print("git commit -m \"fund top-up $((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm'))Z\"")
     print(f"$env:CONFIRM_LIVE = 'yes'")
     print(f"& $S session --mode measure --hours {a.hours:g} --max-spend-lamports {r['cap']} --prereg $PRE --allocation {rel}")
     print(f"Remove-Item Env:CONFIRM_LIVE")
