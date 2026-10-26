@@ -1,0 +1,122 @@
+{
+ "allocation": {
+  "n": 6,
+  "plan_quota": {
+   "Agave": {
+    "C": 12,
+    "F": 16,
+    "P": 20,
+    "R": 16,
+    "X": 16
+   },
+   "BamAgave": {
+    "C": 12,
+    "F": 16,
+    "P": 20,
+    "X": 16
+   },
+   "Firedancer": {
+    "C": 12,
+    "F": 12,
+    "P": 12,
+    "R": 9,
+    "X": 12
+   },
+   "HarmonicAgave": {
+    "C": 12,
+    "F": 16,
+    "P": 20,
+    "X": 16
+   },
+   "HarmonicFiredancer": {
+    "C": 12,
+    "F": 12,
+    "P": 12,
+    "X": 12
+   },
+   "JitoAgave": {
+    "C": 12,
+    "F": 16,
+    "P": 20,
+    "R": 16,
+    "X": 16
+   },
+   "Rakurai": {
+    "C": 12,
+    "F": 16,
+    "P": 20,
+    "X": 16
+   }
+  },
+  "spend_per_window_lamports": {
+   "C": 31658.0,
+   "F": 30300.0,
+   "P": 31658.0,
+   "R": 34200.0,
+   "X": 31658.0,
+   "mean": 31894.8
+  },
+  "usable_rate": 0.9907932003008957
+ },
+ "cumulative_share": "3/4",
+ "dropped_strata": [
+  "BamFiredancer"
+ ],
+ "full_plan_quota": {
+  "Agave": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "R": 21,
+   "X": 21
+  },
+  "BamAgave": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "X": 21
+  },
+  "Firedancer": {
+   "C": 16,
+   "F": 16,
+   "P": 16,
+   "R": 11,
+   "X": 16
+  },
+  "HarmonicAgave": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "X": 21
+  },
+  "HarmonicFiredancer": {
+   "C": 16,
+   "F": 16,
+   "P": 16,
+   "X": 16
+  },
+  "JitoAgave": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "R": 21,
+   "X": 21
+  },
+  "Rakurai": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "X": 21
+  }
+ },
+ "label": "ALLOCATION FILE (derived from the SIMULATION result alloc_v2.json)",
+ "rounding": "plan_quota = ceil(full quota * k / sessions) per stratum and arm",
+ "session": 3,
+ "sessions": 4,
+ "source": {
+  "file": "alloc_v2.json",
+  "reps": 200,
+  "scenario": "calibrated",
+  "seed": 20261022
+ }
+}

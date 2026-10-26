@@ -338,10 +338,131 @@ total stays at or below the cap. STOP: one hour holds more than 1.5x the average
 reserved total is above `--max-spend-lamports`. If a worker ends normally with less than one
 window's worst-case cost left (39,600), the session ends as done (event `cap_reached`).
 
+## S7b) Confirmatory session k (measure; k = 1..4, 8 h, cap 9,500,000)
+
+Only after the user has said go and `prereg-v1` is tagged. Open a NEW PowerShell window and do A1
+(`$S`) and A3 (binary hash) first. The binary is final: `903525409e18...`.
+
+**1. Pre-start check (read-only).** The binary does not verify what it is given: it stores the
+`--prereg` string and the `--allocation` path as typed (`session.json`, `run.json`). This check does:
+
+```powershell
+$K = 1                                    # session number
+$F = "analysis\sim\results\sessions\alloc_calibrated_session${K}of4.json"
+$PRE = (git rev-parse 'prereg-v1^{commit}').Trim()      # fails until the tag exists
+$sha = (Get-FileHash $F -Algorithm SHA256).Hash.ToLower()
+$fg = $F -replace '\\','/'
+"tag prereg-v1 -> $PRE"
+"HEAD           -> $((git rev-parse HEAD).Trim())   (may be newer than the tag; the files below must be identical)"
+"allocation file == the one in the tag : " + ((git rev-parse "${PRE}:$fg").Trim() -eq (git hash-object $F).Trim())
+"PREREGISTRATION == the one in the tag : " + ((git rev-parse "${PRE}:docs/PREREGISTRATION.md").Trim() -eq (git hash-object docs\PREREGISTRATION.md).Trim())
+"allocation SHA-256 $sha is listed in the tagged PREREGISTRATION : " + ((git show "${PRE}:docs/PREREGISTRATION.md") -join "`n").Contains($sha)
+"tree clean apart from data\ and sim logs :"; git status --short | Where-Object { $_ -notmatch '^\?\? (data/|analysis/sim/results/(alloc|sim)_v2\.)' }
+```
+
+Expect: three `True` lines, an empty list after the last heading. STOP: any `False`.
+
+**2. Fund top-up** (payer target for 9,500,000: 650,240 + 296,875 + 6,600 = 953,715). Dry run first:
+
+```powershell
+& $S fund --payer-target-lamports 953715
+```
+
+Expect: the transfers needed to bring each payer to 953,715, ending `dry-run: nothing sent`. STOP: a
+transfer count or total you cannot explain from the payers' balances. Then live:
+
+```powershell
+$env:CONFIRM_LIVE = 'yes'
+& $S fund --payer-target-lamports 953715 --live --max-spend-lamports 200000
+Remove-Item Env:CONFIRM_LIVE
+$POST = (Get-ChildItem data\snapshots\balances_*.json | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
+$POST
+```
+
+Expect `"ok": true`, `"problems": []`. Keep `$POST`. STOP: `RECONCILIATION FAILED`.
+
+**3. Pre-flight.** A4 checklist first (AC power, sleep never, Windows Update paused, other apps closed,
+stay signed in, no `Win+L` logoff). The session repeats the power, RAM, Wi-Fi, clock, restart, disk
+and payer checks before it opens and sends nothing if one refuses. Optional full environment test
+(first debug build takes minutes; debug builds only on D:):
+
+```powershell
+$env:CARGO_TARGET_DIR = "D:\slwlab-target-debug"
+cargo test -p slwlab-sender --lib preflight::tests::on_this_machine -- --ignored --nocapture
+Remove-Item Env:CARGO_TARGET_DIR
+```
+
+**4. Start** (this window stays open for 8 hours; do not close it):
+
+```powershell
+$PRE = (git rev-parse 'prereg-v1^{commit}').Trim()
+$env:CONFIRM_LIVE = 'yes'
+& $S session --mode measure --hours 8 --max-spend-lamports 9500000 --prereg $PRE --allocation $F
+Remove-Item Env:CONFIRM_LIVE
+```
+
+Expect `starting measure session <id> until <UTC end> (sender 903525409e18)`. STOP: any refusal; nothing was sent.
+
+**5. Monitor** (read-only; paste into a SECOND window, repeat as often as you like; it reads the newest
+session in `data\sessions`):
+
+```powershell
+cd C:\Users\user\solana-leader-window-lab
+$sd = Get-ChildItem data\sessions -Directory | Sort-Object Name | Select-Object -Last 1
+$ss = Get-Content "$($sd.FullName)\session.json" -Raw | ConvertFrom-Json
+$ci = [Globalization.CultureInfo]::InvariantCulture; $ad = [Globalization.DateTimeStyles]'AdjustToUniversal,AssumeUniversal'
+function U($s) { [DateTime]::Parse($s, $ci, $ad) }
+$now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); $t0 = [int64]$ss.start_unix; $t1 = [int64]$ss.end_unix; $cap = [int64]$ss.max_spend_lamports
+$el = [Math]::Min([Math]::Max($now - $t0, 0), $t1 - $t0); $line = [int64]($cap * $el / ($t1 - $t0))
+$purpose = if ($ss.mode -eq 'measure') { 'measure' } else { 'calibrate' }
+$res = Get-Content data\ledger.jsonl | ForEach-Object { $_ | ConvertFrom-Json } | Where-Object { $_.kind -eq 'reserve' -and $_.purpose -eq $purpose -and (U $_.ts) -ge (U $ss.start_utc) -and (U $_.ts) -le (U $ss.end_utc).AddMinutes(10) }
+$spent = ($res | Measure-Object amount -Sum).Sum; if (-not $spent) { $spent = 0 }
+"SESSION $($ss.id) mode=$($ss.mode) $($ss.start_utc) -> $($ss.end_utc)   now $([DateTime]::UtcNow.ToString('HH:mm:ss'))Z   elapsed $([Math]::Round($el/3600,2)) h"
+"SPEND   reserved $spent of cap $cap | pacing line now $line | ratio $([Math]::Round($spent / [Math]::Max($line,1), 2)) (1.00 = on the line; the planner stops above line + 1 window)"
+"WINDOWS per UTC hour (distinct windows with a reservation):"
+$res | Group-Object window_id | ForEach-Object { [pscustomobject]@{ h = (U ($_.Group[0].ts)).ToString('MM-dd HH') + 'Z'; lamports = ($_.Group | Measure-Object amount -Sum).Sum } } | Group-Object h | ForEach-Object { "  {0}  windows {1,3}  lamports {2,9}" -f $_.Name, $_.Count, ($_.Group | Measure-Object lamports -Sum).Sum }
+$ref = [Math]::Min($now, $t1); $bins = @(0, 0, 0, 0)
+$res | Group-Object window_id | ForEach-Object { $age = $ref - ([DateTimeOffset](U $_.Group[0].ts)).ToUnixTimeSeconds(); if ($age -ge 0 -and $age -lt 3600) { $bins[[int][Math]::Floor($age / 900)] += 1 } }
+"LAST 60 MIN in 15-min bins (newest first): $($bins -join ' ')   (a 0 inside a running session = a gap)"
+$ev = Get-Content "$($sd.FullName)\events.jsonl" | ForEach-Object { $_ | ConvertFrom-Json }
+"EVENTS  " + (($ev | Group-Object event | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join ' ')
+"LAST EVENT $(($ev | Select-Object -Last 1).event) at $(($ev | Select-Object -Last 1).ts) | last ledger entry $((Get-Content data\ledger.jsonl -Tail 1 | ConvertFrom-Json).ts) | heartbeat file written $((Get-Item "$($sd.FullName)\rtt.jsonl").LastWriteTime.ToUniversalTime().ToString('HH:mm:ss'))Z"
+$runs = Get-ChildItem data\logs -Directory -Filter 'live-*' | Where-Object { $_.Name -match '^live-(\d{8}T\d{6}Z)$' -and $Matches[1] -ge $ss.id -and (U ($Matches[1].Insert(13,':').Insert(11,':').Insert(6,'-').Insert(4,'-'))) -le (U $ss.end_utc).AddMinutes(10) }
+$skips = @{}; $cd = @(0, 0)
+foreach ($r in $runs) {
+  $pl = "$($r.FullName)\plan.jsonl"
+  if (Test-Path $pl) { Select-String -Path $pl -SimpleMatch '"skip"' | ForEach-Object { $k = ($_.Line | ConvertFrom-Json).skip.reason -replace '\d+', '#'; $skips[$k] += 1 } }
+  $sj = "$($r.FullName)\summary.json"
+  if (Test-Path $sj) { $s = Get-Content $sj -Raw | ConvertFrom-Json; $cd[0] += [int]$s.conn_dead_reconnected; $cd[1] += [int]$s.conn_dead_skipped }
+}
+"WORKER RUNS $(@($runs).Count) (more than 1 per few hours = restarts) | restart pauses: $(@($ev | Where-Object { $_.event -eq 'worker_down' }).Count)"
+"DEAD CONNECTION  conn_dead events $(@($ev | Where-Object { $_.event -eq 'conn_dead' }).Count) | finished runs: reconnected $($cd[0]), skipped $($cd[1])"
+"SKIP REASONS (plan.jsonl):"; $skips.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 8 | ForEach-Object { "  {0,6}  {1}" -f $_.Value, $_.Key }
+"DISK  C: free {0:N1} GB   D: free {1:N1} GB" -f ((Get-PSDrive C).Free / 1GB), ((Get-PSDrive D -ErrorAction SilentlyContinue).Free / 1GB)
+```
+
+**6. First-hour check** (at start + 60 min, from the monitor output). All must hold:
+
+| What | Expect after 60 min | If not |
+|---|---|---|
+| SPEND ratio | 0.80 to 1.05 (reserved about 0.95M to 1.23M of the 1.19M line, which is 1/8 of 9.5M) | below 0.8 or above 1.05: do not intervene; read SKIP REASONS; above 1.05 means the pacing is not working: Ctrl+C once, S9 |
+| WINDOWS | about 30 to 45 windows in the first 60 minutes (add the first two UTC-hour lines pro rata), and every 15-min bin of `LAST 60 MIN` above 0 (typically 7 to 12) | fewer than 15, or a 0 bin: read SKIP REASONS; a 0 bin of 15 minutes is a gap, wait one more bin, then Ctrl+C once, S9 |
+| WORKER RUNS | 1 | 2 or more and `worker_down` events: a restart loop; Ctrl+C once, S9 |
+| DEAD CONNECTION | `conn_dead` events 0 to a few; a few `skipped` or `reconnected` per hour at most | dozens: network or peer problem; keep running, note it, tell Claude |
+| LAST EVENT / heartbeat | within 2 minutes of now | older: the PC slept or the worker hangs; check, do not reset blindly |
+| SKIP REASONS | `pacing: # + # > #` and `too close to previous planned window` dominate | `payer pool exhausted`, `QUIC connect failed`, `lead # ms < min #` in the hundreds: stop and tell Claude |
+| DISK | C: free above 5 GB | below 5 GB: the session stops itself at 1 GB; free space or stop |
+
+Do not run `--reset` or start a second session to fix a warning: a live session is never resumed
+(S9). Ctrl+C once in the session window, then S9.
+
 ## S8) Afterwards
 
 All commands from the repo root. `$POST` is the closing snapshot path from S4 (set it again
 if the window was closed: `$POST = 'data\snapshots\balances_<...>.json'`).
+
+For a confirmatory session (S7b) use `data\manifest.jsonl` where this section says
+`data\exploratory\calibration_manifest.jsonl`, and `$POST` of S7b step 2.
 
 1. Resolve anything still open (idempotent; a session already did it once):
 

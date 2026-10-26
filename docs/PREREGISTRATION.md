@@ -1,4 +1,4 @@
-# Pre-registration (DRAFT 2, 2026-10-26, not yet frozen)
+# Pre-registration v1 (text of 2026-10-26; frozen by the git tag `prereg-v1`, which points at the commit holding this text)
 
 ## 0. What is pre-registered, and when it is frozen
 
@@ -27,7 +27,7 @@ Timeline (enforced where code can enforce it):
    run without `--prereg <commit>` and `--allocation <file>`. After the tag nothing changes.
    Any later deviation is labeled in REPORT.md.
 
-## 0b. Operator decisions of 2026-10-26 (DRAFT; they take effect with `prereg-v1`)
+## 0b. Operator decisions of 2026-10-26 (they take effect with `prereg-v1`)
 
 1. **Frozen simulation set.** (a) The pre-registered preset grid, unchanged: low / medium / high,
    medium primary (p_land 0.90, clock sd 100 ms, offset −100 ms, jitter 1.0 ms). (b) A declared
@@ -45,15 +45,21 @@ Timeline (enforced where code can enforce it):
    The first estimate (−200) was an Arm F artifact (Arm F is sent 200 ms earlier), so it is not
    used. −300 is registered as the burst offset of the calibrated scenario. The preset grid keeps −100. All
    calibration data stays EXPLORATORY.
-4. **Which allocation the sender reads is not changed by this draft.** `--allocation` reads the
-   top-level (preset medium) allocation of `alloc_v2.json`; the calibrated one
-   (`scenarios.calibrated.allocation`) would have to be written to a file of its own. Its quotas
-   are smaller (e.g. Agave Arm P W = 25 instead of 40) and cost less (30.1M against 37.7M
-   lamports). In 32 hours the preset quotas cannot be met for `5Us18hLZ` and the calibrated ones
-   can (§8). [OPEN: quotas follow the calibrated allocation (now recommended: feasible in 32 h;
-   half-strength power ≥ 0.90 in the calibrated scenario and the Wi-Fi sensitivity; its power at
-   the preset low and high levels was not computed) or the preset one (larger W, not feasible
-   for `5Us18hLZ`).]
+4. **The allocation the sender reads: the calibrated one (decided 2026-10-26).** Scenario
+   `calibrated` of `alloc_v2.json` without BamFiredancer, written as four per-session files with
+   cumulative quotas (§8, with their SHA-256). The sender does not read the preset allocation.
+   Reasons: it is feasible in 32 hours for `5Us18hLZ` where the preset one is not (§8), and it
+   plans 28,053,630 lamports against 37.7M. **Price:** its power assumes the nuisance is near the
+   calibrated point. Half-strength power of its cells, simulated at the preset levels
+   (`analysis/sim/results/calibrated_alloc_power.txt`, 300 replications, usable windows =
+   attempted × the level's usable rate): minimum 0.66 at preset low, **0.63 at preset medium** (25
+   of 31 cells below 0.90) and **0.24 at preset high** (all 31 below); the pooled Agave cells
+   (stratified) 0.91 at low and medium and 0.48 at high. At the calibrated point itself the
+   minimum is 0.89 (2 cells at 0.89–0.90). Verdict thresholds and ceilings are still read at the
+   preset medium level (§7); a cell whose verdict class differs under the calibrated scenario or
+   the Wi-Fi sensitivity is marked (§6d). Outcome-blind supplementary sessions (§8) are the
+   remedy for fewer usable windows than registered; they do not restore power that a worse
+   nuisance level would have needed.
 5. **Option B** (§8), **BamFiredancer dropped** (§8, §12), **gap rules** (§5b) and the
    **skipped-slot rule** (§9) are decided and written below.
 
@@ -282,9 +288,13 @@ the same pipeline). Simulated null false-positive rate: see above.
     the selection snapshot has no such validator, and its quota cannot be filled.
   - If the total is over budget, bonus cells are trimmed one grid step at a time, most
     expensive first. Required cells are never trimmed.
-  - Provisional result: Agave-family P and R need W = 40, C W = 15, X W = 20, F W = 30.
-    Firedancer-family cells need W = 15. One bonus cell is trimmed (HarmonicAgave P: W = 30,
-    power 0.85). Bonus F does not fit. Confirmatory total ≈ 37.7M lamports.
+  - *Registered allocation* (decided 2026-10-26, §0b item 4): scenario `calibrated` of
+    `alloc_v2.json`, 886 attempted windows, 28,053,630 lamports of the 38,000,000 (BamFiredancer's
+    2,004,384 left out; spare 9,946,370). Per validator and arm, attempted windows: Agave and
+    JitoAgave P 26, X 21, R 21, C 16, F 21; Firedancer P/X/C 16, R 11, F 16 (Firedancer-family
+    cells need W = 15, R W = 10); bonus groups P, X, C, F as in `alloc_v2.json`
+    (`scenarios.calibrated`). The preset
+    allocation (P 40, C 15, X 20, F 30, 37.7M) is kept as a reference result only.
   - The sender plans by these quotas (`--allocation`, `plan_quota` = attempted windows per
     validator, i.e. W / P(≥ 5 of 6 land)).
 - **Option B: vanilla Agave is pooled at analysis level (decided 2026-10-26; `docs/SESSIONS.md`).**
@@ -345,12 +355,46 @@ the same pipeline). Simulated null false-positive rate: see above.
     allocation (166 per validator), `5Us18hLZ` can supply only 99–151, so its quota is not met.
   - *Spreading over sessions.* The planner has no per-session quota; left alone, `7QQGNm3p`
     would fill its quota in the first one or two sessions. Each session therefore gets its own
-    allocation file with cumulative quotas (¼, ½, ¾, 1 of each quota, rounded up).
-    `prior_plan_state` counts the windows of earlier sessions from the ledger, so a shortfall
-    carries over and no planner change is needed. [OPEN: the small script that writes these
-    files is not written yet.]
-- Minimum per cell: ≥ 30 usable windows over ≥ 3 UTC dates. For the pooled Agave cells this is
-  the pool total; there is no per-validator minimum inside the pool.
+    allocation file with cumulative quotas (see "Per-session allocation files" below); no
+    planner change is needed.
+- Minimum per validator: ≥ 30 usable windows over ≥ 3 UTC dates (all arms together). It also
+  holds for each validator inside the pooled Agave stratum, where each tested cell in addition
+  needs ≥ 5 usable windows per unit (§8, pooled test).
+- **Per-session allocation files.** The planner has no per-session quota, so each session gets
+  a file with cumulative quotas, `ceil(quota × k / 4)` per stratum and arm, written by
+  `python -m slwlab.session_alloc` (deterministic, LF line ends; `.gitattributes` keeps them
+  unconverted). `runner::prior_plan_state` counts the windows attempted in earlier sessions from
+  the spend ledger and each run's `plan.jsonl`, so what a session leaves unfilled is asked again
+  by the next file, and the last file holds the full quota. `--allocation` names the file; the
+  sender records the path and `--prereg` string as given in `session.json`, it does not hash the
+  file or check the commit, so the hashes below and the pre-start check of RUNBOOK_MAINNET S7b
+  are the check.
+
+  | Session | File (`analysis/sim/results/sessions/`) | SHA-256 |
+  |---|---|---|
+  | 1 | `alloc_calibrated_session1of4.json` | `50e5dc55895929a0618f8fc3bfebff1402ce82d7892b34997b4456e4b408f5af` |
+  | 2 | `alloc_calibrated_session2of4.json` | `4e2b2c4934d4c769f1fd3ae70c9b419853c8ea4339855de324f77585ffc6adff` |
+  | 3 | `alloc_calibrated_session3of4.json` | `7dbdab5def178f34d4c96a09a31c76f2f812349fee2f19cd6046d8796792d1f3` |
+  | 4 | `alloc_calibrated_session4of4.json` | `d6a663ac94bd5dd76afd46a2d0a242f0447014a378077a281c6217e1c31959e8` |
+
+  Cumulative planned cost: 7,569,190 / 14,346,268 / 21,344,952 / 28,053,630 lamports. Each
+  session is run with `--max-spend-lamports 9,500,000` (38,000,000 / 4), paced along the straight
+  line (planner `Pace`): a session needs about 80% of its cap, so the cap is slack, not a target.
+- **Supplementary sessions (outcome-blind).** After each session, and after the fourth, usable
+  windows (§9) and UTC dates are counted per validator and arm. A cell is in deficit if it has
+  fewer usable windows than its registered target (the `W_usable_per_validator` of the
+  allocation, summed over the pool for pooled Agave), or a validator has fewer than 30 usable
+  windows or fewer than 3 UTC dates once the planned sessions are done. While a deficit exists
+  and confirmatory budget remains, a supplementary session runs on a spare day with the same
+  mechanism: the same binary, `--mode measure`, a paced cap from what is left, and an allocation
+  file whose cumulative quota for the deficient cells is raised by deficit / 0.991 (the
+  registered usable rate), rounded up. It stops when every cell is filled or the 38,000,000 are
+  used. **The decision uses only counts of usable windows and dates.** It never uses tau,
+  p-values, ranks, verdicts or which rule wins. Budget: the spare 9,946,370 buys about 314 more
+  windows (35% of the 886 planned), enough if the usable rate turns out as low as about 0.73
+  (planned 0.99; preset medium 0.89), not at the preset-high 0.53. [OPEN: the script that writes
+  the supplementary allocation file from the counts is not written; it is not needed before the
+  planned sessions are done.]
 - **Budgets** (`limits.rs`): calibration ≤ 5,000,000; confirmatory ≤ 38,000,000;
   funding/sweep/retry reserve ≤ 5,000,000; total ≤ 48,000,000 lamports, under the
   50,000,000 hard ceiling. Funding and sweep fees count as spend. Locked rent does not.

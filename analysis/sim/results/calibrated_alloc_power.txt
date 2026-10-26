@@ -1,0 +1,39 @@
+calibrated allocation, 31 rows without BamFiredancer, half-strength power, 300 replications, seed 20261026
+
+== preset low: usable rate 0.886
+  per-validator minimum 0.663 (Firedancer/R, attempted 11, usable 9); rows below 0.90: 22 of 31
+  pooled Agave (stratified) minimum 0.913 (arm R, usable 18 per validator)
+    lowest: Firedancer/R attempted 11 usable 9 power 0.663
+    lowest: JitoAgave/R attempted 21 usable 18 power 0.693
+    lowest: JitoAgave/P attempted 26 usable 23 power 0.703
+    lowest: Agave/R attempted 21 usable 18 power 0.707
+    lowest: Rakurai/P attempted 26 usable 23 power 0.710
+
+== preset medium: usable rate 0.886
+  per-validator minimum 0.627 (JitoAgave/R, attempted 21, usable 18); rows below 0.90: 25 of 31
+  pooled Agave (stratified) minimum 0.913 (arm R, usable 18 per validator)
+    lowest: JitoAgave/R attempted 21 usable 18 power 0.627
+    lowest: Agave/P attempted 26 usable 23 power 0.697
+    lowest: JitoAgave/P attempted 26 usable 23 power 0.710
+    lowest: Agave/R attempted 21 usable 18 power 0.717
+    lowest: HarmonicAgave/P attempted 26 usable 23 power 0.727
+
+== preset high: usable rate 0.534
+  per-validator minimum 0.237 (Agave/R, attempted 21, usable 11); rows below 0.90: 31 of 31
+  pooled Agave (stratified) minimum 0.483 (arm R, usable 11 per validator)
+    lowest: Agave/R attempted 21 usable 11 power 0.237
+    lowest: JitoAgave/P attempted 26 usable 13 power 0.257
+    lowest: JitoAgave/R attempted 21 usable 11 power 0.260
+    lowest: Rakurai/P attempted 26 usable 13 power 0.267
+    lowest: BamAgave/P attempted 26 usable 13 power 0.270
+
+== calibrated (reference): usable rate 0.991
+  per-validator minimum 0.893 (BamAgave/X, attempted 21, usable 20); rows below 0.90: 2 of 31
+  pooled Agave (stratified) minimum 0.993 (arm R, usable 20 per validator)
+    lowest: BamAgave/X attempted 21 usable 20 power 0.893
+    lowest: Firedancer/R attempted 11 usable 10 power 0.897
+    lowest: Agave/X attempted 21 usable 20 power 0.903
+    lowest: HarmonicFiredancer/X attempted 16 usable 15 power 0.903
+    lowest: JitoAgave/X attempted 21 usable 20 power 0.910
+
+SUMMARY {"preset low": {"min_per_validator": 0.6633333333333333, "min_pooled_agave": 0.9133333333333333, "rows_below_0.9": 22, "rows": 31}, "preset medium": {"min_per_validator": 0.6266666666666667, "min_pooled_agave": 0.9133333333333333, "rows_below_0.9": 25, "rows": 31}, "preset high": {"min_per_validator": 0.23666666666666666, "min_pooled_agave": 0.48333333333333334, "rows_below_0.9": 31, "rows": 31}, "calibrated (reference)": {"min_per_validator": 0.8933333333333333, "min_pooled_agave": 0.9933333333333333, "rows_below_0.9": 2, "rows": 31}}
