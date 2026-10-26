@@ -18,6 +18,11 @@ SELF = pathlib.Path(__file__).resolve()
 SCRIPT_SUFFIXES = {".ps1", ".psm1", ".psd1", ".cmd", ".bat", ".vbs", ".js", ".sh", ".py", ".yml", ".yaml"}
 SCRIPT_NAMES = {"Makefile", "Dockerfile"}
 WRAPPER_SUFFIXES = {".ps1", ".psm1", ".cmd", ".bat"}
+# Read-only viewers of local files: allowed to be longer than one line, but never to send, start
+# processes or touch the network.
+READ_ONLY_VIEWERS = {"scripts/monitor.ps1"}
+VIEWER_FORBIDDEN = ["sender", "confirm_live", "start-process", "invoke-webrequest", "invoke-restmethod",
+                    "set-content", "out-file", "remove-item", "add-content", "new-item", "git "]
 
 # Built from parts so that this file does not match itself in other scanners.
 FLAGGED = [
@@ -64,11 +69,19 @@ def test_wrappers_are_one_line_calls_of_the_binary():
     for p in tracked():
         if p.suffix.lower() not in WRAPPER_SUFFIXES:
             continue
+        if p.relative_to(ROOT).as_posix() in READ_ONLY_VIEWERS:
+            continue
         lines = [l.strip() for l in p.read_text(encoding="utf-8").splitlines()
                  if l.strip() and not l.strip().startswith(("#", "::", "rem ", "REM ", "@echo off"))]
         if len(lines) != 1 or "sender" not in lines[0]:
             bad.append(str(p.relative_to(ROOT)))
     assert bad == [], bad
+
+
+def test_read_only_viewers_stay_read_only():
+    for rel in READ_ONLY_VIEWERS:
+        low = (ROOT / rel).read_text(encoding="utf-8").lower()
+        assert [w for w in VIEWER_FORBIDDEN if w in low] == [], rel
 
 
 def test_the_check_catches_each_pattern():
