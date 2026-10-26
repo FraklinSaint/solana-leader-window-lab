@@ -368,7 +368,9 @@ the same pipeline). Simulated null false-positive rate: see above.
     included (their usable txs, same-slot pairs only, §5b) and labels any cell whose verdict
     class changes.
   - *Status.* Implemented and unit-tested on synthetic data. Not yet run on mainnet data: the
-    existing calibration runs have no lists (check K lists them and does not fail them).
+    existing calibration runs have no lists (check K lists them and does not fail them). The
+    comparison of the two verdict tables (with and without these windows) is done by running
+    `analyze` twice and comparing; there is no automatic label yet.
 
 ## 10. Sensitivity analyses
 
