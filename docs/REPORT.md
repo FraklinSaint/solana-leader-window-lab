@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | `c34697f5adc9b94a4acb39707a4659c95338cad1fc34018c9be0ffcda9fa20d2` | 936 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `d7666d5a247d330c7791060427352c040ad0a52a5e8eda6c6f0e091756bf453e` | 122 |
+| `docs/LOGBOOK.md` | `48a988c5f38b9be73bcc66cbb706de002b251fe05dd8e05522bca1684546616d` | 123 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -640,4 +640,4 @@ Counts: failure 18, surprise 27, rate limit 1, env 2, limitation 2, correction 3
 | 2026-10-27T08:30:00Z | 6 | surprise | DEVIATION / gap: the `rpc-helius-staked` delivery check did not run in session 1 (0 of 1,128 txs; none in the calibration either, 0 manifest lines on that path). PREREGISTRATION §1 and §9 say it "is reported as a landing comparison with QUIC only", but no parameter k is registered and nothing makes it mandatory. It is off by default (`--rpc-every` of `sender live`, default None) and `sender session` starts its workers as `live --purpose measure` without it (`session.rs`), so a session cannot enable it. The §9 landing comparison QUIC vs RPC therefore has no data from session 1. No code changed; whether to run it in later sessions, or to state in PREREGISTRATION that it is dropped, is the operator's decision. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: 05cd57a2490af2acef21ddce43e8be80e3d1964ec5a5c8bd3d940494f2279086 -->
+<!-- report-sha256: e1e93d941785b9fa2c2d6c7e489fabbb029cbb2a3bf98208261dfa5aeb6601a0 -->

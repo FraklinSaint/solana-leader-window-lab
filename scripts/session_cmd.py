@@ -93,7 +93,12 @@ def committed(data: pathlib.Path, purpose: str = "measure") -> int:
     return used + sum(a for p, a in open_.values() if p == purpose)
 
 
-def compute(repo: pathlib.Path, data: pathlib.Path, k: int, hours: float, sessions: int = 4) -> dict:
+def compute(repo: pathlib.Path, data: pathlib.Path, k: int, hours: float, sessions: int = 4,
+            hours_available: float | None = None) -> dict:
+    """`hours_available`: hours in which the remaining quota must be done, over all sessions still to
+    run (default BASE_HOURS = 8, the length of one planned session). A session of `hours` then gets
+    the share hours / hours_available of the remaining cost."""
+    avail = BASE_HOURS if hours_available is None else hours_available
     alloc = json.loads(alloc_path(repo, k, sessions).read_text(encoding="utf-8"))
     quota = alloc["allocation"]["plan_quota"]
     spend = alloc["allocation"]["spend_per_window_lamports"]
@@ -108,7 +113,7 @@ def compute(repo: pathlib.Path, data: pathlib.Path, k: int, hours: float, sessio
             remaining_windows += left
             remaining_cost += left * spend[arm]
             by_stratum[s] = by_stratum.get(s, 0) + left
-    cap = math.ceil(remaining_cost * MARGIN * hours / BASE_HOURS)
+    cap = math.ceil(remaining_cost * MARGIN * hours / avail)
     # what this session's own share is: cost of (this file - the previous file); the rest is carry-over
     increment = remaining_cost
     if k > 1:
@@ -120,7 +125,7 @@ def compute(repo: pathlib.Path, data: pathlib.Path, k: int, hours: float, sessio
     return {
         "carry_over_cost": round(remaining_cost - increment), "line_per_hour": round(line_per_hour),
         "windows_per_hour": round(line_per_hour / mean_fee, 1) if mean_fee else 0.0,
-        "session": k, "sessions": sessions, "hours": hours, "allocation_file": alloc_path(repo, k, sessions),
+        "session": k, "sessions": sessions, "hours": hours, "hours_available": avail, "allocation_file": alloc_path(repo, k, sessions),
         "selection": newest_selection(data).name, "windows_done": sum(done.values()),
         "remaining_windows": remaining_windows, "remaining_cost": round(remaining_cost),
         "remaining_by_stratum": by_stratum, "cap": cap,
@@ -133,6 +138,9 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--k", type=int, required=True, help="session number 1..4")
     ap.add_argument("--hours", type=float, default=8.0, help="session length, at most 10")
+    ap.add_argument("--hours-available", type=float, default=None,
+                    help="hours left for ALL remaining sessions of the quota (default 8): cap = remaining cost x "
+                         "1.05 x HOURS / this. Outcome-blind; chosen from the hours the PC can run.")
     ap.add_argument("--sessions", type=int, default=4)
     ap.add_argument("--data", default=str(ROOT / "data"))
     ap.add_argument("--print", dest="what", choices=["all", "cap", "target"], default="all",
@@ -141,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     if not 1 <= a.k <= a.sessions or not 0 < a.hours <= 10:
         print("--k must be 1..4 and --hours in (0, 10]", file=sys.stderr)
         return 2
-    r = compute(ROOT, pathlib.Path(a.data), a.k, a.hours, a.sessions)
+    r = compute(ROOT, pathlib.Path(a.data), a.k, a.hours, a.sessions, a.hours_available)
     if a.what != "all":
         print(r["cap"] if a.what == "cap" else r["payer_target"])
         return 0
@@ -150,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"windows attempted so far (measure): {r['windows_done']}")
     print(f"remaining quota of this file: {r['remaining_windows']} windows, {r['remaining_cost']:,} lamports  {r['remaining_by_stratum']}")
     print(f"  of which carried over from earlier sessions: {r['carry_over_cost']:,} lamports")
-    print(f"cap = ceil({r['remaining_cost']:,} x {MARGIN} x {a.hours:g}/{BASE_HOURS}) = {r['cap']:,} lamports")
+    print(f"cap = ceil({r['remaining_cost']:,} x {MARGIN} x {a.hours:g}/{r['hours_available']:g}) = {r['cap']:,} lamports")
     print(f"payer target for this cap: {RENT_MIN:,} + {math.ceil(r['cap'] / PAYERS):,} + {WORST_TX_FEE:,} = {r['payer_target']:,}")
     print(f"confirmatory budget: {r['committed_measure']:,} committed, {r['budget_left']:,} left")
     if r["cap"] > r["budget_left"]:
@@ -159,7 +167,8 @@ def main(argv: list[str] | None = None) -> int:
         print("WARNING: nothing is left of this file's quota; the session would plan no window.", file=sys.stderr)
     h = r["windows_per_hour"]
     print(f"pacing line: {r['line_per_hour']:,} lamports per hour = about {h:g} windows per hour; "
-          f"the quota is used up after about {a.hours / MARGIN:.1f} of {a.hours:g} h")
+          + (f"the quota is used up after about {a.hours / MARGIN:.1f} of {a.hours:g} h" if a.hours >= r["hours_available"]
+             else f"this session takes {a.hours:g} of the {r['hours_available']:g} h available; the rest stays for the next session"))
     print(f"FIRST-HOUR CHECK (monitor ratio 0.80 to 1.05): reserved {round(0.8 * r['line_per_hour']):,} to "
           f"{round(1.05 * r['line_per_hour']):,} lamports, about {math.floor(0.8 * h)} to {math.ceil(1.05 * h)} windows, "
           f"every 15-min bin at least {max(math.floor(h / 4 / 2.5), 1)} (expected about {h / 4:.1f})")

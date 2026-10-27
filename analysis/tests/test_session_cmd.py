@@ -104,3 +104,21 @@ def test_print_cap_is_a_bare_integer(tmp_path, capsys):
     assert sc.main(["--k", "1", "--hours", "8", "--print", "cap", "--data", str(_data(tmp_path))]) == 0
     assert capsys.readouterr().out.strip() == "7947650"
     assert sc.main(["--k", "5"]) == 2
+
+
+def test_hours_available_scales_the_cap_to_the_hours_that_are_left(tmp_path):
+    """Session 2a of 2026-10-27: 3.5 h of the 6 h available (real session-1 data, copied so that
+    later sessions in data/ do not change the expected numbers)."""
+    run = "live-20261026T220348Z"
+    d = _data(tmp_path)
+    (d / "logs" / run).mkdir(parents=True)
+    shutil.copy(ROOT / "data" / "logs" / run / "plan.jsonl", d / "logs" / run / "plan.jsonl")
+    led = [l for l in (ROOT / "data" / "ledger.jsonl").read_text(encoding="utf-8").splitlines() if f'"run_id":"{run}"' in l]
+    (d / "ledger.jsonl").write_text("".join(l + chr(10) for l in led), encoding="utf-8")
+    r = sc.compute(ROOT, d, 2, 3.5, hours_available=6)
+    assert r["remaining_windows"] == 265 and r["remaining_cost"] == 8_399_576
+    assert r["cap"] == 5_144_741 and r["payer_target"] == 817_614
+    # default unchanged: one 8 h session
+    assert sc.compute(ROOT, d, 2, 3.5)["cap"] == -(-8_399_576 * 105 * 35 // (100 * 8 * 10))
+    # the line per hour is the one needed for the quota (1.05 x cost / hours available)
+    assert abs(r["line_per_hour"] - 8_399_576 * 1.05 / 6) <= 1
