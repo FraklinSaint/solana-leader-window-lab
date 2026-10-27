@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | `c34697f5adc9b94a4acb39707a4659c95338cad1fc34018c9be0ffcda9fa20d2` | 936 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `4cf2f502fb08eeb50f3631dfd0f5ff3cc4f91ab60daf6be4985e47f1bbd1e83e` | 118 |
+| `docs/LOGBOOK.md` | `d7666d5a247d330c7791060427352c040ad0a52a5e8eda6c6f0e091756bf453e` | 122 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -581,7 +581,7 @@ Confirmatory total 37,743,052 lamports (budget 38,000,000).
 
 Built from docs/LOGBOOK.md (kinds: failure, surprise, rate limit, env, limitation, correction, missed window). Times are UTC.
 
-Counts: failure 18, surprise 26, rate limit 1, env 2, limitation 2, correction 3
+Counts: failure 18, surprise 27, rate limit 1, env 2, limitation 2, correction 3
 
 | UTC | phase | kind | entry |
 |---|---|---|---|
@@ -637,6 +637,7 @@ Counts: failure 18, surprise 26, rate limit 1, env 2, limitation 2, correction 3
 | 2026-10-27T07:44:00Z | 6 | surprise | Network path differs from the calibration: the session ran on Wi-Fi 2.4 GHz channel 1 (707 samples, 1 access point, 0 changes, 802.11n, signal quality min 92 / median 100), the calibration on channel 13. Same adapter, same AP hash `ac18fd41`. Recorded as a path difference for the Wi-Fi limitation (PREREGISTRATION §6d). |
 | 2026-10-27T07:44:00Z | 6 | surprise | Pre-flight warning: only 1.4 GiB free RAM (1,449,746,432 of 8,539,340,800 bytes). The session ran to the end without a worker restart. |
 | 2026-10-27T07:44:00Z | 6 | failure | Two unexpected power losses of the PC on 2026-10-26, at 15:57 and 18:41 local time (UTC+2: 13:57Z and 16:41Z), both before the session; no session or send was running. Nothing was lost in the repository as far as seen. |
+| 2026-10-27T08:30:00Z | 6 | surprise | DEVIATION / gap: the `rpc-helius-staked` delivery check did not run in session 1 (0 of 1,128 txs; none in the calibration either, 0 manifest lines on that path). PREREGISTRATION §1 and §9 say it "is reported as a landing comparison with QUIC only", but no parameter k is registered and nothing makes it mandatory. It is off by default (`--rpc-every` of `sender live`, default None) and `sender session` starts its workers as `live --purpose measure` without it (`session.rs`), so a session cannot enable it. The §9 landing comparison QUIC vs RPC therefore has no data from session 1. No code changed; whether to run it in later sessions, or to state in PREREGISTRATION that it is dropped, is the operator's decision. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: 4654c6100091ee50d2cacd51c7863ae89dfad353cbe43a1fc58aaa1464bf61f9 -->
+<!-- report-sha256: 05cd57a2490af2acef21ddce43e8be80e3d1964ec5a5c8bd3d940494f2279086 -->
