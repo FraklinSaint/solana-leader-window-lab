@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | `c34697f5adc9b94a4acb39707a4659c95338cad1fc34018c9be0ffcda9fa20d2` | 936 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `ba0040c6ef415501083be6888290f16404d0fa42f5fe2d8e74db8abe3321ec3b` | 117 |
+| `docs/LOGBOOK.md` | `4cf2f502fb08eeb50f3631dfd0f5ff3cc4f91ab60daf6be4985e47f1bbd1e83e` | 118 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -639,4 +639,4 @@ Counts: failure 18, surprise 26, rate limit 1, env 2, limitation 2, correction 3
 | 2026-10-27T07:44:00Z | 6 | failure | Two unexpected power losses of the PC on 2026-10-26, at 15:57 and 18:41 local time (UTC+2: 13:57Z and 16:41Z), both before the session; no session or send was running. Nothing was lost in the repository as far as seen. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: 0ef4076c8780a19011468ebb3437dfc8323e85db482f345e2b95d42bb3051f73 -->
+<!-- report-sha256: 4654c6100091ee50d2cacd51c7863ae89dfad353cbe43a1fc58aaa1464bf61f9 -->
