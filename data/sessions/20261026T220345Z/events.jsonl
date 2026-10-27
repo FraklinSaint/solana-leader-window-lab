@@ -1,0 +1,7 @@
+{"end":"2026-10-27T04:03:46Z","event":"start","mode":"measure","ts":"2026-10-26T22:03:46Z"}
+{"active":true,"blocks":"idle sleep only; not a sleep or sign-out requested by the user or Windows","event":"keep_awake","request":"ES_CONTINUOUS | ES_SYSTEM_REQUIRED","ts":"2026-10-26T22:03:47Z"}
+{"event":"run_start","left_secs":21599,"run":1,"ts":"2026-10-26T22:03:47Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-26T22:03:47Z","ran_secs":21479,"run":1,"to":"2026-10-27T04:01:46Z","ts":"2026-10-27T04:01:46Z"}
+{"cap_left":14046,"event":"cap_reached","ts":"2026-10-27T04:01:46Z","window_cost_bound":39600}
+{"detail":"end of session","event":"collect","exit_code":0,"ts":"2026-10-27T04:01:48Z"}
+{"covered_secs":21479,"event":"done","ts":"2026-10-27T04:01:48Z"}

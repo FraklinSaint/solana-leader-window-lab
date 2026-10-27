@@ -11,21 +11,302 @@ SHA-256 of the LF-normalized file content.
 
 | file | sha256 | lines |
 |---|---|---|
-| `data/manifest.jsonl` | missing | 0 |
+| `data/manifest.jsonl` | `88c933e23ed4c01625e63a0d90b9eff3b2108fb480f5f3f97abf15b53c67c1cb` | 1128 |
 | `data/exploratory/calibration_manifest.jsonl` | `c34697f5adc9b94a4acb39707a4659c95338cad1fc34018c9be0ffcda9fa20d2` | 936 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `9003ca2a4286a65d2d2846689bb547766dfe7a077786ac21f1f863d745021244` | 108 |
+| `docs/LOGBOOK.md` | `ba0040c6ef415501083be6888290f16404d0fa42f5fe2d8e74db8abe3321ec3b` | 117 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
 ## MEASUREMENT: confirmatory results
 
-**NO DATA YET.** `data/manifest.jsonl` has no mainnet, post-Alpenglow measurement lines.
+Verdicts follow PREREGISTRATION §6–§9. tau_norm is the measured mean Kendall tau divided by
+the SIMULATION ceiling of its cell (see the SIMULATION section). `–` means not identifiable.
+UTC dates are the block times of the usable windows.
+
+| stratum | validator | arm | usable/sent windows | landing | top rule | mean tau | tau_norm | p (Holm) | verdicts | UTC dates |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Agave | `5Us18hLZ…` | C | 1/1 | 1.00 | R_PRICE | 1.00 | 1.16 | 0.0062 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: SOFT_RULE, R_FBA50: SOFT_RULE | 2026-10-26 |
+| Agave | `5Us18hLZ…` | F | 2/2 | 1.00 | TIE_SIGNATURE | 0.27 | – | 0.6986 | TIE_ARRIVAL_FIFO: INCONCLUSIVE, TIE_ARRIVAL_LIFO: INCONCLUSIVE, TIE_SIGNATURE: INCONCLUSIVE, TIE_PAYER: INCONCLUSIVE | 2026-10-27 |
+| Agave | `5Us18hLZ…` | P | 2/2 | 1.00 | R_PRICE | 0.73 | 1.72 | 0.0087 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-27 |
+| Agave | `5Us18hLZ…` | R | 1/1 | 1.00 | R_RATIO_AGAVE | 0.73 | 1.79 | 0.1038 | R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE | 2026-10-26 |
+| Agave | `5Us18hLZ…` | X | 1/1 | 1.00 | R_PRICE | 0.47 | – | 0.3904 | R_PRICE: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-26 |
+| Agave | `7QQGNm3p…` | C | 2/2 | 1.00 | R_FIFO | 0.53 | – | 0.1341 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-27 |
+| Agave | `7QQGNm3p…` | F | 2/2 | 1.00 | TIE_ARRIVAL_FIFO | 0.40 | – | 0.2884 | TIE_ARRIVAL_FIFO: INCONCLUSIVE, TIE_ARRIVAL_LIFO: INCONCLUSIVE, TIE_SIGNATURE: INCONCLUSIVE, TIE_PAYER: INCONCLUSIVE | 2026-10-27 |
+| Agave | `7QQGNm3p…` | P | 3/3 | 1.00 | R_FIFO | 0.38 | – | 0.2463 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-27 |
+| Agave | `7QQGNm3p…` | R | 2/2 | 1.00 | R_FIFO | 0.33 | – | 0.5004 | R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE | 2026-10-27 |
+| Agave | `7QQGNm3p…` | X | 2/2 | 1.00 | R_PRICE | 0.33 | – | 0.3586 | R_PRICE: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-27 |
+| BamAgave | `DRpbCBMx…` | C | 4/4 | 1.00 | R_PRICE | 1.00 | 1.16 | 0.0003 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| BamAgave | `DRpbCBMx…` | F | 6/6 | 1.00 | TIE_PAYER | 0.27 | – | 0.1436 | TIE_ARRIVAL_FIFO: INCONCLUSIVE, TIE_ARRIVAL_LIFO: INCONCLUSIVE, TIE_SIGNATURE: INCONCLUSIVE, TIE_PAYER: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| BamAgave | `DRpbCBMx…` | P | 6/7 | 0.86 | R_PRICE | 0.76 | 1.78 | 0.0003 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| BamAgave | `DRpbCBMx…` | X | 2/6 | 0.97 | R_FIFO | 0.20 | 0.29 | 0.7744 | R_PRICE: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-27 |
+| Firedancer | `9eGrDohd…` | C | 4/4 | 1.00 | R_PRICE | 0.67 | 0.77 | 0.0004 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| Firedancer | `9eGrDohd…` | F | 4/4 | 1.00 | TIE_ARRIVAL_LIFO | 0.50 | – | 0.0114 | TIE_ARRIVAL_FIFO: INCONCLUSIVE, TIE_ARRIVAL_LIFO: SOFT_RULE, TIE_SIGNATURE: SOFT_RULE, TIE_PAYER: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| Firedancer | `9eGrDohd…` | P | 4/4 | 1.00 | R_PRICE | 1.00 | 1.17 | 0.0003 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| Firedancer | `9eGrDohd…` | R | 3/3 | 1.00 | R_RATIO_AGAVE | 1.00 | 1.23 | 0.0002 | R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| Firedancer | `9eGrDohd…` | X | 3/4 | 1.00 | R_FBA50 | 0.56 | 0.68 | 0.0138 | R_PRICE: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| Firedancer | `EvnRmnMr…` | C | 0/4 | 0.00 | – | – | – | – | no usable windows | – |
+| Firedancer | `EvnRmnMr…` | F | 0/4 | 0.00 | – | – | – | – | no usable windows | – |
+| Firedancer | `EvnRmnMr…` | P | 0/4 | 0.00 | – | – | – | – | no usable windows | – |
+| Firedancer | `EvnRmnMr…` | R | 0/3 | 0.00 | – | – | – | – | no usable windows | – |
+| Firedancer | `EvnRmnMr…` | X | 0/4 | 0.00 | – | – | – | – | no usable windows | – |
+| HarmonicAgave | `Fd7btgyS…` | C | 4/4 | 1.00 | R_PRICE | 0.55 | 0.64 | 0.0075 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| HarmonicAgave | `Fd7btgyS…` | F | 6/6 | 1.00 | TIE_ARRIVAL_FIFO | 0.49 | – | 0.0014 | TIE_ARRIVAL_FIFO: SOFT_RULE, TIE_ARRIVAL_LIFO: INCONCLUSIVE, TIE_SIGNATURE: INCONCLUSIVE, TIE_PAYER: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| HarmonicAgave | `Fd7btgyS…` | P | 7/7 | 1.00 | R_FIFO | -0.05 | – | 1.0000 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| HarmonicAgave | `Fd7btgyS…` | X | 4/6 | 1.00 | R_FIFO | 0.17 | 0.24 | 0.6033 | R_PRICE: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| HarmonicFiredancer | `JUPiTERr…` | C | 4/4 | 1.00 | R_PRICE | 0.40 | 0.46 | 0.0828 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| HarmonicFiredancer | `JUPiTERr…` | F | 3/4 | 1.00 | TIE_SIGNATURE | 0.47 | – | 0.0594 | TIE_ARRIVAL_FIFO: INCONCLUSIVE, TIE_ARRIVAL_LIFO: INCONCLUSIVE, TIE_SIGNATURE: INCONCLUSIVE, TIE_PAYER: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| HarmonicFiredancer | `JUPiTERr…` | P | 4/4 | 1.00 | R_FIFO | 0.10 | – | 1.0000 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| HarmonicFiredancer | `JUPiTERr…` | X | 3/4 | 1.00 | R_FIFO | 0.56 | 0.73 | 0.0120 | R_PRICE: INCONCLUSIVE, R_FIFO: SOFT_RULE, R_FBA50: INCONCLUSIVE | 2026-10-26 |
+| JitoAgave | `E1r4Psq8…` | C | 4/4 | 1.00 | R_FIFO | 0.53 | – | 0.0075 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: SOFT_RULE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `E1r4Psq8…` | F | 6/6 | 1.00 | TIE_PAYER | 0.18 | – | 0.5048 | TIE_ARRIVAL_FIFO: INCONCLUSIVE, TIE_ARRIVAL_LIFO: INCONCLUSIVE, TIE_SIGNATURE: INCONCLUSIVE, TIE_PAYER: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `E1r4Psq8…` | P | 7/7 | 1.00 | R_FIFO | 0.21 | – | 0.4164 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `E1r4Psq8…` | R | 6/6 | 1.00 | R_RATIO_AGAVE | 0.16 | 0.38 | 0.6290 | R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `E1r4Psq8…` | X | 5/6 | 0.97 | R_FIFO | 0.39 | 0.56 | 0.0279 | R_PRICE: INCONCLUSIVE, R_FIFO: SOFT_RULE, R_FBA50: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `HEL1USMZ…` | C | 4/4 | 1.00 | R_PRICE | 0.58 | 0.68 | 0.0042 | R_PRICE: SOFT_RULE, R_TOTAL: SOFT_RULE, R_RATIO_AGAVE: SOFT_RULE, R_RATIO_FD: SOFT_RULE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `HEL1USMZ…` | F | 6/6 | 1.00 | TIE_ARRIVAL_FIFO | 0.49 | – | 0.0020 | TIE_ARRIVAL_FIFO: SOFT_RULE, TIE_ARRIVAL_LIFO: INCONCLUSIVE, TIE_SIGNATURE: INCONCLUSIVE, TIE_PAYER: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `HEL1USMZ…` | P | 7/7 | 1.00 | R_PRICE | 0.03 | 0.07 | 1.0000 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `HEL1USMZ…` | R | 6/6 | 1.00 | R_RATIO_AGAVE | 0.20 | 0.49 | 0.3802 | R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE | 2026-10-26, 2026-10-27 |
+| JitoAgave | `HEL1USMZ…` | X | 4/6 | 1.00 | R_FBA50 | 0.42 | 0.65 | 0.0379 | R_PRICE: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: SOFT_RULE | 2026-10-26, 2026-10-27 |
+| Rakurai | `ana2y2Yv…` | C | 2/2 | 1.00 | R_FIFO | 0.73 | – | 0.0096 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: SOFT_RULE, R_FBA50: INCONCLUSIVE | 2026-10-27 |
+| Rakurai | `ana2y2Yv…` | F | 3/3 | 1.00 | TIE_ARRIVAL_FIFO | 0.47 | – | 0.0556 | TIE_ARRIVAL_FIFO: INCONCLUSIVE, TIE_ARRIVAL_LIFO: INCONCLUSIVE, TIE_SIGNATURE: INCONCLUSIVE, TIE_PAYER: INCONCLUSIVE | 2026-10-27 |
+| Rakurai | `ana2y2Yv…` | P | 4/4 | 1.00 | R_PRICE | 0.33 | 0.78 | 0.2160 | R_PRICE: INCONCLUSIVE, R_TOTAL: INCONCLUSIVE, R_RATIO_AGAVE: INCONCLUSIVE, R_RATIO_FD: INCONCLUSIVE, R_FIFO: INCONCLUSIVE, R_FBA50: INCONCLUSIVE | 2026-10-27 |
+| Rakurai | `ana2y2Yv…` | X | 3/3 | 1.00 | R_FIFO | 0.64 | 0.93 | 0.0027 | R_PRICE: INCONCLUSIVE, R_FIFO: SOFT_RULE, R_FBA50: INCONCLUSIVE | 2026-10-27 |
+
+Tx outcomes (all cells): landed 994, not_landed 2, outside_window 6, producer_mismatch 6, send_error 120
 
 ## MEASUREMENT: when (UTC)
 
-**NO DATA YET.**
+| UTC date | windows | usable | txs sent |
+|---|---|---|---|
+| 2026-10-26 | 87 | 55 | 522 |
+| 2026-10-27 | 101 | 101 | 606 |
+
+Windows by UTC hour of day (block time of the landed window):
+
+| UTC hour | windows | usable |  |
+|---|---|---|---|
+| 00 | 28 | 28 |  |
+| 01 | 24 | 24 |  |
+| 02 | 21 | 21 |  |
+| 03 | 27 | 27 |  |
+| 04 | 1 | 1 |  |
+| 05 | 0 | 0 | not measured |
+| 06 | 0 | 0 | not measured |
+| 07 | 0 | 0 | not measured |
+| 08 | 0 | 0 | not measured |
+| 09 | 0 | 0 | not measured |
+| 10 | 0 | 0 | not measured |
+| 11 | 0 | 0 | not measured |
+| 12 | 0 | 0 | not measured |
+| 13 | 0 | 0 | not measured |
+| 14 | 0 | 0 | not measured |
+| 15 | 0 | 0 | not measured |
+| 16 | 0 | 0 | not measured |
+| 17 | 0 | 0 | not measured |
+| 18 | 0 | 0 | not measured |
+| 19 | 0 | 0 | not measured |
+| 20 | 0 | 0 | not measured |
+| 21 | 0 | 0 | not measured |
+| 22 | 29 | 29 |  |
+| 23 | 26 | 26 |  |
+| unknown | 32 | 0 |  |
+
+<details><summary>Every confirmatory window (188): slot and block time (UTC)</summary>
+
+| window | stratum | arm | slot | block time (UTC) | status |
+|---|---|---|---|---|---|
+| 461826696-Fd7btgyS | HarmonicAgave | X | 461826696 | 2026-10-26T22:04:21Z | usable |
+| 461827092-Fd7btgyS | HarmonicAgave | F | 461827092 | 2026-10-26T22:05:46Z | usable |
+| 461827640-E1r4Psq8 | JitoAgave | C | 461827640 | 2026-10-26T22:07:42Z | usable |
+| 461828160-DRpbCBMx | BamAgave | F | 461828160 | 2026-10-26T22:09:32Z | usable |
+| 461828680-DRpbCBMx | BamAgave | P | 461828680 | 2026-10-26T22:11:23Z | usable |
+| 461829200-JUPiTERr | HarmonicFiredancer | C | 461829200 | 2026-10-26T22:13:12Z | usable |
+| 461829724-JUPiTERr | HarmonicFiredancer | F | 461829724 | 2026-10-26T22:15:03Z | usable |
+| 461830252-5Us18hLZ | Agave | R | 461830252 | 2026-10-26T22:16:57Z | usable |
+| 461830864-HEL1USMZ | JitoAgave | P | 461830864 | 2026-10-26T22:19:08Z | usable |
+| 461831408-E1r4Psq8 | JitoAgave | F | 461831408 | 2026-10-26T22:21:03Z | usable |
+| 461831896-E1r4Psq8 | JitoAgave | X | 461831897 | 2026-10-26T22:22:48Z | usable |
+| 461832432-9eGrDohd | Firedancer | F | 461832432 | 2026-10-26T22:24:40Z | usable |
+| 461832948-Fd7btgyS | HarmonicAgave | C | 461832949 | 2026-10-26T22:26:31Z | usable |
+| 461833488-9eGrDohd | Firedancer | C | 461833488 | 2026-10-26T22:28:24Z | usable |
+| 461834044-HEL1USMZ | JitoAgave | C | 461834044 | 2026-10-26T22:30:22Z | usable |
+| 461834612-Fd7btgyS | HarmonicAgave | P | 461834613 | 2026-10-26T22:32:24Z | usable |
+| 461835116-E1r4Psq8 | JitoAgave | R | 461835116 | 2026-10-26T22:34:11Z | usable |
+| 461835684-Fd7btgyS | HarmonicAgave | P | 461835685 | 2026-10-26T22:36:11Z | usable |
+| 461836216-Fd7btgyS | HarmonicAgave | X | 461836216 | 2026-10-26T22:38:04Z | usable |
+| 461836760-Fd7btgyS | HarmonicAgave | F | 461836760 | 2026-10-26T22:39:59Z | usable |
+| 461837288-E1r4Psq8 | JitoAgave | P | 461837288 | 2026-10-26T22:41:51Z | usable |
+| 461837824-E1r4Psq8 | JitoAgave | P | 461837824 | 2026-10-26T22:43:45Z | usable |
+| 461838388-HEL1USMZ | JitoAgave | R | 461838388 | 2026-10-26T22:45:46Z | usable |
+| 461838956-HEL1USMZ | JitoAgave | F | 461838956 | 2026-10-26T22:47:48Z | usable |
+| 461839472-JUPiTERr | HarmonicFiredancer | P | 461839473 | 2026-10-26T22:49:39Z | usable |
+| 461839996-Fd7btgyS | HarmonicAgave | C | 461839996 | 2026-10-26T22:51:30Z | usable |
+| 461840512-HEL1USMZ | JitoAgave | X | 461840512 | 2026-10-26T22:53:19Z | usable |
+| 461841048-EvnRmnMr | Firedancer | P | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461841664-JUPiTERr | HarmonicFiredancer | X | 461841665 | 2026-10-26T22:57:25Z | usable |
+| 461842148-JUPiTERr | HarmonicFiredancer | X | 461842149 | 2026-10-26T22:59:08Z | usable |
+| 461842660-HEL1USMZ | JitoAgave | P | 461842661 | 2026-10-26T23:00:57Z | usable |
+| 461843196-EvnRmnMr | Firedancer | C | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461843764-DRpbCBMx | BamAgave | C | 461843765 | 2026-10-26T23:04:51Z | usable |
+| 461844320-9eGrDohd | Firedancer | R | 461844320 | 2026-10-26T23:06:48Z | usable |
+| 461844892-5Us18hLZ | Agave | X | 461844892 | 2026-10-26T23:08:48Z | usable |
+| 461845444-Fd7btgyS | HarmonicAgave | P | 461845445 | 2026-10-26T23:10:46Z | usable |
+| 461846004-9eGrDohd | Firedancer | X | 461846004 | 2026-10-26T23:12:45Z | usable |
+| 461846524-E1r4Psq8 | JitoAgave | F | 461846524 | 2026-10-26T23:14:35Z | usable |
+| 461847016-DRpbCBMx | BamAgave | X | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461847580-9eGrDohd | Firedancer | P | 461847581 | 2026-10-26T23:18:20Z | usable |
+| 461848112-EvnRmnMr | Firedancer | X | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461848652-JUPiTERr | HarmonicFiredancer | C | 461848652 | 2026-10-26T23:22:10Z | usable |
+| 461849224-HEL1USMZ | JitoAgave | F | 461849224 | 2026-10-26T23:24:13Z | usable |
+| 461849696-HEL1USMZ | JitoAgave | X | 461849696 | 2026-10-26T23:25:52Z | usable |
+| 461850236-HEL1USMZ | JitoAgave | R | 461850237 | 2026-10-26T23:27:47Z | usable |
+| 461850848-HEL1USMZ | JitoAgave | C | 461850848 | 2026-10-26T23:29:57Z | usable |
+| 461851404-Fd7btgyS | HarmonicAgave | X | 461851405 | 2026-10-26T23:31:55Z | usable |
+| 461851896-Fd7btgyS | HarmonicAgave | F | 461851896 | 2026-10-26T23:33:39Z | usable |
+| 461852428-HEL1USMZ | JitoAgave | P | 461852428 | 2026-10-26T23:35:33Z | usable |
+| 461852968-JUPiTERr | HarmonicFiredancer | F | 461852968 | 2026-10-26T23:37:29Z | usable |
+| 461853508-JUPiTERr | HarmonicFiredancer | P | 461853509 | 2026-10-26T23:39:22Z | usable |
+| 461854028-5Us18hLZ | Agave | C | 461854028 | 2026-10-26T23:41:13Z | usable |
+| 461854536-HEL1USMZ | JitoAgave | R | 461854538 | 2026-10-26T23:43:03Z | usable |
+| 461855160-Fd7btgyS | HarmonicAgave | P | 461855161 | 2026-10-26T23:45:15Z | usable |
+| 461855680-JUPiTERr | HarmonicFiredancer | X | 461855681 | 2026-10-26T23:47:06Z | usable |
+| 461856212-HEL1USMZ | JitoAgave | X | 461856213 | 2026-10-26T23:49:00Z | usable |
+| 461857248-DRpbCBMx | BamAgave | P | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461857780-Fd7btgyS | HarmonicAgave | F | 461857780 | 2026-10-26T23:54:34Z | usable |
+| 461858176-Fd7btgyS | HarmonicAgave | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461858324-E1r4Psq8 | JitoAgave | X | 461858324 | 2026-10-26T23:56:31Z | usable |
+| 461858912-HEL1USMZ | JitoAgave | F | 461858912 | 2026-10-26T23:58:36Z | usable |
+| 461859388-Fd7btgyS | HarmonicAgave | C | 461859389 | 2026-10-27T00:00:19Z | usable |
+| 461859936-E1r4Psq8 | JitoAgave | R | 461859937 | 2026-10-27T00:02:15Z | usable |
+| 461860512-JUPiTERr | HarmonicFiredancer | P | 461860512 | 2026-10-27T00:04:18Z | usable |
+| 461861032-Fd7btgyS | HarmonicAgave | P | 461861033 | 2026-10-27T00:06:10Z | usable |
+| 461861592-HEL1USMZ | JitoAgave | P | 461861592 | 2026-10-27T00:08:08Z | usable |
+| 461862132-Fd7btgyS | HarmonicAgave | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461862636-9eGrDohd | Firedancer | C | 461862636 | 2026-10-27T00:11:48Z | usable |
+| 461863212-7QQGNm3p | Agave | C | 461863212 | 2026-10-27T00:13:53Z | usable |
+| 461863764-Fd7btgyS | HarmonicAgave | F | 461863764 | 2026-10-27T00:15:50Z | usable |
+| 461864280-DRpbCBMx | BamAgave | F | 461864280 | 2026-10-27T00:17:39Z | usable |
+| 461864784-DRpbCBMx | BamAgave | X | 461864784 | 2026-10-27T00:19:27Z | usable |
+| 461865316-E1r4Psq8 | JitoAgave | C | 461865316 | 2026-10-27T00:21:18Z | usable |
+| 461865868-HEL1USMZ | JitoAgave | R | 461865869 | 2026-10-27T00:23:15Z | usable |
+| 461866408-JUPiTERr | HarmonicFiredancer | F | 461866408 | 2026-10-27T00:25:09Z | usable |
+| 461866924-Fd7btgyS | HarmonicAgave | P | 461866924 | 2026-10-27T00:26:59Z | usable |
+| 461867512-Fd7btgyS | HarmonicAgave | C | 461867512 | 2026-10-27T00:29:04Z | usable |
+| 461868036-Fd7btgyS | HarmonicAgave | F | 461868036 | 2026-10-27T00:30:56Z | usable |
+| 461868564-HEL1USMZ | JitoAgave | F | 461868564 | 2026-10-27T00:32:48Z | usable |
+| 461869056-HEL1USMZ | JitoAgave | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461869600-7QQGNm3p | Agave | P | 461869600 | 2026-10-27T00:36:28Z | usable |
+| 461870156-DRpbCBMx | BamAgave | C | 461870157 | 2026-10-27T00:38:27Z | usable |
+| 461870736-Fd7btgyS | HarmonicAgave | X | 461870737 | 2026-10-27T00:40:29Z | usable |
+| 461871236-Fd7btgyS | HarmonicAgave | P | 461871236 | 2026-10-27T00:42:15Z | usable |
+| 461871748-JUPiTERr | HarmonicFiredancer | C | 461871748 | 2026-10-27T00:44:05Z | usable |
+| 461872336-EvnRmnMr | Firedancer | R | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461872916-ana2y2Yv | Rakurai | F | 461872916 | 2026-10-27T00:48:11Z | usable |
+| 461873404-DRpbCBMx | BamAgave | P | 461873404 | 2026-10-27T00:49:55Z | usable |
+| 461873984-HEL1USMZ | JitoAgave | C | 461873985 | 2026-10-27T00:51:58Z | usable |
+| 461874524-DRpbCBMx | BamAgave | F | 461874524 | 2026-10-27T00:53:53Z | usable |
+| 461875016-EvnRmnMr | Firedancer | F | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461875548-HEL1USMZ | JitoAgave | P | 461875548 | 2026-10-27T00:57:31Z | usable |
+| 461876052-HEL1USMZ | JitoAgave | F | 461876052 | 2026-10-27T00:59:19Z | usable |
+| 461876560-HEL1USMZ | JitoAgave | R | 461876560 | 2026-10-27T01:01:07Z | usable |
+| 461877156-EvnRmnMr | Firedancer | X | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461877704-HEL1USMZ | JitoAgave | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461878252-JUPiTERr | HarmonicFiredancer | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461878804-9eGrDohd | Firedancer | P | 461878804 | 2026-10-27T01:09:04Z | usable |
+| 461879324-ana2y2Yv | Rakurai | C | 461879324 | 2026-10-27T01:10:54Z | usable |
+| 461879856-E1r4Psq8 | JitoAgave | P | 461879856 | 2026-10-27T01:12:48Z | usable |
+| 461880392-DRpbCBMx | BamAgave | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461880932-E1r4Psq8 | JitoAgave | F | 461880932 | 2026-10-27T01:16:39Z | usable |
+| 461881444-JUPiTERr | HarmonicFiredancer | P | 461881444 | 2026-10-27T01:18:29Z | usable |
+| 461881992-9eGrDohd | Firedancer | X | 461881992 | 2026-10-27T01:20:24Z | usable |
+| 461882580-DRpbCBMx | BamAgave | P | 461882580 | 2026-10-27T01:22:28Z | usable |
+| 461883060-HEL1USMZ | JitoAgave | P | 461883061 | 2026-10-27T01:24:09Z | usable |
+| 461883588-HEL1USMZ | JitoAgave | C | 461883588 | 2026-10-27T01:26:00Z | usable |
+| 461884164-E1r4Psq8 | JitoAgave | X | 461884164 | 2026-10-27T01:28:03Z | usable |
+| 461884728-E1r4Psq8 | JitoAgave | R | 461884728 | 2026-10-27T01:30:01Z | usable |
+| 461885296-DRpbCBMx | BamAgave | C | 461885296 | 2026-10-27T01:32:02Z | usable |
+| 461885832-9eGrDohd | Firedancer | F | 461885832 | 2026-10-27T01:33:56Z | usable |
+| 461886384-DRpbCBMx | BamAgave | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461886888-9eGrDohd | Firedancer | R | 461886888 | 2026-10-27T01:37:38Z | usable |
+| 461887504-JUPiTERr | HarmonicFiredancer | C | 461887505 | 2026-10-27T01:39:51Z | usable |
+| 461888120-JUPiTERr | HarmonicFiredancer | F | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461888556-DRpbCBMx | BamAgave | F | 461888556 | 2026-10-27T01:43:32Z | usable |
+| 461889020-DRpbCBMx | BamAgave | P | 461889020 | 2026-10-27T01:45:11Z | usable |
+| 461889588-9eGrDohd | Firedancer | X | 461889588 | 2026-10-27T01:47:11Z | usable |
+| 461890192-DRpbCBMx | BamAgave | F | 461890192 | 2026-10-27T01:49:17Z | usable |
+| 461890656-E1r4Psq8 | JitoAgave | P | 461890656 | 2026-10-27T01:50:57Z | usable |
+| 461891192-HEL1USMZ | JitoAgave | F | 461891192 | 2026-10-27T01:52:50Z | usable |
+| 461891760-ana2y2Yv | Rakurai | X | 461891760 | 2026-10-27T01:54:51Z | usable |
+| 461892268-EvnRmnMr | Firedancer | P | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461892864-HEL1USMZ | JitoAgave | R | 461892864 | 2026-10-27T01:58:47Z | usable |
+| 461893368-9eGrDohd | Firedancer | C | 461893368 | 2026-10-27T02:00:34Z | usable |
+| 461893984-HEL1USMZ | JitoAgave | X | 461893984 | 2026-10-27T02:02:45Z | usable |
+| 461894524-HEL1USMZ | JitoAgave | P | 461894524 | 2026-10-27T02:04:39Z | usable |
+| 461894992-9eGrDohd | Firedancer | F | 461894992 | 2026-10-27T02:06:18Z | usable |
+| 461895524-EvnRmnMr | Firedancer | F | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461896048-EvnRmnMr | Firedancer | C | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461896560-DRpbCBMx | BamAgave | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461897112-9eGrDohd | Firedancer | P | 461897112 | 2026-10-27T02:13:48Z | usable |
+| 461897648-DRpbCBMx | BamAgave | P | 461897648 | 2026-10-27T02:15:43Z | usable |
+| 461898228-E1r4Psq8 | JitoAgave | R | 461898228 | 2026-10-27T02:17:45Z | usable |
+| 461898796-7QQGNm3p | Agave | F | 461898796 | 2026-10-27T02:19:47Z | usable |
+| 461899340-E1r4Psq8 | JitoAgave | F | 461899340 | 2026-10-27T02:21:44Z | usable |
+| 461899836-EvnRmnMr | Firedancer | R | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461900448-9eGrDohd | Firedancer | R | 461900448 | 2026-10-27T02:25:39Z | usable |
+| 461900972-9eGrDohd | Firedancer | C | 461900972 | 2026-10-27T02:27:31Z | usable |
+| 461901516-E1r4Psq8 | JitoAgave | C | 461901517 | 2026-10-27T02:29:26Z | usable |
+| 461902060-E1r4Psq8 | JitoAgave | X | 461902060 | 2026-10-27T02:31:22Z | usable |
+| 461902600-9eGrDohd | Firedancer | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461903152-ana2y2Yv | Rakurai | P | 461903152 | 2026-10-27T02:35:17Z | usable |
+| 461903652-EvnRmnMr | Firedancer | C | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461904224-EvnRmnMr | Firedancer | P | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461904768-9eGrDohd | Firedancer | P | 461904768 | 2026-10-27T02:41:01Z | usable |
+| 461905268-E1r4Psq8 | JitoAgave | P | 461905269 | 2026-10-27T02:42:48Z | usable |
+| 461905876-EvnRmnMr | Firedancer | F | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461906320-E1r4Psq8 | JitoAgave | R | 461906320 | 2026-10-27T02:46:31Z | usable |
+| 461906888-EvnRmnMr | Firedancer | X | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461907444-EvnRmnMr | Firedancer | R | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461908032-E1r4Psq8 | JitoAgave | F | 461908032 | 2026-10-27T02:52:36Z | usable |
+| 461908572-9eGrDohd | Firedancer | F | 461908572 | 2026-10-27T02:54:31Z | usable |
+| 461909088-E1r4Psq8 | JitoAgave | X | – | – (run start 2026-10-26T22:03:48Z) | fewer_than_5_in_one_slot |
+| 461909676-E1r4Psq8 | JitoAgave | P | 461909676 | 2026-10-27T02:58:24Z | usable |
+| 461910116-ana2y2Yv | Rakurai | P | 461910116 | 2026-10-27T02:59:58Z | usable |
+| 461910684-DRpbCBMx | BamAgave | C | 461910684 | 2026-10-27T03:01:58Z | usable |
+| 461911212-DRpbCBMx | BamAgave | X | 461911212 | 2026-10-27T03:03:50Z | usable |
+| 461911812-E1r4Psq8 | JitoAgave | C | 461911813 | 2026-10-27T03:05:58Z | usable |
+| 461912296-7QQGNm3p | Agave | R | 461912296 | 2026-10-27T03:07:42Z | usable |
+| 461912940-EvnRmnMr | Firedancer | F | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461913464-ana2y2Yv | Rakurai | F | 461913464 | 2026-10-27T03:11:52Z | usable |
+| 461913964-EvnRmnMr | Firedancer | P | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461914476-EvnRmnMr | Firedancer | C | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461914980-E1r4Psq8 | JitoAgave | F | 461914980 | 2026-10-27T03:17:11Z | usable |
+| 461915588-E1r4Psq8 | JitoAgave | X | 461915589 | 2026-10-27T03:19:21Z | usable |
+| 461916076-DRpbCBMx | BamAgave | F | 461916076 | 2026-10-27T03:21:03Z | usable |
+| 461916596-DRpbCBMx | BamAgave | P | 461916596 | 2026-10-27T03:22:54Z | usable |
+| 461917132-E1r4Psq8 | JitoAgave | R | 461917133 | 2026-10-27T03:24:48Z | usable |
+| 461917744-EvnRmnMr | Firedancer | X | – | – (run start 2026-10-26T22:03:48Z) | none_landed_clean |
+| 461918480-E1r4Psq8 | JitoAgave | P | 461918481 | 2026-10-27T03:29:33Z | usable |
+| 461919048-5Us18hLZ | Agave | P | 461919048 | 2026-10-27T03:31:33Z | usable |
+| 461920100-ana2y2Yv | Rakurai | X | 461920100 | 2026-10-27T03:35:17Z | usable |
+| 461920244-7QQGNm3p | Agave | X | 461920244 | 2026-10-27T03:35:48Z | usable |
+| 461920976-5Us18hLZ | Agave | F | 461920976 | 2026-10-27T03:38:25Z | usable |
+| 461921068-ana2y2Yv | Rakurai | C | 461921068 | 2026-10-27T03:38:45Z | usable |
+| 461921972-ana2y2Yv | Rakurai | P | 461921972 | 2026-10-27T03:41:59Z | usable |
+| 461922060-7QQGNm3p | Agave | P | 461922060 | 2026-10-27T03:42:18Z | usable |
+| 461922652-7QQGNm3p | Agave | F | 461922652 | 2026-10-27T03:44:23Z | usable |
+| 461923196-5Us18hLZ | Agave | P | 461923196 | 2026-10-27T03:46:20Z | usable |
+| 461924188-7QQGNm3p | Agave | X | 461924188 | 2026-10-27T03:49:51Z | usable |
+| 461924312-ana2y2Yv | Rakurai | X | 461924312 | 2026-10-27T03:50:17Z | usable |
+| 461925848-5Us18hLZ | Agave | F | 461925848 | 2026-10-27T03:55:45Z | usable |
+| 461925916-7QQGNm3p | Agave | R | 461925916 | 2026-10-27T03:55:59Z | usable |
+| 461926192-ana2y2Yv | Rakurai | F | 461926192 | 2026-10-27T03:56:57Z | usable |
+| 461926332-7QQGNm3p | Agave | C | 461926332 | 2026-10-27T03:57:27Z | usable |
+| 461926820-7QQGNm3p | Agave | P | 461926820 | 2026-10-27T03:59:12Z | usable |
+| 461927524-ana2y2Yv | Rakurai | P | 461927524 | 2026-10-27T04:01:41Z | usable |
+
+</details>
 
 ## EXPLORATORY: calibration
 
@@ -300,7 +581,7 @@ Confirmatory total 37,743,052 lamports (budget 38,000,000).
 
 Built from docs/LOGBOOK.md (kinds: failure, surprise, rate limit, env, limitation, correction, missed window). Times are UTC.
 
-Counts: failure 17, surprise 22, rate limit 1, env 2, limitation 2, correction 3
+Counts: failure 18, surprise 26, rate limit 1, env 2, limitation 2, correction 3
 
 | UTC | phase | kind | entry |
 |---|---|---|---|
@@ -351,6 +632,11 @@ Counts: failure 17, surprise 22, rate limit 1, env 2, limitation 2, correction 3
 | 2026-10-25T21:12:00Z | 5 | surprise | Offset artifact in `calibrate.py`. The sweep was -300,-100,0,100, but the estimate printed offset_ms = -200 with usable rate 1.0. Cause: Arm F is sent 200 ms earlier (`f_extra_lead_ms` 200, `arms.rs` 65, `runner.rs` 1233), so its effective offsets are -500, -300, -200, -100 for the sweep -300, -100, 0, 100. -500 (5 windows) and -200 (8 windows) exist only for Arm F, and the argmax over all offsets picked -200. Arm F also adds 12 windows to the -300 cell and 9 to the -100 cell. Windows per offset in the calibration manifest (156 windows): -300: 46 (34 without Arm F), -100: 36 (27), 0: 31, 100: 30, -200: 8, -500: 5 (the per-run `windows.jsonl` files count 48/38/31/31/9/6 because they also hold the 7 planned windows that were skipped). Usable rate among offsets with >= 30 windows: -300 0.935 (best), 0 0.871, 100 0.867, -100 0.806. Decision (operator, 2026-10-25): the simulation uses the best offset with >= 30 windows, -300. `calibrate.py` now records `windows_by_offset` and `offset_used` (value, n, reason, excluded offsets) in `nuisance_calibrated.json`; no existing estimate changed (diffed). |
 | 2026-10-25T21:39:00Z | 5 | failure | Disk full while the simulator ran. Debug builds of the sender (`cargo test`/`clippy` in `target/debug`, 13.7 GB with incremental caches) filled the C: drive at about 21:39Z; the power simulation (`sim_v2`) died silently at 1,077 s, right after "fpr done", with an empty error log, and wrote no result. The allocation simulation (`alloc_v2.json`) had finished at 21:27Z and is intact. Fixed: `target/debug` deleted (rebuildable), later builds use `CARGO_INCREMENTAL=0` and `-j 2`, the power simulation was restarted from the beginning at 21:43:20Z (`sim_v2.crashed_diskfull.log` keeps the dead run's log). Lesson: check free disk before a long run and before building next to one. |
 | 2026-10-25T21:55:00Z | 5 | surprise | DRpbCBMx (BamAgave) loses whole windows. Of the 4 windows in which no tx landed, 3 are at DRpbCBMx (windows 461308356 Arm P, 461316816 Arm F, 461320500 Arm C): 18 of its 138 calibration txs (13 %), against 6 of 120 at JitoAgave E1r4Psq8 (1 window, 461316788, Arm R) and none at the other 8 validators (678 txs). Read-only `getBlocks` (finalized) for the four slots of each of the four windows: all 16 slots produced blocks (461308356-59, 461320500-03, 461316788-91, 461316816-19), so none of the losses is a skipped-slot window. The two `not_landed` windows (461308356, 461320500) were sent over QUIC without error (stream ids and RTT recorded) and appear in no block; the two `send_error` windows (461316788, 461316816) lost all 6 txs to `connection lost: closed by peer: dropped (code 1)`: the connection is opened per window at prep time (`runner.rs` 1419, about 1.5 s before the burst), the 6 streams of a window are opened on that one connection (`quic.rs` 128), so when the peer closes it every tx of the window fails together. Pre-registered treatment: PREREGISTRATION 9 makes a window usable only with >= 5 of 6 txs landed, lists `not_landed` and `send_error` as collector exclusions and requires every exclusion and the landing rate per validator to be reported; it has no wording for a window whose slots all produced blocks but whose txs did not land, nor for skipped slots (no block). Proposed wording (not edited): "A window in which fewer than ceil(0.75 N) txs landed is attempted and unusable whatever the cause; it counts against the quota and the budget, is excluded with the reasons of its txs, and is reported per validator with a flag for slots that produced no block, so that landing rate can be shown with and without skipped slots." Open: whether a pre-burst liveness check of the connection (`close_reason()`; reconnect or skip the window before any reservation) is worth it; it would not change send order. |
+| 2026-10-27T07:44:00Z | 6 | surprise | EvnRmnMr (Firedancer): all 114 txs of its 19 windows failed to send (`connection lost: closed by peer: dropped (code 1)`) and expired, 0 landed, 0 usable windows. Also 6 sends of DRpbCBMx (BamAgave) with the same error. Nothing was changed; whether this is a stake/peer-limit drop at the validator is not known. It is a landing-rate result for that validator (§9), not a filter to hide. |
+| 2026-10-27T07:44:00Z | 6 | surprise | Clock offset of -272 ms against time.cloudflare.com was recorded in the pre-flight (`local_minus_server_ms` -271.8, round trip 5.9 ms; `session.json` `offsets` is empty). Operator's reading: the sender times windows from a monotonic clock fitted to the slot feed, so a constant offset of the wall clock cancels; the measured prep error (median 84.3 ms) is what counts. The Windows Time service was not synchronised before the session; the runbook now requires a resync before each session. |
+| 2026-10-27T07:44:00Z | 6 | surprise | Network path differs from the calibration: the session ran on Wi-Fi 2.4 GHz channel 1 (707 samples, 1 access point, 0 changes, 802.11n, signal quality min 92 / median 100), the calibration on channel 13. Same adapter, same AP hash `ac18fd41`. Recorded as a path difference for the Wi-Fi limitation (PREREGISTRATION §6d). |
+| 2026-10-27T07:44:00Z | 6 | surprise | Pre-flight warning: only 1.4 GiB free RAM (1,449,746,432 of 8,539,340,800 bytes). The session ran to the end without a worker restart. |
+| 2026-10-27T07:44:00Z | 6 | failure | Two unexpected power losses of the PC on 2026-10-26, at 15:57 and 18:41 local time (UTC+2: 13:57Z and 16:41Z), both before the session; no session or send was running. Nothing was lost in the repository as far as seen. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: e9faa810b89f32604044ee991293337769982099779c5cb737eafdf1accc14de -->
+<!-- report-sha256: 0ef4076c8780a19011468ebb3437dfc8323e85db482f345e2b95d42bb3051f73 -->

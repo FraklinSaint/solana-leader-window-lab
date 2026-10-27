@@ -1,0 +1,354 @@
+{
+  "covered_secs_total": 21479,
+  "end": "2026-10-27T04:03:46Z",
+  "hours": [
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 280.91456,
+        "mean_ms": -5.856126133333334,
+        "median_abs_ms": 80.403328,
+        "p90_abs_ms": 191.389752,
+        "p95_abs_ms": 203.723836,
+        "share_within_100ms": 0.6333333333333333,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 3373,
+      "flag": "OK",
+      "hour_utc": "2026-10-26T22:00:00Z",
+      "reserved_lamports": 947860,
+      "session_secs": 3374,
+      "windows_executed": 30,
+      "windows_skipped": 0
+    },
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 308.552128,
+        "mean_ms": -29.11298193548387,
+        "median_abs_ms": 93.148032,
+        "p90_abs_ms": 236.439936,
+        "p95_abs_ms": 297.9004,
+        "share_within_100ms": 0.5806451612903226,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 3600,
+      "flag": "OK",
+      "hour_utc": "2026-10-26T23:00:00Z",
+      "reserved_lamports": 980876,
+      "session_secs": 3600,
+      "windows_executed": 31,
+      "windows_skipped": 1
+    },
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 463.07122,
+        "mean_ms": 25.980513749999993,
+        "median_abs_ms": 87.657552,
+        "p90_abs_ms": 145.232776,
+        "p95_abs_ms": 315.26972,
+        "share_within_100ms": 0.59375,
+        "share_within_425ms": 0.96875
+      },
+      "covered_secs": 3600,
+      "flag": "OK",
+      "hour_utc": "2026-10-27T00:00:00Z",
+      "reserved_lamports": 1008460,
+      "session_secs": 3600,
+      "windows_executed": 32,
+      "windows_skipped": 0
+    },
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 273.866276,
+        "mean_ms": 24.818072129032252,
+        "median_abs_ms": 69.952076,
+        "p90_abs_ms": 170.579968,
+        "p95_abs_ms": 258.736164,
+        "share_within_100ms": 0.6129032258064516,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 3600,
+      "flag": "OK",
+      "hour_utc": "2026-10-27T01:00:00Z",
+      "reserved_lamports": 983418,
+      "session_secs": 3600,
+      "windows_executed": 31,
+      "windows_skipped": 0
+    },
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 399.85618,
+        "mean_ms": 42.1269865,
+        "median_abs_ms": 108.549124,
+        "p90_abs_ms": 275.805552,
+        "p95_abs_ms": 298.059708,
+        "share_within_100ms": 0.4375,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 3600,
+      "flag": "OK",
+      "hour_utc": "2026-10-27T02:00:00Z",
+      "reserved_lamports": 1016260,
+      "session_secs": 3600,
+      "windows_executed": 31,
+      "windows_skipped": 0
+    },
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 231.09548,
+        "mean_ms": 16.967561548387103,
+        "median_abs_ms": 78.701024,
+        "p90_abs_ms": 162.253564,
+        "p95_abs_ms": 211.481272,
+        "share_within_100ms": 0.6774193548387096,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 3600,
+      "flag": "OK",
+      "hour_utc": "2026-10-27T03:00:00Z",
+      "reserved_lamports": 978160,
+      "session_secs": 3600,
+      "windows_executed": 32,
+      "windows_skipped": 0
+    },
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 360.178888,
+        "mean_ms": 360.178888,
+        "median_abs_ms": 360.178888,
+        "p90_abs_ms": 360.178888,
+        "p95_abs_ms": 360.178888,
+        "share_within_100ms": 0.0,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 106,
+      "flag": "THIN",
+      "hour_utc": "2026-10-27T04:00:00Z",
+      "reserved_lamports": 31658,
+      "session_secs": 226,
+      "windows_executed": 1,
+      "windows_skipped": 0
+    }
+  ],
+  "label": "EXPLORATORY",
+  "max_spend_lamports": 5960738,
+  "metric": "covered_secs = seconds a worker was running minus its own gaps (host_stall, slot_feed, rpc_error). Hours with no coverage are GAP, never filled. clock_err: window-start prediction error at prep time (see sender clock-report).",
+  "mode": "measure",
+  "network": {
+    "access_point_changes": 0,
+    "access_points": 1,
+    "bands": {
+      "2.4 GHz": 707
+    },
+    "channels": {
+      "1": 707
+    },
+    "label": "PATH RECORD (Wi-Fi limitation; README, PREREGISTRATION)",
+    "method": "rtt: JSON-RPC getSlot over a kept-alive HTTPS connection, one probe per 5 s, first probe of a connection excluded; a proxy for the path, not the delay of QUIC sends to a leader. wifi: WLAN API sample per 30 s (SSID never read).",
+    "network_types": {
+      "wifi": 707
+    },
+    "phys": {
+      "802.11n": 707
+    },
+    "preflight": {
+      "description": "TP-Link Wireless USB Adapter",
+      "if_type": 71,
+      "name": "Беспроводная сеть",
+      "type": "wifi",
+      "wifi": true,
+      "wifi_link": {
+        "ap_id": "ac18fd41",
+        "band": "2.4 GHz",
+        "channel": 1,
+        "phy": "802.11n",
+        "rssi_dbm": null,
+        "rx_mbps": 150,
+        "signal_quality": 100,
+        "tx_mbps": 150
+      },
+      "wifi_power_saving_ac": 0
+    },
+    "rssi_dbm": {
+      "max": 0.0,
+      "median": 0.0,
+      "min": 0.0,
+      "p5": 0.0,
+      "p95": 0.0
+    },
+    "rtt": {
+      "jitter_ms": 19.56801753599247,
+      "loss_share": 0.0,
+      "max_ms": 859.2846,
+      "min_ms": 43.9443,
+      "n": 4238,
+      "n_err": 0,
+      "n_ok": 4238,
+      "n_pairs": 4237,
+      "p50_ms": 51.9526,
+      "p90_ms": 114.8424,
+      "p95_ms": 118.3105,
+      "p99_ms": 128.765,
+      "sigma_mad_ms": 4.600952580000007
+    },
+    "rtt_by_hour": [
+      {
+        "hour_utc": "2026-10-26T22:00:00Z",
+        "jitter_ms": 21.596145783132545,
+        "loss_share": 0.0,
+        "max_ms": 194.4837,
+        "min_ms": 43.9443,
+        "n": 665,
+        "n_err": 0,
+        "n_ok": 665,
+        "n_pairs": 664,
+        "p50_ms": 51.7945,
+        "p90_ms": 115.1131,
+        "p95_ms": 118.3691,
+        "p99_ms": 128.4635,
+        "sigma_mad_ms": 4.6197816
+      },
+      {
+        "hour_utc": "2026-10-26T23:00:00Z",
+        "jitter_ms": 19.549814527503504,
+        "loss_share": 0.0,
+        "max_ms": 161.58800000000002,
+        "min_ms": 44.930200000000006,
+        "n": 710,
+        "n_err": 0,
+        "n_ok": 710,
+        "n_pairs": 709,
+        "p50_ms": 51.9941,
+        "p90_ms": 114.6102,
+        "p95_ms": 117.9838,
+        "p99_ms": 126.5228,
+        "sigma_mad_ms": 4.2867896400000065
+      },
+      {
+        "hour_utc": "2026-10-27T00:00:00Z",
+        "jitter_ms": 14.067429436619705,
+        "loss_share": 0.0,
+        "max_ms": 171.7464,
+        "min_ms": 44.9016,
+        "n": 711,
+        "n_err": 0,
+        "n_ok": 711,
+        "n_pairs": 710,
+        "p50_ms": 52.1239,
+        "p90_ms": 117.4855,
+        "p95_ms": 122.5296,
+        "p99_ms": 129.2706,
+        "sigma_mad_ms": 4.968340860000003
+      },
+      {
+        "hour_utc": "2026-10-27T01:00:00Z",
+        "jitter_ms": 16.86790521126761,
+        "loss_share": 0.0,
+        "max_ms": 152.9187,
+        "min_ms": 44.6783,
+        "n": 711,
+        "n_err": 0,
+        "n_ok": 711,
+        "n_pairs": 710,
+        "p50_ms": 51.8498,
+        "p90_ms": 111.4727,
+        "p95_ms": 116.5487,
+        "p99_ms": 122.714,
+        "sigma_mad_ms": 4.4237818800000035
+      },
+      {
+        "hour_utc": "2026-10-27T02:00:00Z",
+        "jitter_ms": 24.42322327221435,
+        "loss_share": 0.0,
+        "max_ms": 859.2846,
+        "min_ms": 44.3466,
+        "n": 710,
+        "n_err": 0,
+        "n_ok": 710,
+        "n_pairs": 709,
+        "p50_ms": 52.4171,
+        "p90_ms": 115.2053,
+        "p95_ms": 118.5589,
+        "p99_ms": 133.66049999999998,
+        "sigma_mad_ms": 5.199626460000002
+      },
+      {
+        "hour_utc": "2026-10-27T03:00:00Z",
+        "jitter_ms": 21.125832440056417,
+        "loss_share": 0.0,
+        "max_ms": 151.298,
+        "min_ms": 44.34310000000001,
+        "n": 710,
+        "n_err": 0,
+        "n_ok": 710,
+        "n_pairs": 709,
+        "p50_ms": 51.611999999999995,
+        "p90_ms": 114.1672,
+        "p95_ms": 117.0124,
+        "p99_ms": 123.7543,
+        "sigma_mad_ms": 4.1787081
+      },
+      {
+        "hour_utc": "2026-10-27T04:00:00Z",
+        "jitter_ms": 12.156050000000002,
+        "loss_share": 0.0,
+        "max_ms": 124.2575,
+        "min_ms": 47.6235,
+        "n": 21,
+        "n_err": 0,
+        "n_ok": 21,
+        "n_pairs": 20,
+        "p50_ms": 54.6125,
+        "p90_ms": 65.4045,
+        "p95_ms": 78.762,
+        "p99_ms": 124.2575,
+        "sigma_mad_ms": 5.1094843800000005
+      }
+    ],
+    "rtt_warmup_probes": 1,
+    "rx_mbps": {
+      "max": 150.0,
+      "median": 150.0,
+      "min": 150.0,
+      "p5": 150.0,
+      "p95": 150.0
+    },
+    "signal_quality": {
+      "max": 100.0,
+      "median": 100.0,
+      "min": 92.0,
+      "p5": 100.0,
+      "p95": 100.0
+    },
+    "tx_mbps": {
+      "max": 150.0,
+      "median": 150.0,
+      "min": 150.0,
+      "p5": 150.0,
+      "p95": 150.0
+    },
+    "wifi_link_samples": 707,
+    "wifi_samples": 707
+  },
+  "reserved_lamports_total": 5946692,
+  "runs": [
+    "live-20261026T220348Z"
+  ],
+  "session": "20261026T220345Z",
+  "skips_by_reason": {
+    "allocation quota met": 1286,
+    "getFeeForMessage disagrees with the fee model": 1,
+    "lead # ms < min #": 2,
+    "pacing: # + # > # (plus one window)": 3236,
+    "planning budget: # + # > #": 5,
+    "too close to previous planned window": 174,
+    "window truncated by schedule range": 41
+  },
+  "start": "2026-10-26T22:03:46Z"
+}

@@ -1,0 +1,66 @@
+{
+  "host": {
+    "arch": "x86_64",
+    "machine_id": "5efa0640ec933a8f",
+    "network_type": "wifi",
+    "os": "windows",
+    "os_build": "10.0.17763.9376",
+    "platform": "win-pc1",
+    "sender_sha256": "903525409e18f5ad4aedfaffcdc2fb60e3b63ff0fc596ae834769469e4687317"
+  },
+  "info": {
+    "clock": {
+      "local_minus_server_ms": -271.81434631347656,
+      "round_trip_ms": 5.925655364990234,
+      "server": "time.cloudflare.com"
+    },
+    "disk_free_bytes": 10152644608,
+    "hibernate_after_secs": {
+      "ac": 0,
+      "dc": 0
+    },
+    "memory": {
+      "available_bytes": 1449746432,
+      "total_bytes": 8539340800
+    },
+    "network": {
+      "description": "TP-Link Wireless USB Adapter",
+      "if_type": 71,
+      "name": "Беспроводная сеть",
+      "type": "wifi",
+      "wifi": true,
+      "wifi_link": {
+        "ap_id": "ac18fd41",
+        "band": "2.4 GHz",
+        "channel": 1,
+        "phy": "802.11n",
+        "rssi_dbm": null,
+        "rx_mbps": 150,
+        "signal_quality": 100,
+        "tx_mbps": 150
+      },
+      "wifi_power_saving_ac": 0
+    },
+    "pending_file_rename_operations": [
+      "*1\\??\\C:\\Users\\user\\AppData\\Local\\Temp\\remove.exe",
+      "*1\\??\\C:\\Users\\user\\AppData\\Local\\Temp\\remove.exe"
+    ],
+    "platform": "win-pc1",
+    "restart_pending": [],
+    "shutdown_event_deliverable": true,
+    "sleep_after_secs": {
+      "ac": 0,
+      "dc": 0
+    },
+    "ui_dlls_loaded": []
+  },
+  "ts": "2026-10-26T22:03:46Z",
+  "warnings": [
+    "memory: only 1.4 GiB free",
+    "network: Wi-Fi (TP-Link Wireless USB Adapter). Registered path of this PC: recorded in every run and session (RTT and link state) and a separate platform stratum; not refused",
+    "wifi: connected on 2.4 GHz (channel 1); 5 GHz is steadier",
+    "clock: local time is -272 ms off time.cloudflare.com",
+    "PendingFileRenameOperations is set (2 entries, recorded in preflight.json); no RebootRequired/RebootPending marker, so not a restart request",
+    "disk: 9.5 GB free on the data volume; a live session stops below 1 GB"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "20261026T220345Z",
+  "mode": "measure",
+  "start_unix": 1793052226,
+  "end_unix": 1793073826,
+  "start_utc": "2026-10-26T22:03:46Z",
+  "end_utc": "2026-10-27T04:03:46Z",
+  "host": {
+    "platform": "win-pc1",
+    "os": "windows",
+    "arch": "x86_64",
+    "os_build": "10.0.17763.9376",
+    "machine_id": "5efa0640ec933a8f",
+    "sender_sha256": "903525409e18f5ad4aedfaffcdc2fb60e3b63ff0fc596ae834769469e4687317",
+    "network_type": "wifi"
+  },
+  "max_spend_lamports": 5960738,
+  "prereg": "05a3b2338f324021b779b80ae1122b226b657fb1",
+  "allocation": "analysis\\sim\\results\\sessions\\alloc_calibrated_session1of4.json",
+  "offsets": []
+}

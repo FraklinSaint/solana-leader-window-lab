@@ -38,6 +38,15 @@ Expect: the last command prints nothing. (`SLWLAB_ENV_FILE` would point the bina
 `MASTER_KEYPAIR` would replace `secrets\master.json`.)
 STOP: any variable is listed. Remove it with `Remove-Item Env:<NAME>` and repeat.
 
+### A1b. Clock: resync BEFORE each session
+
+`w32tm /resync` (PowerShell as administrator), then check the offset (for example
+`w32tm /stripchart /computer:time.cloudflare.com /samples:3 /dataonly`). Do this before every
+session, not only the first: session 1 started with the local clock 272 ms off
+(`preflight.json`, warning `clock: local time is -272 ms off`).
+STOP: an offset above 50 ms after the resync (the sender is robust to a constant offset, but the
+pre-flight warning and the clock-error comparison with the calibration then carry it).
+
 ### A2. Platform id from `.env`
 
 ```powershell
