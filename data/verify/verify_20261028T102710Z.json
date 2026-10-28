@@ -1,0 +1,54 @@
+{
+ "label": "VERIFICATION",
+ "generated_utc": "2026-10-28T10:27:10Z",
+ "manifests": [
+  "manifest.jsonl",
+  "exploratory\\calibration_manifest.jsonl"
+ ],
+ "summary": {
+  "offline": {
+   "txs": 3558,
+   "landed": 3004,
+   "payers": 33,
+   "saved_blocks": 687,
+   "ledger_entries": 7385
+  },
+  "platform": {
+   "platforms": {
+    "win-pc1/windows/5efa0640ec933a8f": 3558
+   },
+   "network_types": {
+    "wifi": 3558
+   },
+   "os_builds": {
+    "10.0.17763.9376": 3558
+   },
+   "sender_sha256": {
+    "903525409e18f5ad4aedfaffcdc2fb60e3b63ff0fc596ae834769469e4687317": 2622,
+    "ee7c9c7a7e29104999f91a5f76a704fa7a9df7b2dc0b221e725ae3019396f352": 936
+   }
+  },
+  "slot_lists": {
+   "runs": 4,
+   "windows": 593,
+   "windows_with_skipped_slot": 1,
+   "runs_without_list_calibrate": [],
+   "runs_without_list_measure": []
+  }
+ },
+ "checks_run": {
+  "B": 3004,
+  "E": 593,
+  "H": 3004,
+  "K": 593,
+  "L": 3558,
+  "M": 3558,
+  "O": 593,
+  "P": 593,
+  "Q": 3558,
+  "T": 3004,
+  "X": 3004
+ },
+ "problems": [],
+ "ok": true
+}
