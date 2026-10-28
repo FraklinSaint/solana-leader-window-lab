@@ -1,0 +1,14 @@
+{"end":"2026-10-28T20:58:31Z","event":"start","mode":"measure","ts":"2026-10-28T16:58:31Z"}
+{"active":true,"blocks":"idle sleep only; not a sleep or sign-out requested by the user or Windows","event":"keep_awake","request":"ES_CONTINUOUS | ES_SYSTEM_REQUIRED","ts":"2026-10-28T16:58:33Z"}
+{"event":"run_start","left_secs":14398,"run":1,"ts":"2026-10-28T16:58:33Z"}
+{"at_utc":"2026-10-28T19:10:21.003258Z","event":"tpu_gossip_changed","identity":"ana2y2YvQ3ZPMwm6qhnN3nJoUSiT3qx5Pvetkq9xcfY","new":"45.77.64.138:8002","old":"45.32.145.112:8002","run_id":"live-20261028T165833Z","ts":"2026-10-28T19:10:21Z"}
+{"at_utc":"2026-10-28T20:05:25.016609Z","event":"tpu_changed","identity":"ana2y2YvQ3ZPMwm6qhnN3nJoUSiT3qx5Pvetkq9xcfY","new":"45.77.64.138:8002","old":"45.32.145.112:8002","run_id":"live-20261028T165833Z","ts":"2026-10-28T20:05:25Z","window_id":"462605008-ana2y2Yv"}
+{"at_utc":"2026-10-28T20:13:35.314936Z","event":"tpu_changed","identity":"ana2y2YvQ3ZPMwm6qhnN3nJoUSiT3qx5Pvetkq9xcfY","new":"45.77.64.138:8002","old":"45.32.145.112:8002","run_id":"live-20261028T165833Z","ts":"2026-10-28T20:13:35Z","window_id":"462607292-ana2y2Yv"}
+{"at_utc":"2026-10-28T20:41:18.435011Z","event":"tpu_changed","identity":"ana2y2YvQ3ZPMwm6qhnN3nJoUSiT3qx5Pvetkq9xcfY","new":"45.77.64.138:8002","old":"45.32.145.112:8002","run_id":"live-20261028T165833Z","ts":"2026-10-28T20:41:18Z","window_id":"462615072-ana2y2Yv"}
+{"at_utc":"2026-10-28T20:47:27.560194Z","event":"tpu_changed","identity":"ana2y2YvQ3ZPMwm6qhnN3nJoUSiT3qx5Pvetkq9xcfY","new":"45.77.64.138:8002","old":"45.32.145.112:8002","run_id":"live-20261028T165833Z","ts":"2026-10-28T20:47:27Z","window_id":"462616796-ana2y2Yv"}
+{"at_utc":"2026-10-28T20:50:11.181251Z","event":"tpu_changed","identity":"ana2y2YvQ3ZPMwm6qhnN3nJoUSiT3qx5Pvetkq9xcfY","new":"45.77.64.138:8002","old":"45.32.145.112:8002","run_id":"live-20261028T165833Z","ts":"2026-10-28T20:50:11Z","window_id":"462617564-ana2y2Yv"}
+{"at_utc":"2026-10-28T20:53:10.248352Z","event":"tpu_changed","identity":"ana2y2YvQ3ZPMwm6qhnN3nJoUSiT3qx5Pvetkq9xcfY","new":"45.77.64.138:8002","old":"45.32.145.112:8002","run_id":"live-20261028T165833Z","ts":"2026-10-28T20:53:10Z","window_id":"462618404-ana2y2Yv"}
+{"at_utc":"2026-10-28T20:54:34.093564Z","event":"tpu_changed","identity":"ana2y2YvQ3ZPMwm6qhnN3nJoUSiT3qx5Pvetkq9xcfY","new":"45.77.64.138:8002","old":"45.32.145.112:8002","run_id":"live-20261028T165833Z","ts":"2026-10-28T20:54:34Z","window_id":"462618792-ana2y2Yv"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-28T16:58:33Z","ran_secs":14333,"run":1,"to":"2026-10-28T20:57:26Z","ts":"2026-10-28T20:57:26Z"}
+{"detail":"end of session","event":"collect","exit_code":0,"ts":"2026-10-28T20:57:28Z"}
+{"covered_secs":14333,"event":"done","ts":"2026-10-28T20:57:28Z"}

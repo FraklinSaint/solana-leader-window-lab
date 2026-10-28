@@ -1,0 +1,60 @@
+{
+  "host": {
+    "arch": "x86_64",
+    "machine_id": "5efa0640ec933a8f",
+    "network_type": "wifi",
+    "os": "windows",
+    "os_build": "10.0.17763.9376",
+    "platform": "win-pc1",
+    "sender_sha256": "475fe47a880acab1504ea752633968dc7f1abe9abb09659d80edab663357e718"
+  },
+  "info": {
+    "clock": {
+      "local_minus_server_ms": 346.513032913208,
+      "round_trip_ms": 2.8886795043945312,
+      "server": "time.cloudflare.com"
+    },
+    "disk_free_bytes": 11115696128,
+    "hibernate_after_secs": {
+      "ac": 0,
+      "dc": 0
+    },
+    "memory": {
+      "available_bytes": 2206662656,
+      "total_bytes": 8539340800
+    },
+    "network": {
+      "description": "TP-Link Wireless USB Adapter",
+      "if_type": 71,
+      "name": "Беспроводная сеть",
+      "type": "wifi",
+      "wifi": true,
+      "wifi_link": {
+        "ap_id": "ac18fd41",
+        "band": "2.4 GHz",
+        "channel": 1,
+        "phy": "802.11n",
+        "rssi_dbm": null,
+        "rx_mbps": 150,
+        "signal_quality": 98,
+        "tx_mbps": 150
+      },
+      "wifi_power_saving_ac": 0
+    },
+    "pending_file_rename_operations": [],
+    "platform": "win-pc1",
+    "restart_pending": [],
+    "shutdown_event_deliverable": true,
+    "sleep_after_secs": {
+      "ac": 0,
+      "dc": 0
+    },
+    "ui_dlls_loaded": []
+  },
+  "ts": "2026-10-28T16:58:31Z",
+  "warnings": [
+    "network: Wi-Fi (TP-Link Wireless USB Adapter). Registered path of this PC: recorded in every run and session (RTT and link state) and a separate platform stratum; not refused",
+    "wifi: connected on 2.4 GHz (channel 1); 5 GHz is steadier",
+    "clock: local time is 347 ms off time.cloudflare.com"
+  ]
+}

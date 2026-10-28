@@ -1,0 +1,94 @@
+{
+  "hours": [
+    {
+      "err": {
+        "max_abs_ms": 57.415836,
+        "mean_ms": -23.515715999999998,
+        "median_abs_ms": 57.415836,
+        "p90_abs_ms": 57.415836,
+        "p95_abs_ms": 57.415836,
+        "share_within_100ms": 1.0,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-28T16:00:00Z",
+      "observed": 2,
+      "unobserved": 0,
+      "windows_executed": 2,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 174.718652,
+        "mean_ms": -16.22077720930233,
+        "median_abs_ms": 74.291772,
+        "p90_abs_ms": 158.98148,
+        "p95_abs_ms": 165.03602,
+        "share_within_100ms": 0.627906976744186,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-28T17:00:00Z",
+      "observed": 43,
+      "unobserved": 0,
+      "windows_executed": 43,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 313.59298,
+        "mean_ms": 22.177151181818186,
+        "median_abs_ms": 68.361028,
+        "p90_abs_ms": 197.912528,
+        "p95_abs_ms": 280.965488,
+        "share_within_100ms": 0.6363636363636364,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-28T18:00:00Z",
+      "observed": 44,
+      "unobserved": 0,
+      "windows_executed": 44,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 327.1223,
+        "mean_ms": 2.427198363636363,
+        "median_abs_ms": 81.228324,
+        "p90_abs_ms": 235.956432,
+        "p95_abs_ms": 238.62282,
+        "share_within_100ms": 0.6590909090909091,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-28T19:00:00Z",
+      "observed": 44,
+      "unobserved": 0,
+      "windows_executed": 44,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 700.771704,
+        "mean_ms": 35.072877846153844,
+        "median_abs_ms": 110.8279,
+        "p90_abs_ms": 242.156016,
+        "p95_abs_ms": 312.970796,
+        "share_within_100ms": 0.38461538461538464,
+        "share_within_425ms": 0.9487179487179487
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-28T20:00:00Z",
+      "observed": 39,
+      "unobserved": 0,
+      "windows_executed": 38,
+      "windows_skipped": 1
+    }
+  ],
+  "label": "EXPLORATORY",
+  "metric": "window-start prediction error at prep time: arrival of the window's first slot notification at this machine minus the prediction. NOT the leader's real block start; real window-hit accuracy is judged in calibration by the landing slot.",
+  "runs": [
+    "data\\logs\\live-20261028T165833Z"
+  ]
+}
