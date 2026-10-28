@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | `c34697f5adc9b94a4acb39707a4659c95338cad1fc34018c9be0ffcda9fa20d2` | 936 |
 | `analysis/sim/results/sim_v1.json` | `7caae03208edb94c2da4097fbd293114b1676feec8f86662adae751cf71e8c8b` | 7365 |
 | `analysis/sim/results/alloc_v1.json` | `a5ad00b4a4231d79a367a651b5c3e002ef80bcd790524b0a903998e4bc27fb4b` | 1042 |
-| `docs/LOGBOOK.md` | `c60cc424ee3d9fffffc16e3efb1d95952b5456faec58abe2a403639eed3e0d42` | 137 |
+| `docs/LOGBOOK.md` | `e0835abb2f7596979b9b13320f9e0053903899accfa1452283c2c6f51036d9cd` | 139 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -898,4 +898,4 @@ Counts: failure 20, surprise 31, rate limit 1, env 2, limitation 4, correction 3
 | 2026-10-28T12:46:00Z | 6 | limitation | Known limitation: `scripts/verify_manifest.py` does not read `tpu_quic`. Changing the address of one window in `windows.jsonl` only, in the manifest only, or in both leaves every check unchanged (synthetic copy in the scratchpad, `data/` untouched), so a mismatch between the address planned, the address in `windows.jsonl` and the address in the manifest rows is not detected. With sender v2 a window's address can legitimately differ from `plan.jsonl` (session event `tpu_changed`). `analysis/slwlab/independence.py` keeps the first address seen per validator; on the real manifest this gives the same units as using all addresses seen. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: 3037e9e49c0ac7ee2c0a730119d9acd11fa26e9ff868bc6ba049549eb69e1988 -->
+<!-- report-sha256: 7a807b80883a1d1eccfe35cb97201d78b713f078cc8d8ef809c0482c9be63e33 -->
