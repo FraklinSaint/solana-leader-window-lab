@@ -1,0 +1,5 @@
+{"end":"2026-10-28T12:31:59Z","event":"start","mode":"dryrun","ts":"2026-10-28T12:11:59Z"}
+{"active":true,"blocks":"idle sleep only; not a sleep or sign-out requested by the user or Windows","event":"keep_awake","request":"ES_CONTINUOUS | ES_SYSTEM_REQUIRED","ts":"2026-10-28T12:12:00Z"}
+{"event":"run_start","left_secs":1199,"run":1,"ts":"2026-10-28T12:12:00Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-28T12:12:00Z","ran_secs":1215,"run":1,"to":"2026-10-28T12:32:15Z","ts":"2026-10-28T12:32:15Z"}
+{"covered_secs":1199,"event":"done","ts":"2026-10-28T12:32:20Z"}

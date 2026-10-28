@@ -1,0 +1,139 @@
+{
+  "covered_secs_total": 1199,
+  "end": "2026-10-28T12:31:59Z",
+  "hours": [
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 734.633732,
+        "mean_ms": 5.941930593103446,
+        "median_abs_ms": 91.6216,
+        "p90_abs_ms": 185.309364,
+        "p95_abs_ms": 225.566504,
+        "share_within_100ms": 0.5310344827586206,
+        "share_within_425ms": 0.993103448275862
+      },
+      "covered_secs": 1215,
+      "flag": "OK",
+      "hour_utc": "2026-10-28T12:00:00Z",
+      "reserved_lamports": 0,
+      "session_secs": 1200,
+      "windows_executed": 145,
+      "windows_skipped": 0
+    }
+  ],
+  "label": "EXPLORATORY",
+  "max_spend_lamports": null,
+  "metric": "covered_secs = seconds a worker was running minus its own gaps (host_stall, slot_feed, rpc_error). Hours with no coverage are GAP, never filled. clock_err: window-start prediction error at prep time (see sender clock-report).",
+  "mode": "dryrun",
+  "network": {
+    "access_point_changes": 0,
+    "access_points": 1,
+    "bands": {
+      "2.4 GHz": 41
+    },
+    "channels": {
+      "1": 41
+    },
+    "label": "PATH RECORD (Wi-Fi limitation; README, PREREGISTRATION)",
+    "method": "rtt: JSON-RPC getSlot over a kept-alive HTTPS connection, one probe per 5 s, first probe of a connection excluded; a proxy for the path, not the delay of QUIC sends to a leader. wifi: WLAN API sample per 30 s (SSID never read).",
+    "network_types": {
+      "wifi": 41
+    },
+    "phys": {
+      "802.11n": 41
+    },
+    "preflight": {
+      "description": "TP-Link Wireless USB Adapter",
+      "if_type": 71,
+      "name": "Беспроводная сеть",
+      "type": "wifi",
+      "wifi": true,
+      "wifi_link": {
+        "ap_id": "ac18fd41",
+        "band": "2.4 GHz",
+        "channel": 1,
+        "phy": "802.11n",
+        "rssi_dbm": null,
+        "rx_mbps": 150,
+        "signal_quality": 92,
+        "tx_mbps": 150
+      },
+      "wifi_power_saving_ac": 0
+    },
+    "rssi_dbm": {
+      "max": null,
+      "median": null,
+      "min": null,
+      "p5": null,
+      "p95": null
+    },
+    "rtt": {
+      "jitter_ms": 15.71000167364017,
+      "loss_share": 0.0,
+      "max_ms": 325.9501,
+      "min_ms": 43.8766,
+      "n": 240,
+      "n_err": 0,
+      "n_ok": 240,
+      "n_pairs": 239,
+      "p50_ms": 49.5573,
+      "p90_ms": 77.7549,
+      "p95_ms": 84.1763,
+      "p99_ms": 161.665,
+      "sigma_mad_ms": 4.019180339999993
+    },
+    "rtt_by_hour": [
+      {
+        "hour_utc": "2026-10-28T12:00:00Z",
+        "jitter_ms": 15.71000167364017,
+        "loss_share": 0.0,
+        "max_ms": 325.9501,
+        "min_ms": 43.8766,
+        "n": 240,
+        "n_err": 0,
+        "n_ok": 240,
+        "n_pairs": 239,
+        "p50_ms": 49.5573,
+        "p90_ms": 77.7549,
+        "p95_ms": 84.1763,
+        "p99_ms": 161.665,
+        "sigma_mad_ms": 4.019180339999993
+      }
+    ],
+    "rtt_warmup_probes": 1,
+    "rx_mbps": {
+      "max": 150.0,
+      "median": 150.0,
+      "min": 120.0,
+      "p5": 150.0,
+      "p95": 150.0
+    },
+    "signal_quality": {
+      "max": 98.0,
+      "median": 94.0,
+      "min": 76.0,
+      "p5": 84.0,
+      "p95": 98.0
+    },
+    "tx_mbps": {
+      "max": 150.0,
+      "median": 150.0,
+      "min": 120.0,
+      "p5": 150.0,
+      "p95": 150.0
+    },
+    "wifi_link_samples": 41,
+    "wifi_samples": 41
+  },
+  "reserved_lamports_total": 0,
+  "runs": [
+    "dryrun-20261028T121200Z"
+  ],
+  "session": "20261028T121158Z",
+  "skips_by_reason": {
+    "too close to previous planned window": 141,
+    "window truncated by schedule range": 2
+  },
+  "start": "2026-10-28T12:11:59Z"
+}
