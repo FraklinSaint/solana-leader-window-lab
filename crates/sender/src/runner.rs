@@ -27,7 +27,7 @@ use crate::ledger::{Ledger, Purpose};
 use crate::live::LiveAuth;
 use crate::planner::{self, PlanConfig, PlanState, PlannedWindow, Target};
 use crate::quic::{ConnectInfo, TpuClient, TpuConnection};
-use crate::rpc::Rpc;
+use crate::rpc::{ClusterNode, Rpc};
 use crate::txbuild::{self, BuiltTx, TxParams};
 use anyhow::{Context, Result};
 use base64::Engine;
@@ -545,7 +545,62 @@ pub struct RunnerInit<'a> {
     pub urgent: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
+/// A validator can move its TPU address in the middle of a session (LOGBOOK 2026-10-28), so
+/// gossip is re-read shortly before a window's prep, at most every `TPU_TTL`.
+const TPU_TTL: Duration = Duration::from_secs(60);
+const TPU_FETCH_TIMEOUT: Duration = Duration::from_millis(1_500);
+/// The re-read starts at most this long before prep and only if this much time is left.
+const TPU_REFRESH_LEAD_NS: i128 = 3_000_000_000;
+const TPU_MIN_BUDGET: Duration = Duration::from_millis(500);
+
+/// Gossip `tpuQuic` of the selected validators. Starts from the plan-time addresses; an
+/// error keeps the last known address.
+struct TpuCache {
+    at: Option<Instant>,
+    addrs: HashMap<String, String>,
+}
+
+/// (identity, old, new)
+type TpuChange = (String, String, String);
+
+impl TpuCache {
+    fn new(targets: &[Target]) -> Self {
+        Self {
+            at: None,
+            addrs: targets
+                .iter()
+                .filter_map(|t| t.tpu_quic.clone().map(|a| (t.identity.clone(), a)))
+                .collect(),
+        }
+    }
+
+    fn stale(&self, now: Instant) -> bool {
+        self.at.is_none_or(|t| now.duration_since(t) > TPU_TTL)
+    }
+
+    /// Takes a getClusterNodes result. The time is stored on errors too, so a failing RPC is
+    /// retried once a minute, not once a window.
+    fn update(&mut self, now: Instant, nodes: Result<Vec<ClusterNode>>) -> Vec<TpuChange> {
+        self.at = Some(now);
+        let mut changes = vec![];
+        for n in nodes.unwrap_or_default() {
+            let (Some(new), Some(old)) = (n.tpu_quic, self.addrs.get_mut(&n.pubkey)) else {
+                continue;
+            };
+            if *old != new {
+                changes.push((n.pubkey, std::mem::replace(old, new.clone()), new));
+            }
+        }
+        changes
+    }
+
+    fn resolve(&self, identity: &str, planned: Option<String>) -> Option<String> {
+        self.addrs.get(identity).cloned().or(planned)
+    }
+}
+
 pub struct Runner<'a> {
+    tpu: TpuCache,
     rpc: Rpc,
     cluster: Cluster,
     data_root: PathBuf,
@@ -691,6 +746,7 @@ impl<'a> Runner<'a> {
             cfg: init.cfg,
             plan_cfg: init.plan_cfg,
             prior: init.prior,
+            tpu: TpuCache::new(&init.targets),
             targets: init.targets,
             feed: init.feed,
             pool: init.pool,
@@ -1243,6 +1299,28 @@ impl<'a> Runner<'a> {
         }
     }
 
+    /// Re-read gossip within `budget`; on a timeout or error the known addresses stay.
+    async fn refresh_tpu(&mut self, budget: Duration) {
+        let nodes = match tokio::time::timeout(budget, self.rpc.cluster_nodes()).await {
+            Ok(r) => r,
+            Err(_) => Err(anyhow::anyhow!(
+                "getClusterNodes timed out ({} ms)",
+                budget.as_millis()
+            )),
+        };
+        if let Err(e) = &nodes {
+            tracing::warn!(error = %format!("{e:#}"), "gossip refresh failed, keeping known tpuQuic");
+        }
+        for (identity, old, new) in self.tpu.update(Instant::now(), nodes) {
+            tracing::warn!(%identity, %old, %new, "gossip tpuQuic changed");
+            self.session_event(
+                "tpu_gossip_changed",
+                serde_json::json!({"identity": identity, "old": old, "new": new,
+                    "at_utc": ts(), "run_id": self.cfg.run_id}),
+            );
+        }
+    }
+
     fn skip(&mut self, mut log: WindowLog, reason: String) -> Result<()> {
         tracing::info!(window = %log.window.window_id, %reason, "window skipped");
         *self.summary.skips.entry(reason_key(&reason)).or_default() += 1;
@@ -1304,6 +1382,7 @@ impl<'a> Runner<'a> {
         // Plan-time predictions can be minutes ahead and off by seconds (LOGBOOK), so the
         // wait re-predicts at least once a second and prep starts prep_ms before the
         // *current* prediction.
+        let mut tpu_checked = false;
         loop {
             if self.interrupted() {
                 // not started: nothing reserved, nothing sent; its quota is freed
@@ -1319,8 +1398,28 @@ impl<'a> Runner<'a> {
             if now >= prep_at {
                 break;
             }
+            // Gossip re-read inside the idle wait, never past prep_at.
+            let left = Duration::from_nanos((prep_at - now) as u64);
+            if !tpu_checked && prep_at - now <= TPU_REFRESH_LEAD_NS && left >= TPU_MIN_BUDGET {
+                tpu_checked = true;
+                if self.tpu.stale(Instant::now()) {
+                    self.refresh_tpu(TPU_FETCH_TIMEOUT.min(left)).await;
+                    continue;
+                }
+            }
             self.idle_until(prep_at.min(now + 1_000_000_000), prep_at)
                 .await?;
+        }
+        if let Some(new) = self.tpu.resolve(&w.identity, w.tpu_quic.clone())
+            && w.tpu_quic.as_ref() != Some(&new)
+        {
+            tracing::warn!(window = %w.window_id, old = ?w.tpu_quic, %new, "tpuQuic changed since planning");
+            self.session_event(
+                "tpu_changed",
+                serde_json::json!({"window_id": w.window_id, "identity": w.identity,
+                    "old": w.tpu_quic, "new": new, "at_utc": ts(), "run_id": self.cfg.run_id}),
+            );
+            w.tpu_quic = Some(new);
         }
 
         let fit = self.fit();
@@ -1749,6 +1848,89 @@ mod tests {
 
     use super::*;
     use crate::keys::ephemeral_payers;
+
+    fn tgt(id: &str, addr: Option<&str>) -> Target {
+        Target {
+            identity: id.into(),
+            vote_account: String::new(),
+            stratum: "Agave".into(),
+            tpu_quic: addr.map(Into::into),
+        }
+    }
+
+    fn node(id: &str, addr: Option<&str>) -> ClusterNode {
+        ClusterNode {
+            pubkey: id.into(),
+            version: None,
+            feature_set: None,
+            client_id: None,
+            tpu_quic: addr.map(Into::into),
+            shred_version: None,
+        }
+    }
+
+    #[test]
+    fn tpu_cache_reports_changed_address_only_for_selected() {
+        let mut c = TpuCache::new(&[tgt("A", Some("1.1.1.1:1")), tgt("B", Some("2.2.2.2:2"))]);
+        let nodes = vec![
+            node("A", Some("3.3.3.3:3")),
+            node("B", Some("2.2.2.2:2")),
+            node("Z", Some("9.9.9.9:9")), // not selected
+        ];
+        let ch = c.update(Instant::now(), Ok(nodes));
+        assert_eq!(
+            ch,
+            vec![("A".into(), "1.1.1.1:1".into(), "3.3.3.3:3".into())]
+        );
+        assert_eq!(
+            c.resolve("A", Some("1.1.1.1:1".into())).as_deref(),
+            Some("3.3.3.3:3")
+        );
+        assert_eq!(c.resolve("B", None).as_deref(), Some("2.2.2.2:2"));
+        assert_eq!(c.resolve("Z", None), None);
+        // a second read with the same addresses reports nothing
+        assert!(
+            c.update(Instant::now(), Ok(vec![node("A", Some("3.3.3.3:3"))]))
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn tpu_cache_is_fresh_for_60_s() {
+        let mut c = TpuCache::new(&[tgt("A", Some("1.1.1.1:1"))]);
+        let t0 = Instant::now();
+        assert!(c.stale(t0), "never read: stale");
+        c.update(t0, Ok(vec![]));
+        assert!(!c.stale(t0 + Duration::from_secs(59)));
+        assert!(c.stale(t0 + Duration::from_secs(61)));
+        // an error also starts the 60 s, so a failing RPC is not retried every window
+        c.update(
+            t0 + Duration::from_secs(61),
+            Err(anyhow::anyhow!("rpc down")),
+        );
+        assert!(!c.stale(t0 + Duration::from_secs(100)));
+    }
+
+    #[test]
+    fn tpu_cache_error_falls_back_to_planned_address() {
+        let mut c = TpuCache::new(&[tgt("A", None)]);
+        assert!(
+            c.update(Instant::now(), Err(anyhow::anyhow!("timeout")))
+                .is_empty()
+        );
+        assert_eq!(
+            c.resolve("A", Some("1.1.1.1:1".into())).as_deref(),
+            Some("1.1.1.1:1")
+        );
+        // after a successful read an error keeps the last known address
+        let mut c = TpuCache::new(&[tgt("A", Some("1.1.1.1:1"))]);
+        c.update(Instant::now(), Ok(vec![node("A", Some("3.3.3.3:3"))]));
+        c.update(Instant::now(), Err(anyhow::anyhow!("timeout")));
+        assert_eq!(
+            c.resolve("A", Some("1.1.1.1:1".into())).as_deref(),
+            Some("3.3.3.3:3")
+        );
+    }
 
     #[test]
     fn pool_round_robin_skips_busy_and_underfunded() {
