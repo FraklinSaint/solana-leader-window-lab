@@ -1,0 +1,305 @@
+SUPPLEMENTARY PLAN CHECK (AMENDMENT 1): approved sender, mode that cannot send. Generated 2026-10-29; counts only.
+
+== 1. Command and proof that nothing was sent
+sender: target\release\sender.exe, SHA-256 475fe47a880acab1504ea752633968dc7f1abe9abb09659d80edab663357e718 (475fe47a880a)
+command: sender.exe plan --selection data\snapshots\selection_20261029T112100Z_amendment1_no_EvnRmnMr.json --allocation analysis\sim\results\sessions\alloc_supplementary_fullcap.json --slots 130000
+note: during the check the selection file was data\snapshots\selection_20261029T112100Z_amendment1_no_EvnRmnMr.json (SHA-256 4a879aff21f252ded61a9546b72824e16fb5d6655b5398e29b8d9bf53ae963ed). Afterwards it was moved, same bytes, to analysis\sim\results\sessions\selection_amendment1_no_EvnRmnMr.json, because a selection_*.json in data\snapshots becomes the default of tagged tools and made 4 tests of test_session_cmd.py fail; it is copied back to data\snapshots just before the session.
+environment: CONFIRM_LIVE not set (checked: False); SLWLAB_ENV_FILE, RPC_URL, RPC_WS_URL, MASTER_KEYPAIR, SLWLAB_RATELIMIT_DIR removed; no --live; no --max-spend-lamports.
+`plan` is the subcommand 'Print the window plan for the next --slots slots (no waiting, no sending)' (main.rs Cmd::Plan -> plan_only): it opens no QUIC connection, builds no transaction and its code path has no send. It reads the chain (getSlot, getSlotLeaders, getClusterNodes, the slot websocket for the clock fit) and the ledger (read only).
+output lines: exit code 0; first line 'INFO sender: connected cluster=mainnet data_root=data ... rpc_rps=8.0 send_tx_rps=1.0'; last lines 'planned 253 windows, expected cost 8009546 lamports; skipped: {...}' and 'INFO sender: estimated provider credits run_id="cmd-20261029T112114Z" credits=38.3 ws_bytes=17466 rate_limited=0'. No 'sent', 'reserve' or 'live' line.
+ledger before/after: data/ledger.jsonl 12,456 lines, SHA-256 20359c922b39cdf6af67676d4964a19f432d136220ac7a9e18eebaf389d87727 both times (no reservation, no tx).
+
+== 2. What the check wrote under data/ (file list with sizes and times before and after, 1,799 files)
+  data/.ratelimit/rpc.gcra   32 bytes, new modification time (state of the cross-process rate limiter; not tracked)
+  data/credits/credits.jsonl 71,885 -> 72,405 bytes: ONE credits line appended for run_id cmd-20261029T112114Z (38.3 estimated credits). Tracked file, now shows as modified; NOT committed.
+  nothing else: no data/logs/<run>, no sessions/, no snapshots, no ledger line.
+  (The selection copy data/snapshots/selection_20261029T112100Z_amendment1_no_EvnRmnMr.json was created before the check; it is not a product of the check.)
+
+== 3. Result
+pair accepted: yes. The sender read the selection copy (9 validators) and the allocation file (plan_quota; the extra keys 'supplementary', 'cap', 'excluded_validators' are ignored).
+windows planned: 253 (= the dry run of scripts/supplementary_allocation.py, cap full: 214 supplementary + 39 left of 4of4); expected cost 8,009,546 lamports (= dry run 8,009,546: supplementary 6,765,412 + 4of4 leftover 1,244,134); 'budget left' printed by plan: 15,669,116 (38,000,000 - 22,330,884 committed).
+EvnRmnMr windows planned: 0.
+every validator x arm planned == plan_quota - windows already attempted: yes (checked for all 9 validators and their arms).
+skips printed: allocation quota met 5,279; too close to previous planned window 202; window truncated by schedule range 1; lead below 3000 ms 2. The horizon (130,000 slots, about 7.8 h from 11:21Z at 217.5 ms/slot) is long enough for every quota to be filled: the planned set is complete.
+
+== 4. 4of4 leftover and supplementary quota: order
+The planner has ONE cumulative quota per validator and arm (4of4 quota + supplementary) and no priority class. For each window it picks the arm with the largest remaining share (remaining / quota, planner.rs pick_quota_arm), in time order. The 39 leftover windows and the supplementary windows are therefore planned together in the same session and are not told apart; with this sender and one file the 39 cannot be run first. All of them are in the plan: 5Us18hLZ 54 (32 + 22), 7QQGNm3p 29 (7 + 22).
+If the session is long enough and the cap large enough, all 253 are planned and 'first priority' holds trivially. If the session is cut short, the windows missed are the late ones, whichever arm and whether leftover or supplementary. Strict priority needs a separate earlier session with alloc_calibrated_session4of4.json and the selection copy (one more night); not recommended.
+
+== 5. Windows per validator x arm: planned (4of4 left + supplementary), and time
+5Us18hLZ  Agave               P 12 (8+4)  F 10 (7+3)  X 16 (6+10)  R 9 (6+3)  C 7 (5+2)      total  54  2026-10-29T11:22:16Z to 2026-10-29T15:05:12Z  supply  11.71/h   4.61 h at supply
+7QQGNm3p  Agave               P 6 (2+4)  F 4 (1+3)  X 11 (1+10)  R 5 (2+3)  C 3 (1+2)        total  29  2026-10-29T11:29:46Z to 2026-10-29T13:15:51Z  supply  17.99/h   1.61 h at supply
+9eGrDohd  Firedancer          P 14 (0+14)  F 14 (0+14)  X 16 (0+16)  R 9 (0+9)  C 14 (0+14)  total  67  2026-10-29T11:22:03Z to 2026-10-29T12:33:16Z  supply  67.93/h   0.99 h at supply
+DRpbCBMx  BamAgave            P 7 (0+7)  F 4 (0+4)  X 13 (0+13)  C 2 (0+2)                   total  26  2026-10-29T11:23:21Z to 2026-10-29T11:38:57Z  supply 118.18/h   0.22 h at supply
+E1r4Psq8  JitoAgave           P 0 (0+0)  F 0 (0+0)  X 9 (0+9)  R 0 (0+0)  C 0 (0+0)          total   9  2026-10-29T11:22:57Z to 2026-10-29T11:33:41Z  supply 102.45/h   0.09 h at supply
+Fd7btgyS  HarmonicAgave       P 0 (0+0)  F 0 (0+0)  X 8 (0+8)  C 0 (0+0)                     total   8  2026-10-29T11:21:44Z to 2026-10-29T11:27:30Z  supply 159.69/h   0.05 h at supply
+HEL1USMZ  JitoAgave           P 0 (0+0)  F 0 (0+0)  X 9 (0+9)  R 0 (0+0)  C 0 (0+0)          total   9  2026-10-29T11:21:49Z to 2026-10-29T11:25:38Z  supply 152.29/h   0.06 h at supply
+JUPiTERr  HarmonicFiredancer  P 0 (0+0)  F 2 (0+2)  X 6 (0+6)  C 0 (0+0)                     total   8  2026-10-29T11:22:43Z to 2026-10-29T11:32:51Z  supply  92.85/h   0.09 h at supply
+ana2y2Yv  Rakurai             P 15 (0+15)  F 9 (0+9)  X 11 (0+11)  C 8 (0+8)                 total  43  2026-10-29T11:40:44Z to 2026-10-29T13:40:01Z  supply  21.43/h   2.01 h at supply
+X windows planned: 99; by gap ms (rotation, no restriction): 0: 18, 10: 23, 25: 20, 60: 20, 120: 18
+
+== 6. Hours and cost
+total windows 253. Bottleneck validator 5Us18hLZ: 54 windows / 11.71 per hour = 4.61 h at supply (supply = leader windows an hour from the saved schedules). At the sender's pace of 44 windows an hour: 5.75 h. Binding: 5.75 h = 1.05 nights of 5.5 h.
+In this plan the 5Us18hLZ windows fall between 11:22Z and 15:05Z (3.7 h) because plan lists every leader window the quota can use; a session paces them by the cap line instead.
+cost: 8,009,546 lamports.
+
+== 7. Full plan as printed by the sender (253 windows)
+selection data\snapshots\selection_20261029T112100Z_amendment1_no_EvnRmnMr.json | cluster mainnet | lamports/signature 5000 | clock 217.5 ms/slot (resid 101.6 ms, n=101) | budget left 15669116
+window             stratum            arm gap_ms first_slot   n              send_at (UTC)   lead_s      cost
+462862356-Fd7btgyS HarmonicAgave        X     10  462862356   4   2026-10-29T11:21:44.767Z      4.1     31658
+462862380-HEL1USMZ JitoAgave            X     10  462862380   4   2026-10-29T11:21:49.986Z      9.3     31658
+462862444-9eGrDohd Firedancer           X     10  462862444   4   2026-10-29T11:22:03.903Z     23.2     31658
+462862480-Fd7btgyS HarmonicAgave        X     25  462862480   4   2026-10-29T11:22:11.732Z     31.0     31658
+462862504-5Us18hLZ Agave                X      0  462862504   4   2026-10-29T11:22:16.951Z     36.2     31658
+462862568-Fd7btgyS HarmonicAgave        X     60  462862568   8   2026-10-29T11:22:30.868Z     50.2     31658
+462862628-JUPiTERr HarmonicFiredancer   X     10  462862628   4   2026-10-29T11:22:43.915Z     63.2     31658
+462862652-HEL1USMZ JitoAgave            X     25  462862652   4   2026-10-29T11:22:49.134Z     68.4     31658
+462862692-E1r4Psq8 JitoAgave            X     10  462862692   4   2026-10-29T11:22:57.832Z     77.1     31658
+462862772-9eGrDohd Firedancer           X     25  462862772   4   2026-10-29T11:23:15.229Z     94.5     31658
+462862800-DRpbCBMx BamAgave             X     10  462862800   4   2026-10-29T11:23:21.317Z    100.6     31658
+462862860-HEL1USMZ JitoAgave            X     60  462862860   4   2026-10-29T11:23:34.365Z    113.6     31658
+462862888-DRpbCBMx BamAgave             X     25  462862888   4   2026-10-29T11:23:40.453Z    119.7     31658
+462862912-Fd7btgyS HarmonicAgave        X    120  462862912   4   2026-10-29T11:23:45.672Z    125.0     31658
+462862940-HEL1USMZ JitoAgave            X    120  462862940   4   2026-10-29T11:23:51.761Z    131.0     31658
+462863004-HEL1USMZ JitoAgave            X      0  462863004   4   2026-10-29T11:24:05.678Z    145.0     31658
+462863056-E1r4Psq8 JitoAgave            X     25  462863056   4   2026-10-29T11:24:16.986Z    156.3     31658
+462863080-Fd7btgyS HarmonicAgave        X      0  462863080   4   2026-10-29T11:24:22.205Z    161.5     31658
+462863140-DRpbCBMx BamAgave             X     60  462863140   4   2026-10-29T11:24:35.252Z    174.5     31658
+462863268-DRpbCBMx BamAgave             X    120  462863268   4   2026-10-29T11:25:03.086Z    202.4     31658
+462863336-HEL1USMZ JitoAgave            X     10  462863336   4   2026-10-29T11:25:17.873Z    217.2     31658
+462863364-HEL1USMZ JitoAgave            X     25  462863364   4   2026-10-29T11:25:23.962Z    223.2     31658
+462863404-HEL1USMZ JitoAgave            X     60  462863404   4   2026-10-29T11:25:32.660Z    231.9     31658
+462863432-HEL1USMZ JitoAgave            X    120  462863432   4   2026-10-29T11:25:38.749Z    238.0     31658
+462863464-DRpbCBMx BamAgave             X      0  462863464   4   2026-10-29T11:25:45.707Z    245.0     31658
+462863608-Fd7btgyS HarmonicAgave        X     10  462863608   4   2026-10-29T11:26:17.021Z    276.3     31658
+462863724-Fd7btgyS HarmonicAgave        X     25  462863724   4   2026-10-29T11:26:42.246Z    301.5     31658
+462863756-JUPiTERr HarmonicFiredancer   X     25  462863756   4   2026-10-29T11:26:49.204Z    308.5     31658
+462863784-5Us18hLZ Agave                X     10  462863784   4   2026-10-29T11:26:55.293Z    314.6     31658
+462863816-DRpbCBMx BamAgave             X     10  462863816   4   2026-10-29T11:27:02.251Z    321.5     31658
+462863840-JUPiTERr HarmonicFiredancer   X     60  462863840   4   2026-10-29T11:27:07.470Z    326.8     31658
+462863880-DRpbCBMx BamAgave             P      0  462863880   4   2026-10-29T11:27:16.169Z    335.5     31658
+462863948-Fd7btgyS HarmonicAgave        X     60  462863948   4   2026-10-29T11:27:30.956Z    350.2     31658
+462863972-DRpbCBMx BamAgave             X     25  462863972   4   2026-10-29T11:27:36.174Z    355.5     31658
+462864012-E1r4Psq8 JitoAgave            X     60  462864012   4   2026-10-29T11:27:44.873Z    364.2     31658
+462864056-E1r4Psq8 JitoAgave            X    120  462864056   8   2026-10-29T11:27:54.441Z    373.7     31658
+462864088-E1r4Psq8 JitoAgave            X      0  462864088   4   2026-10-29T11:28:01.399Z    380.7     31658
+462864300-DRpbCBMx BamAgave             P      0  462864300   4   2026-10-29T11:28:47.500Z    426.8     31658
+462864344-9eGrDohd Firedancer           P      0  462864344   4   2026-10-29T11:28:57.068Z    436.4     31658
+462864468-DRpbCBMx BamAgave             X     60  462864468   4   2026-10-29T11:29:24.032Z    463.3     31658
+462864528-E1r4Psq8 JitoAgave            X     10  462864528   4   2026-10-29T11:29:37.079Z    476.4     31658
+462864572-7QQGNm3p Agave                X      0  462864572   4   2026-10-29T11:29:46.647Z    485.9     31658
+462864704-JUPiTERr HarmonicFiredancer   X    120  462864704   4   2026-10-29T11:30:15.351Z    514.6     31658
+462864820-E1r4Psq8 JitoAgave            X     25  462864820   4   2026-10-29T11:30:40.576Z    539.9     31658
+462864856-JUPiTERr HarmonicFiredancer   F     10  462864856   4   2026-10-29T11:30:48.405Z    547.7     30300
+462864884-DRpbCBMx BamAgave             F     10  462864884   4   2026-10-29T11:30:54.493Z    553.8     30300
+462864940-9eGrDohd Firedancer           C      0  462864940   4   2026-10-29T11:31:06.671Z    566.0     31658
+462864968-JUPiTERr HarmonicFiredancer   X      0  462864968   4   2026-10-29T11:31:12.760Z    572.0     31658
+462865008-DRpbCBMx BamAgave             P      0  462865008   4   2026-10-29T11:31:21.458Z    580.7     31658
+462865056-DRpbCBMx BamAgave             X    120  462865056   4   2026-10-29T11:31:31.896Z    591.2     31658
+462865084-DRpbCBMx BamAgave             P      0  462865084   4   2026-10-29T11:31:37.984Z    597.3     31658
+462865152-JUPiTERr HarmonicFiredancer   F     10  462865152   4   2026-10-29T11:31:52.771Z    612.1     30300
+462865212-7QQGNm3p Agave                X     10  462865212   4   2026-10-29T11:32:05.819Z    625.1     31658
+462865280-9eGrDohd Firedancer           F     10  462865280   4   2026-10-29T11:32:20.605Z    639.9     30300
+462865424-JUPiTERr HarmonicFiredancer   X     10  462865424   4   2026-10-29T11:32:51.919Z    671.2     31658
+462865520-E1r4Psq8 JitoAgave            X     60  462865520   4   2026-10-29T11:33:12.795Z    692.1     31658
+462865652-E1r4Psq8 JitoAgave            X    120  462865652   4   2026-10-29T11:33:41.499Z    720.8     31658
+462865692-9eGrDohd Firedancer           R      0  462865692   4   2026-10-29T11:33:50.197Z    729.5     34200
+462865800-9eGrDohd Firedancer           X     60  462865800   4   2026-10-29T11:34:13.682Z    753.0     31658
+462865828-DRpbCBMx BamAgave             F     10  462865828   4   2026-10-29T11:34:19.771Z    759.1     30300
+462865876-DRpbCBMx BamAgave             X      0  462865876   4   2026-10-29T11:34:30.209Z    769.5     31658
+462865920-DRpbCBMx BamAgave             C      0  462865920   8   2026-10-29T11:34:39.777Z    779.1     31658
+462865964-DRpbCBMx BamAgave             P      0  462865964   4   2026-10-29T11:34:49.345Z    788.6     31658
+462866084-DRpbCBMx BamAgave             X     10  462866084   4   2026-10-29T11:35:15.439Z    814.7     31658
+462866384-9eGrDohd Firedancer           F     10  462866384   4   2026-10-29T11:36:20.676Z    880.0     30300
+462866596-9eGrDohd Firedancer           P      0  462866596   4   2026-10-29T11:37:06.776Z    926.1     31658
+462866648-DRpbCBMx BamAgave             F     10  462866648   4   2026-10-29T11:37:18.084Z    937.4     30300
+462866704-DRpbCBMx BamAgave             P      0  462866704   4   2026-10-29T11:37:30.261Z    949.5     31658
+462866736-9eGrDohd Firedancer           C      0  462866736   4   2026-10-29T11:37:37.220Z    956.5     31658
+462866780-DRpbCBMx BamAgave             X     25  462866780   4   2026-10-29T11:37:46.788Z    966.1     31658
+462866808-DRpbCBMx BamAgave             C      0  462866808   4   2026-10-29T11:37:52.877Z    972.2     31658
+462866952-DRpbCBMx BamAgave             F     10  462866952   4   2026-10-29T11:38:24.190Z   1003.5     30300
+462867004-DRpbCBMx BamAgave             P      0  462867004   4   2026-10-29T11:38:35.498Z   1014.8     31658
+462867104-DRpbCBMx BamAgave             X     60  462867104   4   2026-10-29T11:38:57.243Z   1036.5     31658
+462867140-5Us18hLZ Agave                X     25  462867140   4   2026-10-29T11:39:05.072Z   1044.4     31658
+462867596-ana2y2Yv Rakurai              P      0  462867596   4   2026-10-29T11:40:44.231Z   1143.5     31658
+462867676-9eGrDohd Firedancer           X    120  462867676   4   2026-10-29T11:41:01.627Z   1160.9     31658
+462867840-9eGrDohd Firedancer           F     10  462867840   4   2026-10-29T11:41:37.290Z   1196.6     30300
+462867924-9eGrDohd Firedancer           P      0  462867924   4   2026-10-29T11:41:55.556Z   1214.8     31658
+462868000-7QQGNm3p Agave                X     25  462868000   4   2026-10-29T11:42:12.083Z   1231.4     31658
+462868196-9eGrDohd Firedancer           R      0  462868196   4   2026-10-29T11:42:54.704Z   1274.0     34200
+462868320-ana2y2Yv Rakurai              X     10  462868320   4   2026-10-29T11:43:21.668Z   1301.0     31658
+462868380-9eGrDohd Firedancer           C      0  462868380   4   2026-10-29T11:43:34.716Z   1314.0     31658
+462868584-9eGrDohd Firedancer           X      0  462868584   4   2026-10-29T11:44:19.077Z   1358.4     31658
+462868784-9eGrDohd Firedancer           P      0  462868784   4   2026-10-29T11:45:02.568Z   1401.9     31658
+462868920-9eGrDohd Firedancer           C      0  462868920   4   2026-10-29T11:45:32.141Z   1431.4     31658
+462868952-9eGrDohd Firedancer           F     10  462868952   4   2026-10-29T11:45:39.100Z   1438.4     30300
+462869100-9eGrDohd Firedancer           R      0  462869100   4   2026-10-29T11:46:11.283Z   1470.6     34200
+462869380-9eGrDohd Firedancer           X     10  462869380   4   2026-10-29T11:47:12.171Z   1531.5     31658
+462869436-9eGrDohd Firedancer           F     10  462869436   4   2026-10-29T11:47:24.348Z   1543.6     30300
+462869508-9eGrDohd Firedancer           P      0  462869508   4   2026-10-29T11:47:40.005Z   1559.3     31658
+462869624-9eGrDohd Firedancer           C      0  462869624   4   2026-10-29T11:48:05.230Z   1584.5     31658
+462869756-9eGrDohd Firedancer           X     25  462869756   4   2026-10-29T11:48:33.934Z   1613.2     31658
+462869812-ana2y2Yv Rakurai              P      0  462869812   4   2026-10-29T11:48:46.111Z   1625.4     31658
+462869848-9eGrDohd Firedancer           P      0  462869848   4   2026-10-29T11:48:53.940Z   1633.2     31658
+462869932-9eGrDohd Firedancer           C      0  462869932   4   2026-10-29T11:49:12.206Z   1651.5     31658
+462869980-9eGrDohd Firedancer           R      0  462869980   4   2026-10-29T11:49:22.644Z   1661.9     34200
+462870124-9eGrDohd Firedancer           F     10  462870124   4   2026-10-29T11:49:53.957Z   1693.2     30300
+462870528-9eGrDohd Firedancer           X     60  462870528   4   2026-10-29T11:51:21.809Z   1781.1     31658
+462870680-5Us18hLZ Agave                X     60  462870680   4   2026-10-29T11:51:54.862Z   1814.1     31658
+462870872-9eGrDohd Firedancer           C      0  462870872   4   2026-10-29T11:52:36.613Z   1855.9     31658
+462871000-9eGrDohd Firedancer           F     10  462871000   4   2026-10-29T11:53:04.448Z   1883.7     30300
+462871596-9eGrDohd Firedancer           P      0  462871596   4   2026-10-29T11:55:14.051Z   2013.3     31658
+462871868-7QQGNm3p Agave                X     60  462871868   4   2026-10-29T11:56:13.198Z   2072.5     31658
+462872000-9eGrDohd Firedancer           R      0  462872000   4   2026-10-29T11:56:41.903Z   2101.2     34200
+462872092-5Us18hLZ Agave                F     10  462872092   4   2026-10-29T11:57:01.908Z   2121.2     30300
+462872132-9eGrDohd Firedancer           X    120  462872132   4   2026-10-29T11:57:10.607Z   2129.9     31658
+462872340-9eGrDohd Firedancer           P      0  462872340   4   2026-10-29T11:57:55.837Z   2175.1     31658
+462872572-9eGrDohd Firedancer           F     10  462872572   4   2026-10-29T11:58:46.287Z   2225.6     30300
+462872624-ana2y2Yv Rakurai              C      0  462872624   4   2026-10-29T11:58:57.594Z   2236.9     31658
+462872780-7QQGNm3p Agave                X    120  462872780   4   2026-10-29T11:59:31.517Z   2270.8     31658
+462873408-9eGrDohd Firedancer           C      0  462873408   4   2026-10-29T12:01:48.079Z   2407.4     31658
+462873612-7QQGNm3p Agave                R      0  462873612   4   2026-10-29T12:02:32.440Z   2451.7     34200
+462873680-5Us18hLZ Agave                P      0  462873680   4   2026-10-29T12:02:47.227Z   2466.5     31658
+462873752-9eGrDohd Firedancer           X      0  462873752   8   2026-10-29T12:03:02.884Z   2482.2     31658
+462873840-7QQGNm3p Agave                P      0  462873840   4   2026-10-29T12:03:22.020Z   2501.3     31658
+462874056-9eGrDohd Firedancer           C      0  462874056   4   2026-10-29T12:04:08.990Z   2548.3     31658
+462874180-7QQGNm3p Agave                X      0  462874180   4   2026-10-29T12:04:35.954Z   2575.2     31658
+462874380-7QQGNm3p Agave                C      0  462874380   4   2026-10-29T12:05:19.445Z   2618.7     31658
+462874532-9eGrDohd Firedancer           R      0  462874532   4   2026-10-29T12:05:52.498Z   2651.8     34200
+462874588-9eGrDohd Firedancer           F     10  462874588   4   2026-10-29T12:06:04.676Z   2664.0     30300
+462874700-7QQGNm3p Agave                P      0  462874700   4   2026-10-29T12:06:29.031Z   2688.3     31658
+462875024-9eGrDohd Firedancer           P      0  462875024   4   2026-10-29T12:07:39.486Z   2758.8     31658
+462875048-9eGrDohd Firedancer           X     10  462875048   4   2026-10-29T12:07:44.705Z   2764.0     31658
+462875208-9eGrDohd Firedancer           P      0  462875208   4   2026-10-29T12:08:19.498Z   2798.8     31658
+462875596-9eGrDohd Firedancer           F     10  462875596   4   2026-10-29T12:09:43.870Z   2883.2     30300
+462875756-5Us18hLZ Agave                C      0  462875756   4   2026-10-29T12:10:18.663Z   2917.9     31658
+462875908-9eGrDohd Firedancer           C      0  462875908   4   2026-10-29T12:10:51.716Z   2951.0     31658
+462875996-9eGrDohd Firedancer           X     25  462875996   8   2026-10-29T12:11:10.852Z   2970.1     31658
+462876088-ana2y2Yv Rakurai              P      0  462876088   4   2026-10-29T12:11:30.858Z   2990.1     31658
+462876280-ana2y2Yv Rakurai              X     25  462876280   4   2026-10-29T12:12:12.610Z   3031.9     31658
+462876392-9eGrDohd Firedancer           R      0  462876392   4   2026-10-29T12:12:36.965Z   3056.2     34200
+462876464-ana2y2Yv Rakurai              F     10  462876464   4   2026-10-29T12:12:52.621Z   3071.9     30300
+462876728-ana2y2Yv Rakurai              P      0  462876728   4   2026-10-29T12:13:50.029Z   3129.3     31658
+462876840-7QQGNm3p Agave                R      0  462876840   4   2026-10-29T12:14:14.384Z   3153.7     34200
+462877020-ana2y2Yv Rakurai              C      0  462877020   4   2026-10-29T12:14:53.526Z   3192.8     31658
+462877112-9eGrDohd Firedancer           C      0  462877112   4   2026-10-29T12:15:13.532Z   3212.8     31658
+462877188-9eGrDohd Firedancer           P      0  462877188   4   2026-10-29T12:15:30.059Z   3229.3     31658
+462877236-9eGrDohd Firedancer           F     10  462877236   4   2026-10-29T12:15:40.497Z   3239.8     30300
+462877376-ana2y2Yv Rakurai              X     60  462877376   4   2026-10-29T12:16:10.940Z   3270.2     31658
+462877508-7QQGNm3p Agave                F     10  462877508   4   2026-10-29T12:16:39.644Z   3298.9     30300
+462877828-7QQGNm3p Agave                X     10  462877828   4   2026-10-29T12:17:49.230Z   3368.5     31658
+462877860-ana2y2Yv Rakurai              P      0  462877860   4   2026-10-29T12:17:56.188Z   3375.5     31658
+462877900-ana2y2Yv Rakurai              F     10  462877900   4   2026-10-29T12:18:04.887Z   3384.2     30300
+462877924-ana2y2Yv Rakurai              X    120  462877924   4   2026-10-29T12:18:10.105Z   3389.4     31658
+462878104-9eGrDohd Firedancer           X     60  462878104   4   2026-10-29T12:18:49.247Z   3428.5     31658
+462878296-9eGrDohd Firedancer           C      0  462878296   4   2026-10-29T12:19:30.999Z   3470.3     31658
+462878408-9eGrDohd Firedancer           F     10  462878408   4   2026-10-29T12:19:55.354Z   3494.6     30300
+462878468-9eGrDohd Firedancer           P      0  462878468   4   2026-10-29T12:20:08.401Z   3507.7     31658
+462878684-ana2y2Yv Rakurai              C      0  462878684   4   2026-10-29T12:20:55.371Z   3554.7     31658
+462878732-9eGrDohd Firedancer           R      0  462878732   4   2026-10-29T12:21:05.809Z   3565.1     34200
+462879092-ana2y2Yv Rakurai              P      0  462879092   4   2026-10-29T12:22:24.093Z   3643.4     31658
+462879520-9eGrDohd Firedancer           X    120  462879520   4   2026-10-29T12:23:57.164Z   3736.4     31658
+462879552-9eGrDohd Firedancer           C      0  462879552   4   2026-10-29T12:24:04.122Z   3743.4     31658
+462879604-7QQGNm3p Agave                P      0  462879604   4   2026-10-29T12:24:15.430Z   3754.7     31658
+462879684-9eGrDohd Firedancer           F     10  462879684   4   2026-10-29T12:24:32.826Z   3772.1     30300
+462879888-ana2y2Yv Rakurai              F     10  462879888   4   2026-10-29T12:25:17.187Z   3816.5     30300
+462879980-ana2y2Yv Rakurai              P      0  462879980   4   2026-10-29T12:25:37.193Z   3836.5     31658
+462880112-5Us18hLZ Agave                X    120  462880112   4   2026-10-29T12:26:05.897Z   3865.2     31658
+462880260-ana2y2Yv Rakurai              X      0  462880260   4   2026-10-29T12:26:38.080Z   3897.4     31658
+462880316-9eGrDohd Firedancer           P      0  462880316   4   2026-10-29T12:26:50.258Z   3909.5     31658
+462880500-7QQGNm3p Agave                X     25  462880500   4   2026-10-29T12:27:30.269Z   3949.6     31658
+462880584-ana2y2Yv Rakurai              C      0  462880584   4   2026-10-29T12:27:48.536Z   3967.8     31658
+462880644-5Us18hLZ Agave                F     10  462880644   4   2026-10-29T12:28:01.583Z   3980.9     30300
+462880808-9eGrDohd Firedancer           X      0  462880808   4   2026-10-29T12:28:37.245Z   4016.5     31658
+462880884-9eGrDohd Firedancer           R      0  462880884   4   2026-10-29T12:28:53.772Z   4033.1     34200
+462881092-7QQGNm3p Agave                R      0  462881092   4   2026-10-29T12:29:39.003Z   4078.3     34200
+462881196-5Us18hLZ Agave                R      0  462881196   4   2026-10-29T12:30:01.618Z   4100.9     34200
+462881296-5Us18hLZ Agave                P      0  462881296   4   2026-10-29T12:30:23.363Z   4122.6     31658
+462881356-9eGrDohd Firedancer           P      0  462881356   4   2026-10-29T12:30:36.411Z   4135.7     31658
+462881540-ana2y2Yv Rakurai              F     10  462881540   4   2026-10-29T12:31:16.422Z   4175.7     30300
+462881580-9eGrDohd Firedancer           C      0  462881580   4   2026-10-29T12:31:25.121Z   4184.4     31658
+462881904-9eGrDohd Firedancer           F     10  462881904   4   2026-10-29T12:32:35.576Z   4254.9     30300
+462882092-9eGrDohd Firedancer           X     10  462882092   4   2026-10-29T12:33:16.458Z   4295.7     31658
+462882228-7QQGNm3p Agave                F     10  462882228   4   2026-10-29T12:33:46.031Z   4325.3     30300
+462882708-ana2y2Yv Rakurai              P      0  462882708   4   2026-10-29T12:35:30.410Z   4429.7     31658
+462883368-5Us18hLZ Agave                X      0  462883368   4   2026-10-29T12:37:53.930Z   4573.2     31658
+462883564-5Us18hLZ Agave                C      0  462883564   4   2026-10-29T12:38:36.551Z   4615.8     31658
+462883652-7QQGNm3p Agave                C      0  462883652   4   2026-10-29T12:38:55.687Z   4635.0     31658
+462883836-ana2y2Yv Rakurai              X     10  462883836   4   2026-10-29T12:39:35.699Z   4675.0     31658
+462883904-7QQGNm3p Agave                P      0  462883904   4   2026-10-29T12:39:50.486Z   4689.8     31658
+462883968-7QQGNm3p Agave                X     60  462883968   4   2026-10-29T12:40:04.403Z   4703.7     31658
+462884396-5Us18hLZ Agave                R      0  462884396   4   2026-10-29T12:41:37.474Z   4796.8     34200
+462885408-ana2y2Yv Rakurai              P      0  462885408   4   2026-10-29T12:45:17.538Z   5016.8     31658
+462886052-ana2y2Yv Rakurai              C      0  462886052   4   2026-10-29T12:47:37.579Z   5156.9     31658
+462886084-ana2y2Yv Rakurai              F     10  462886084   4   2026-10-29T12:47:44.538Z   5163.8     30300
+462886592-7QQGNm3p Agave                F     10  462886592   4   2026-10-29T12:49:35.005Z   5274.3     30300
+462886704-5Us18hLZ Agave                P      0  462886704   4   2026-10-29T12:49:59.360Z   5298.6     31658
+462886916-ana2y2Yv Rakurai              X     25  462886916   4   2026-10-29T12:50:45.460Z   5344.7     31658
+462887440-5Us18hLZ Agave                F     10  462887440   4   2026-10-29T12:52:39.407Z   5458.7     30300
+462887632-7QQGNm3p Agave                R      0  462887632   4   2026-10-29T12:53:21.158Z   5500.4     34200
+462887852-5Us18hLZ Agave                X     10  462887852   4   2026-10-29T12:54:08.998Z   5548.3     31658
+462888028-ana2y2Yv Rakurai              P      0  462888028   4   2026-10-29T12:54:47.270Z   5586.6     31658
+462888152-7QQGNm3p Agave                P      0  462888152   4   2026-10-29T12:55:14.234Z   5613.5     31658
+462888588-ana2y2Yv Rakurai              F     10  462888588   4   2026-10-29T12:56:49.045Z   5708.3     30300
+462889136-ana2y2Yv Rakurai              X     60  462889136   4   2026-10-29T12:58:48.210Z   5827.5     31658
+462889272-7QQGNm3p Agave                X    120  462889272   4   2026-10-29T12:59:17.784Z   5857.1     31658
+462889340-ana2y2Yv Rakurai              C      0  462889340   4   2026-10-29T12:59:32.571Z   5871.9     31658
+462889496-5Us18hLZ Agave                P      0  462889496   4   2026-10-29T13:00:06.494Z   5905.8     31658
+462889760-ana2y2Yv Rakurai              P      0  462889760   4   2026-10-29T13:01:03.902Z   5963.2     31658
+462891248-5Us18hLZ Agave                R      0  462891248   4   2026-10-29T13:06:27.475Z   6286.8     34200
+462891336-ana2y2Yv Rakurai              F     10  462891336   4   2026-10-29T13:06:46.611Z   6305.9     30300
+462891508-ana2y2Yv Rakurai              P      0  462891508   4   2026-10-29T13:07:24.013Z   6343.3     31658
+462891712-ana2y2Yv Rakurai              X    120  462891712   4   2026-10-29T13:08:08.374Z   6387.7     31658
+462891884-ana2y2Yv Rakurai              C      0  462891884   4   2026-10-29T13:08:45.776Z   6425.1     31658
+462892012-5Us18hLZ Agave                F     10  462892012   4   2026-10-29T13:09:13.610Z   6452.9     30300
+462892064-7QQGNm3p Agave                C      0  462892064   4   2026-10-29T13:09:24.918Z   6464.2     31658
+462892796-7QQGNm3p Agave                R      0  462892796   4   2026-10-29T13:12:04.095Z   6623.4     34200
+462892936-7QQGNm3p Agave                F     10  462892936   4   2026-10-29T13:12:34.539Z   6653.8     30300
+462893136-7QQGNm3p Agave                P      0  462893136   4   2026-10-29T13:13:18.030Z   6697.3     31658
+462893188-5Us18hLZ Agave                X     25  462893188   4   2026-10-29T13:13:29.337Z   6708.6     31658
+462893608-5Us18hLZ Agave                C      0  462893608   4   2026-10-29T13:15:00.668Z   6800.0     31658
+462893844-7QQGNm3p Agave                X      0  462893844   4   2026-10-29T13:15:51.988Z   6851.3     31658
+462894704-5Us18hLZ Agave                P      0  462894704   4   2026-10-29T13:18:58.999Z   7038.3     31658
+462894788-5Us18hLZ Agave                X     60  462894788   4   2026-10-29T13:19:17.265Z   7056.5     31658
+462895108-5Us18hLZ Agave                F     10  462895108   4   2026-10-29T13:20:26.851Z   7126.1     30300
+462895204-ana2y2Yv Rakurai              P      0  462895204   4   2026-10-29T13:20:47.727Z   7147.0     31658
+462895620-ana2y2Yv Rakurai              F     10  462895620   4   2026-10-29T13:22:18.188Z   7237.5     30300
+462896188-5Us18hLZ Agave                R      0  462896188   4   2026-10-29T13:24:21.702Z   7361.0     34200
+462896504-5Us18hLZ Agave                P      0  462896504   4   2026-10-29T13:25:30.418Z   7429.7     31658
+462896880-ana2y2Yv Rakurai              X      0  462896880   4   2026-10-29T13:26:52.181Z   7511.5     31658
+462897744-ana2y2Yv Rakurai              P      0  462897744   4   2026-10-29T13:30:00.062Z   7699.3     31658
+462898004-5Us18hLZ Agave                X    120  462898004   4   2026-10-29T13:30:56.600Z   7755.9     31658
+462898604-ana2y2Yv Rakurai              C      0  462898604   4   2026-10-29T13:33:07.073Z   7886.4     31658
+462898668-ana2y2Yv Rakurai              F     10  462898668   4   2026-10-29T13:33:20.990Z   7900.3     30300
+462898900-5Us18hLZ Agave                C      0  462898900   4   2026-10-29T13:34:11.440Z   7950.7     31658
+462899748-ana2y2Yv Rakurai              X     10  462899748   4   2026-10-29T13:37:15.842Z   8135.1     31658
+462900512-ana2y2Yv Rakurai              P      0  462900512   4   2026-10-29T13:40:01.977Z   8301.3     31658
+462902288-5Us18hLZ Agave                F     10  462902288   4   2026-10-29T13:46:28.177Z   8687.5     30300
+462902840-5Us18hLZ Agave                R      0  462902840   4   2026-10-29T13:48:28.212Z   8807.5     34200
+462904452-5Us18hLZ Agave                P      0  462904452   4   2026-10-29T13:54:18.750Z   9158.0     31658
+462905580-5Us18hLZ Agave                X      0  462905580   4   2026-10-29T13:58:24.039Z   9403.3     31658
+462906040-5Us18hLZ Agave                P      0  462906040   4   2026-10-29T14:00:04.068Z   9503.4     31658
+462906740-5Us18hLZ Agave                F     10  462906740   4   2026-10-29T14:02:36.286Z   9655.6     30300
+462908092-5Us18hLZ Agave                R      0  462908092   4   2026-10-29T14:07:30.286Z   9949.6     34200
+462908144-5Us18hLZ Agave                C      0  462908144   4   2026-10-29T14:07:41.593Z   9960.9     31658
+462910768-5Us18hLZ Agave                X     10  462910768   4   2026-10-29T14:17:12.195Z  10531.5     31658
+462912068-5Us18hLZ Agave                P      0  462912068   4   2026-10-29T14:21:54.886Z  10814.2     31658
+462913368-5Us18hLZ Agave                X     25  462913368   4   2026-10-29T14:26:37.578Z  11096.9     31658
+462914076-5Us18hLZ Agave                F     10  462914076   4   2026-10-29T14:29:11.536Z  11250.8     30300
+462914244-5Us18hLZ Agave                R      0  462914244   4   2026-10-29T14:29:48.068Z  11287.4     34200
+462915108-5Us18hLZ Agave                C      0  462915108   4   2026-10-29T14:32:55.949Z  11475.2     31658
+462915828-5Us18hLZ Agave                P      0  462915828   4   2026-10-29T14:35:32.517Z  11631.8     31658
+462917180-5Us18hLZ Agave                X     60  462917180   4   2026-10-29T14:40:26.516Z  11925.8     31658
+462918000-5Us18hLZ Agave                F     10  462918000   4   2026-10-29T14:43:24.829Z  12104.1     30300
+462919080-5Us18hLZ Agave                R      0  462919080   4   2026-10-29T14:47:19.680Z  12339.0     34200
+462919268-5Us18hLZ Agave                P      0  462919268   4   2026-10-29T14:48:00.562Z  12379.8     31658
+462920056-5Us18hLZ Agave                X    120  462920056   4   2026-10-29T14:50:51.916Z  12551.2     31658
+462920636-5Us18hLZ Agave                C      0  462920636   4   2026-10-29T14:52:58.040Z  12677.3     31658
+462922336-5Us18hLZ Agave                R      0  462922336   4   2026-10-29T14:59:07.713Z  13047.0     34200
+462923136-5Us18hLZ Agave                F     10  462923136   4   2026-10-29T15:02:01.677Z  13221.0     30300
+462923480-5Us18hLZ Agave                P      0  462923480   4   2026-10-29T15:03:16.482Z  13295.8     31658
+462924012-5Us18hLZ Agave                X      0  462924012   4   2026-10-29T15:05:12.168Z  13411.5     31658
+planned 253 windows, expected cost 8009546 lamports; skipped: {"allocation quota met": 5279, "lead 1442 ms < min 3000": 1, "lead 2312 ms < min 3000": 1, "too close to previous planned window": 202, "window truncated by schedule range": 1}
+2026-10-29T11:21:40.835875Z  INFO sender: estimated provider credits run_id="cmd-20261029T112114Z" credits=38.349320000
+00002 ws_bytes=17466 rate_limited=0 month_to_date_credits=32632.733200001305 quota=1000000
+

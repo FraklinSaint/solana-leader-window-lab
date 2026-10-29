@@ -1,0 +1,88 @@
+RAKURAI (ana2y2Yv) DELIVERY, delivery only: which of the 6 txs landed, by send index (idx), arm, gap and hour.
+No order inside the block, no tau, no p-value, no verdict. Source: data/manifest.jsonl (outcome.status landed without exclusion), data/logs/*/windows.jsonl (address, RTT), sessions/20261028T213504Z/events.jsonl (tpu_changed).
+'_' = that idx did not land. slot:count = landed slot minus window first slot : txs. Hour = UTC hour of the window's predicted first slot.
+
+== 1. SESSION 4: the 31 windows sent to 45.32.145.112:8002 (plus the 2 sent to 45.77.64.138 before the gossip change at 21:58:28Z)
+window     UTC planned first slot   arm gap ms address         tpu_chg   landed by send index (0-5)  n  slot:count  RTT ms
+462631608  10-28 21:40:17Z  C    0  45.77.64.138              0 1 2 3 4 5  6  0:6    35.2
+462635708  10-28 21:54:46Z  P    0  45.77.64.138              0 1 2 3 4 5  6  0:6    35.5
+462649196  10-28 22:42:48Z  F   10  45.32.145.112   22:42:47  0 1 2 3 4 5  6  0:6    45.7
+462654320  10-28 23:01:09Z  X   60  45.32.145.112   23:01:01  0 1 2 3 4 5  6  0:5,1:1 43.8
+462658164  10-28 23:14:49Z  C    0  45.32.145.112   23:14:45  0 1 2 3 4 5  6  0:6    42.3
+462660876  10-28 23:24:28Z  P    0  45.32.145.112   23:24:24  0 1 _ 3 4 _  4  0:4    42.1
+462669552  10-28 23:55:16Z  X  120  45.32.145.112   23:55:17  _ 1 2 3 4 5  5  0:3,1:2 44.0
+462675820  10-29 00:17:35Z  F   10  45.32.145.112   00:17:30  0 1 2 3 4 5  6  0:6    42.1
+462681444  10-29 00:37:27Z  C    0  45.32.145.112   00:37:34  _ _ 2 _ _ _  1  0:1    49.1
+462684836  10-29 00:49:39Z  P    0  45.32.145.112   00:49:43  0 1 2 3 _ _  4  0:4    42.2
+462686756  10-29 00:56:37Z  X    0  45.32.145.112   00:56:31  0 1 _ _ 4 5  4  0:4    42.0
+462687044  10-29 00:57:39Z  F   10  45.32.145.112   00:57:32  _ 1 _ _ _ 5  2  0:2    43.1
+462689208  10-29 01:05:19Z  P    0  45.32.145.112   01:05:16  _ _ 2 _ _ _  1  0:1    41.9
+462690776  10-29 01:10:53Z  C    0  45.32.145.112   01:10:50  _ 1 2 3 4 _  4  0:4    41.9
+462691536  10-29 01:13:35Z  X   10  45.32.145.112   01:13:33  0 1 2 3 4 5  6  0:6    41.8
+462691936  10-29 01:15:00Z  F   10  45.32.145.112   01:14:59  0 1 2 3 4 _  5  0:5    43.3
+462693564  10-29 01:20:51Z  P    0  45.32.145.112   01:20:50  _ _ 2 3 _ _  2  0:2    43.0
+462694920  10-29 01:25:41Z  P    0  45.32.145.112   01:25:38  0 1 2 3 4 5  6  0:6    41.9
+462695420  10-29 01:27:26Z  X   25  45.32.145.112   01:27:25  _ 1 2 3 4 5  5  0:5    42.1
+462695464  10-29 01:27:35Z  F   10  45.32.145.112   01:27:34  0 1 _ 3 _ 5  4  0:4    42.3
+462696664  10-29 01:31:49Z  C    0  45.32.145.112   01:31:52  _ 1 2 3 4 5  5  0:4,1:1 42.1
+462697496  10-29 01:34:57Z  P    0  45.32.145.112   01:34:51  _ 1 _ 3 4 5  4  0:4    45.5
+462697544  10-29 01:35:07Z  F   10  45.32.145.112   01:35:01  0 1 2 3 4 5  6  0:6    41.4
+462698732  10-29 01:39:12Z  X   60  45.32.145.112   01:39:16  0 _ 2 3 4 5  5  0:5    42.8
+462699784  10-29 01:43:08Z  C    0  45.32.145.112   01:43:03  0 _ 2 _ 4 5  4  0:4    41.9
+462699912  10-29 01:43:35Z  P    0  45.32.145.112   01:43:31  _ 1 2 _ _ _  2  0:2    42.2
+462700236  10-29 01:44:38Z  F   10  45.32.145.112   01:44:40  _ 1 2 3 4 5  5  0:5    42.2
+462700632  10-29 01:46:02Z  X  120  45.32.145.112   01:46:05  0 1 2 3 4 5  6  0:1,1:2,2:1,3:2 41.7
+462700968  10-29 01:47:14Z  P    0  45.32.145.112   01:47:18  _ _ _ 3 _ _  1  0:1    41.4
+462701984  10-29 01:51:00Z  C    0  45.32.145.112   01:50:55  _ 1 2 3 4 5  5  0:5    42.2
+462702108  10-29 01:51:27Z  X    0  45.32.145.112   01:51:22  _ 1 _ 3 _ 5  3  0:3    41.5
+462702296  10-29 01:52:10Z  F   10  45.32.145.112   01:52:00  0 _ 2 3 4 5  5  0:5    41.7
+462703112  10-29 01:55:07Z  P    0  45.32.145.112   01:54:55  0 1 2 3 4 _  5  0:5    41.9
+
+== 2. SESSION 4, .112 windows (31): summaries
+landed count distribution (n landed: windows): 1: 3, 2: 3, 3: 1, 4: 7, 5: 9, 6: 8
+txs landed / sent: 133 / 186 (71.5%); windows with all 6: 8, with at least 5: 17
+by send index (landed of 31 windows): idx0 17, idx1 24, idx2 24, idx3 25, idx4 22, idx5 21
+by send_rank (landed): rank0 23, rank1 24, rank2 20, rank3 23, rank4 20, rank5 23
+by arm (windows, txs landed/sent, windows with 6): P 9, 29/54, 1; F 8, 39/48, 3; X 8, 40/48, 3; C 6, 25/36, 1
+X by gap ms (windows, landed counts): 0: 2 [3, 4]; 10: 1 [6]; 25: 1 [5]; 60: 2 [5, 6]; 120: 2 [5, 6]
+by UTC hour (windows, txs landed/sent): 10-28 22h: 1, 6/6; 10-28 23h: 4, 21/24; 10-29 00h: 5, 17/30; 10-29 01h: 21, 89/126
+landed slot offset (txs): {'0': 124, '1': 6, '2': 1, '3': 2}
+missing idx in partial windows by arm (P): P windows with <6: 8; idx missing counts: {0: 5, 1: 3, 2: 3, 3: 2, 4: 5, 5: 7}
+  the same for F (all 6 txs one price): {0: 2, 1: 1, 2: 2, 3: 1, 4: 2, 5: 1}
+connect RTT median ms: .112 42.1 (S4), .138 36.1 (S3, 7 windows)
+
+== 3. SESSION 3: its 8 windows (no tpu_changed event is logged for them in the session-3 events file; the addresses are the ones connected to)
+window     UTC planned first slot   arm gap ms address         tpu_chg   landed by send index (0-5)  n  slot:count  RTT ms
+462566868  10-28 17:49:32Z  P    0  45.32.145.112             0 1 2 3 4 5  6  0:6    43.0
+462605008  10-28 20:05:23Z  C    0  45.77.64.138              0 1 2 3 4 5  6  1:6    38.8
+462607292  10-28 20:13:36Z  F   10  45.77.64.138              0 1 2 3 4 5  6  0:6    34.5
+462615072  10-28 20:41:21Z  X   10  45.77.64.138              0 1 2 3 4 5  6  0:6    36.1
+462616796  10-28 20:47:25Z  P    0  45.77.64.138              0 1 2 3 4 5  6  0:6    37.7
+462617564  10-28 20:50:08Z  P    0  45.77.64.138              0 1 2 3 4 5  6  0:6    34.7
+462618404  10-28 20:53:14Z  X   25  45.77.64.138              0 1 2 3 4 5  6  0:6    36.7
+462618792  10-28 20:54:33Z  F   10  45.77.64.138              0 1 2 3 4 5  6  0:6    34.1
+
+== 4. All four sessions by address (windows; windows landing 6/6; windows landing 0; txs landed/sent)
+S1 45.32.145.112:8002    12 windows   12 with 6    0 with 0  72/72  RTT median 42.7 ms  10-27 00:48Z to 10-27 04:01Z
+S2 45.77.64.138:8002     31 windows    1 with 6   30 with 0  6/186  RTT median 34.7 ms  10-27 22:43Z to 10-28 02:35Z
+S3 45.32.145.112:8002     1 windows    1 with 6    0 with 0  6/6  RTT median 43.0 ms  10-28 17:49Z to 10-28 17:49Z
+S3 45.77.64.138:8002      7 windows    7 with 6    0 with 0  42/42  RTT median 36.1 ms  10-28 20:05Z to 10-28 20:54Z
+S4 45.32.145.112:8002    31 windows    8 with 6    0 with 0  133/186  RTT median 42.1 ms  10-28 22:42Z to 10-29 01:55Z
+S4 45.77.64.138:8002      2 windows    2 with 6    0 with 0  12/12  RTT median 35.3 ms  10-28 21:40Z to 10-28 21:54Z
+
+== 5. What the counts say (delivery only; nothing about order)
+- In session 4 the 31 windows sent to 45.32.145.112:8002 landed 133 of 186 txs (71.5%); the 2 windows sent to 45.77.64.138:8002 before the gossip change (21:40Z, 21:54Z) and the 8 windows of session 3 landed 6/6 (7 at .138 from 20:05Z and 1 at .112 at 17:49Z: 8 of 8 with 6/6).
+- Same sender, same Wi-Fi, same hours: the other validators had send errors only at EvnRmnMr (108 of 108 txs) and DRpbCBMx (6 of 120), and their session-4 usable rates were 81-90% except EvnRmnMr. ana2y2Yv had 0 send errors in all 33 windows and 0 connect errors: the QUIC connection and the stream writes succeeded, the txs did not appear in the block.
+- Which tx is missing does not follow the design: missing idx in partial windows is spread over idx 0-5 in P (5,3,3,2,5,7), F (2,1,2,1,2,1), X and C; F sends all 6 txs at one price and still loses 1-4 of them. 124 of the 133 landed txs are in the window's first slot (offset 0).
+- Landing does not recover with time on the .112 address: 22h 6/6 (1 window), 23h 21/24, 00h 17/30, 01h 89/126. No arm or gap level stands apart (X at 0 ms: 3 and 4 of 6; X at 10 to 120 ms: 5 or 6 in 5 of 6 windows; the numbers are too small to separate arm from address).
+- Across sessions the address that works changes: S1 (10-27 00:48Z to 04:01Z) .112 12/12 windows with 6; S2 (10-27 22:43Z to 10-28 02:35Z) .138 30 of 31 windows with 0 landed (the stale address); S3 .112 until 19:10Z then .138 (gossip change 19:10:21Z), 8 of 8 windows 6/6; S4 .138 6/6 until the gossip change at 21:58:28Z, then .112 at 71.5%.
+
+== 6. Best hypothesis and what testing it costs
+H1 (best fit): ana2y2Yv runs two TPU hosts (.112 and .138) and its gossip entry follows the one that is active, with a lag. After a flip the newly listed host receives our unstaked QUIC connection but drops a share of the txs (no pattern by idx, price, arm or gap), while the host that was active before the flip kept delivering 6/6 up to the change. Evidence for: each address delivered 6/6 in the period it was the active one (S1 .112, S3 .138, S4 .138 before 21:58Z) and failed in the period it was not (S2 .138: 0 of 186; S4 .112: 28% lost); the loss is per tx, not per window; RTT differs by 6 ms only (42.1 vs 36.1) and S1/S3 used .112 over the same Wi-Fi without loss. Evidence against or open: S3's gossip change to .138 at 19:10Z was followed by 7 of 7 windows 6/6, i.e. no degraded period after that flip, so "a newly listed host is lossy" is not general; the S4 loss may instead be a property of .112 on that night (load, a connection or rate limit for unstaked senders, a restart).
+H2 (alternative): the validator's real leader-time TPU is .138 in S4 as well and .112 is a stale forwarder that relays some txs (the 28% that arrive). This predicts that sending to .138 in S4 would have landed 6/6.
+H3 (less likely): our side. Excluded by S1, S3 and the 2 early S4 windows on the same path, and by 0 send errors; not excluded for the one night.
+
+Testing cost:
+1. Free, no lamports, no tx: for the next ana2y2Yv windows log the gossip tpuQuic at each prep (getClusterNodes is already called about 200 times a session; the value is only stored on change) and probe both hosts with a QUIC handshake only (connect, no stream). Needs a code change in the sender (crates/, not done here), about a day of work, about 1 credit per probe.
+2. A/B delivery test: in one supplementary session send alternate ana2y2Yv windows to .112 and .138, 10 windows each. Cost per window about 31,658 lamports (arm P/C, from the allocation file), so 20 windows is about 0.63 million lamports (1.7% of the 38,000,000 confirmatory budget), about 2 hours of ana2y2Yv leader supply (20.6 windows an hour); it also needs a sender change to send to a named address, and the windows would be marked as a delivery test (ordering_eligible false) and not counted as measurement.
+3. No-cost partial check from existing data only: none left; the 31 windows are all the evidence (no window was sent to .138 after 21:58Z).
