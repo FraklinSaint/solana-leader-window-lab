@@ -1,0 +1,203 @@
+{
+ "allocation": {
+  "n": 6,
+  "plan_quota": {
+   "Agave": {
+    "C": 18,
+    "F": 24,
+    "P": 30,
+    "R": 24,
+    "X": 31
+   },
+   "BamAgave": {
+    "C": 18,
+    "F": 25,
+    "P": 33,
+    "X": 32
+   },
+   "Firedancer": {
+    "C": 24,
+    "F": 24,
+    "P": 24,
+    "R": 17,
+    "X": 24
+   },
+   "HarmonicAgave": {
+    "C": 16,
+    "F": 21,
+    "P": 26,
+    "X": 29
+   },
+   "HarmonicFiredancer": {
+    "C": 16,
+    "F": 18,
+    "P": 16,
+    "X": 22
+   },
+   "JitoAgave": {
+    "C": 16,
+    "F": 21,
+    "P": 26,
+    "R": 21,
+    "X": 30
+   },
+   "Rakurai": {
+    "C": 24,
+    "F": 30,
+    "P": 39,
+    "X": 32
+   }
+  },
+  "spend_per_window_lamports": {
+   "C": 31658.0,
+   "F": 30300.0,
+   "P": 31658.0,
+   "R": 34200.0,
+   "X": 31658.0,
+   "mean": 31894.8
+  },
+  "usable_rate": 0.9907932003008957
+ },
+ "cap": "half",
+ "cumulative_share": "4/4 + supplementary",
+ "dropped_strata": [
+  "BamFiredancer"
+ ],
+ "excluded_validators": [
+  "EvnRmnMr"
+ ],
+ "full_plan_quota": {
+  "Agave": {
+   "C": 18,
+   "F": 24,
+   "P": 30,
+   "R": 24,
+   "X": 31
+  },
+  "BamAgave": {
+   "C": 18,
+   "F": 25,
+   "P": 33,
+   "X": 32
+  },
+  "Firedancer": {
+   "C": 24,
+   "F": 24,
+   "P": 24,
+   "R": 17,
+   "X": 24
+  },
+  "HarmonicAgave": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "X": 29
+  },
+  "HarmonicFiredancer": {
+   "C": 16,
+   "F": 18,
+   "P": 16,
+   "X": 22
+  },
+  "JitoAgave": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "R": 21,
+   "X": 30
+  },
+  "Rakurai": {
+   "C": 24,
+   "F": 30,
+   "P": 39,
+   "X": 32
+  }
+ },
+ "label": "SUPPLEMENTARY ALLOCATION FILE (AMENDMENT 1, 2026-10-29; scripts/supplementary_allocation.py; the fullcap file is the one used)",
+ "rounding": "plan_quota = full_plan_quota (4of4) + supplementary quota per validator; quota = min(cap, max(0, T - U))",
+ "session": "supplementary",
+ "sessions": 4,
+ "source": {
+  "counts": "usable and attempted windows of purpose measure, sessions 1 to 4, verify_20261029T102026Z.json",
+  "file": "alloc_calibrated_session4of4.json",
+  "targets": "alloc_v2.json scenario calibrated"
+ },
+ "supplementary": {
+  "note": "x_gap_quota_per_validator and excluded_validators are NOT read by the sender (planner.rs): X gaps rotate over arm_cfg.x_gaps_ms and every validator of a stratum gets the same quota; see docs/SUPPLEMENTARY_DRYRUN_FULL.txt for what this needs",
+  "quota_per_validator": {
+   "Agave": {
+    "C": 2,
+    "F": 3,
+    "P": 4,
+    "R": 3,
+    "X": 10
+   },
+   "BamAgave": {
+    "C": 2,
+    "F": 4,
+    "P": 7,
+    "X": 11
+   },
+   "Firedancer": {
+    "C": 8,
+    "F": 8,
+    "P": 8,
+    "R": 6,
+    "X": 8
+   },
+   "HarmonicAgave": {
+    "X": 8
+   },
+   "HarmonicFiredancer": {
+    "F": 2,
+    "X": 6
+   },
+   "JitoAgave": {
+    "X": 9
+   },
+   "Rakurai": {
+    "C": 8,
+    "F": 9,
+    "P": 13,
+    "X": 11
+   }
+  },
+  "x_gap_quota_per_validator": {
+   "Agave": {
+    "0": 4,
+    "10": 3,
+    "25": 3
+   },
+   "BamAgave": {
+    "0": 4,
+    "10": 4,
+    "25": 3
+   },
+   "Firedancer": {
+    "0": 3,
+    "10": 3,
+    "25": 2
+   },
+   "HarmonicAgave": {
+    "0": 3,
+    "10": 3,
+    "25": 2
+   },
+   "HarmonicFiredancer": {
+    "0": 2,
+    "10": 2,
+    "25": 2
+   },
+   "JitoAgave": {
+    "0": 3,
+    "10": 3,
+    "25": 3
+   },
+   "Rakurai": {
+    "0": 4,
+    "10": 4,
+    "25": 3
+   }
+  }
+ }
+}
