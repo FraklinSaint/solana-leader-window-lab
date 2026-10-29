@@ -1,6 +1,7 @@
 """parse.py + analyze.py end to end on a SYNTHETIC manifest built from the simulator.
 Test fixture only (tmp dir): never written to data/, labeled SIMULATION."""
 
+import datetime as dt
 import gzip
 import json
 
@@ -110,3 +111,25 @@ def test_window_sent_out_of_send_rank_order_is_excluded(tmp_path):
     ws = {w.window_id: w for w in parse.windows_from_manifest(lines)}
     assert ws[wid].reason == "send_order_mismatch" and not ws[wid].usable
     assert all(w.reason != "send_order_mismatch" for k, w in ws.items() if k != wid)
+
+
+def test_window_date_is_the_utc_day_of_the_send_time_not_of_the_run_start(tmp_path):
+    """A run started on Oct 28 21:35Z crosses 00:00Z: its windows after midnight are Oct 29."""
+    ns = lambda d, h: int(dt.datetime(2026, 10, d, h, 0, tzinfo=dt.timezone.utc).timestamp() * 1e9)
+    lines = synth(tmp_path, sim.AGAVE, windows=2)
+    for l in lines:
+        l["tx"]["run_id"] = "live-20261028T213507Z"
+    for k, l in enumerate(lines):
+        l["tx"]["send"]["start_unix_ns"] = ns(28, 23) if l["tx"]["window_id"].endswith("-0") else ns(29, 1)
+    ws = {w.window_id.rsplit("-", 1)[1]: w for w in parse.windows_from_manifest(lines)}
+    assert ws["0"].date == "20261028" and ws["1"].date == "20261029"
+    assert ws["0"].run_date == ws["1"].run_date == "20261028"
+    # a send error has no send time and must not set it
+    for l in lines:
+        if l["tx"]["window_id"].endswith("-1"):
+            l["tx"]["send"]["error"] = "x"
+    assert {w.window_id.rsplit("-", 1)[1]: w for w in parse.windows_from_manifest(lines)}["1"].send_unix_ns is None
+    # no send time at all: falls back to the day in the run id
+    for l in lines:
+        l["tx"]["send"].pop("start_unix_ns")
+    assert all(w.date == "20261028" for w in parse.windows_from_manifest(lines))

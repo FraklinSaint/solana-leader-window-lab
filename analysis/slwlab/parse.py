@@ -8,6 +8,7 @@ come from the manifest's `block_index`. `verify_positions` re-reads each saved b
 
 from __future__ import annotations
 
+import datetime as dt
 import gzip
 import json
 import math
@@ -50,14 +51,25 @@ class Window:
     # §9 skipped slots, from the stored getBlocks list (slwlab.blocklist), never from our txs
     slot_status: str = "unknown"  # "unknown" (no list given), "complete" or "skipped"
     skipped: list[int] = field(default_factory=list)
+    # earliest actual send start (unix ns) of the window's txs that left the host; None if unknown
+    send_unix_ns: int | None = None
 
     @property
     def n(self) -> int:
         return len(self.txs)
 
     @property
-    def date(self) -> str:
+    def run_date(self) -> str:
+        """The day the RUN started (the old `date`): a run that crosses 00:00Z keeps one day."""
         return self.run_id.split("-")[-1][:8] if "-" in self.run_id else ""
+
+    @property
+    def date(self) -> str:
+        """UTC day (YYYYMMDD) of the window's send time. Falls back to `run_date` when the
+        manifest line carries no send time (synthetic data)."""
+        if self.send_unix_ns is None:
+            return self.run_date
+        return dt.datetime.fromtimestamp(self.send_unix_ns / 1e9, tz=dt.timezone.utc).strftime("%Y%m%d")
 
 
 def read_jsonl(path: pathlib.Path) -> list[dict]:
@@ -91,6 +103,9 @@ def windows_from_manifest(lines: list[dict], present: dict[str, set[int]] | None
                         conflict=t.get("conflict_account") is not None,
                         signature=t["sig"], payer=t["payer"]))
         w.paths[t["send"]["path"]] += 1
+        ns = t["send"].get("start_unix_ns")
+        if ns is not None and t["send"].get("error") is None and (w.send_unix_ns is None or ns < w.send_unix_ns):
+            w.send_unix_ns = int(ns)
         _ = o
     for w in by.values():
         order = sorted(range(len(w.txs)), key=lambda i: w.txs[i].idx)
