@@ -1,0 +1,88 @@
+{
+ "allocation": {
+  "n": 6,
+  "plan_quota": {
+   "BamAgave": {
+    "C": 4,
+    "F": 4,
+    "P": 4,
+    "X": 5
+   },
+   "Firedancer": {
+    "C": 4,
+    "F": 4,
+    "P": 4,
+    "X": 5
+   },
+   "HarmonicAgave": {
+    "C": 4,
+    "F": 4,
+    "P": 4,
+    "X": 5
+   },
+   "HarmonicFiredancer": {
+    "C": 4,
+    "F": 4,
+    "P": 4,
+    "X": 5
+   },
+   "JitoAgave": {
+    "C": 4,
+    "F": 4,
+    "P": 4,
+    "X": 5
+   }
+  },
+  "spend_per_window_lamports": {
+   "C": 31658.0,
+   "F": 30300.0,
+   "P": 31658.0,
+   "R": 34200.0,
+   "X": 31658.0,
+   "mean": 31894.8
+  },
+  "usable_rate": 0.9907932003008957
+ },
+ "cumulative_share": "platform B only",
+ "dropped_strata": [],
+ "excluded_validators": [],
+ "full_plan_quota": {
+  "BamAgave": {
+   "C": 4,
+   "F": 4,
+   "P": 4,
+   "X": 5
+  },
+  "Firedancer": {
+   "C": 4,
+   "F": 4,
+   "P": 4,
+   "X": 5
+  },
+  "HarmonicAgave": {
+   "C": 4,
+   "F": 4,
+   "P": 4,
+   "X": 5
+  },
+  "HarmonicFiredancer": {
+   "C": 4,
+   "F": 4,
+   "P": 4,
+   "X": 5
+  },
+  "JitoAgave": {
+   "C": 4,
+   "F": 4,
+   "P": 4,
+   "X": 5
+  }
+ },
+ "label": "PLATFORM B ALLOCATION FILE (AMENDMENT 3, 2026-10-30; scripts/friend_kit_build.py; exploratory, never pooled)",
+ "session": "platform_b",
+ "sessions": 1,
+ "source": {
+  "file": "alloc_calibrated_session4of4.json",
+  "selection": "selection_20261030T180000Z_platformB.json"
+ }
+}

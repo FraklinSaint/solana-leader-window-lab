@@ -1,0 +1,39 @@
+FEASIBILITY: a session of the approved sender on a fresh Windows PC (operator B). Read-only study of the code and of the binary, 2026-10-30. Counts and citations only.
+
+== 1. What the sender needs on a fresh PC
+Files in the working directory (all of them are in the kit; none comes from our data/):
+  sender.exe                                   the approved binary (475fe47a880a); workers are started as sub-processes of the same exe (ledger.rs:689, ratelimit.rs:292, session.rs), so it must be run from its own folder.
+  .env                                         RPC_URL, RPC_WS_URL, SLWLAB_PLATFORM (main.rs:453-455 reads .env or the file named by SLWLAB_ENV_FILE; host.rs PLATFORM_ENV; main.rs:1019-1022 reads SLWLAB_PLATFORM from the environment or from .env). The kit has env.template; B fills his own Helius URLs.
+  data\snapshots\selection_*.json              newest by name is used (main.rs:776-790 latest_selection; `session` has no --selection flag). Only the `picked` array is read (main.rs:796-812 load_targets), TPU addresses come live from getClusterNodes.
+  allocation\alloc_platform_b.json             --allocation of `session --mode measure` (main.rs:1049); only plan_quota is read.
+  secrets\master.json + secrets\CLUSTER        master.json: from us (MASTER_KEYPAIR or secrets\master.json, main.rs:371-373). CLUSTER (the word mainnet) is REQUIRED when keys exist in a folder not named after a cluster, otherwise every command refuses (keys.rs:70-107 guard_secrets_cluster); the kit ships it.
+  secrets\payers\payer_000..031.json, sink.json   created locally by `sender init-payers --count 32` (main.rs:622-636, keys.rs:142); "master ... (existing)" is printed when master.json is there.
+  data\ (created by the sender): ledger, manifests, logs, snapshots, sessions, credits, .ratelimit.
+Argument --prereg: only a string of at least 7 characters is checked (main.rs:582, 1049); it is NOT resolved with git. B passes our prereg-v1 commit 05a3b233... as a recorded string.
+Subcommands B runs: init-payers, leader-snapshots (read-only, also writes the slot anchor), balances, fund (dry run, then --live), session --mode calibrate (smoke), session --mode measure, collect, reconcile --since <snapshot>, sweep (dry run, then --live). No Python, no git, no Rust, no repo, no Docker.
+Runtime dependencies of sender.exe (PE import table, parsed from the file): advapi32, bcrypt, bcryptprimitives, crypt32, iphlpapi, kernel32, ntdll, wlanapi, ws2_32, 6 api-ms-win-* (Universal CRT, part of Windows 10/11) and **vcruntime140.dll (Visual C++ 2015-2022 x64 runtime)**. The VC++ runtime is the only thing a fresh PC may lack; the kit points to Microsoft's installer (https://aka.ms/vs/17/release/vc_redist.x64.exe), it does not redistribute it. wlanapi.dll needs the WLAN service (a Wi-Fi laptop has it; a desktop without Wi-Fi would only lose the network record, preflight.rs "warns, never refuses").
+Pre-flight (preflight.rs): a live start is REFUSED for RebootRequired/RebootPending (Windows restart waiting) and for less than 5 GiB free on the data volume (MIN_FREE_DISK; warns below 10 GiB); it only WARNS about sleep/hibernate timeouts, free RAM below 2 GiB, Wi-Fi band/signal/power saving, VPN, and a clock offset above 50 ms (MAX_CLOCK_OFFSET_MS; an NTP query to time.cloudflare.com over UDP 123 must work for the number).
+Power: the session keeps the PC awake while it runs (keep_awake event); lid-close and battery are not handled by the sender, hence step 5 of COMMANDS_B.txt (never sleep on AC, lid does nothing) and the rule "charger plugged in".
+Payers: MIN_USABLE_PAYERS 12 (funding.rs:440); the pre-check also needs spendable balance >= the session cap (funding.rs:472-495). 32 payers as in our protocol.
+
+== 2. The gate that shapes the design
+host.rs:194-245 gate_live: a live measurement on mainnet needs a registered platform (SLWLAB_PLATFORM) AND calibration rows recorded by the SAME platform/OS/machine/network type ("no calibration rows on this platform yet: calibrate here first", host.rs:241). So B cannot start `--mode measure` first: he runs the same smoke calibration we ran (`session --mode calibrate --hours 0.34 --max-spend-lamports 300000 --offsets -300,-100,0,100`, docs/RUNBOOK_MAINNET.md:245), then the measurement. Both are in the same data\ of B; his stratum is (win-b-kyiv-laptop, windows, machine id, wifi).
+
+== 3. Can the analysis handle a second platform stratum without pooling?
+  - The analysis code has no platform field: grep -c platform = 0 in analysis/slwlab/parse.py, analyze.py, stats.py. A "stratum" in the analysis is the validator stratum, not the platform. parse.windows_from_manifest (parse.py:81) takes whatever manifest lines it is given. So there is no automatic pooling, and no automatic platform split either: separation is by directory/manifest passed (analyze.py:213 --manifest, :216 --data).
+  - scripts/verify_manifest.py check_platform (line 348-377, check Q) FAILS if one set of manifests holds more than one (platform, OS, machine) or more than one network type: platform B must be verified on its own --data directory (line 621), never together with ours. This is the structural protection against pooling.
+  - merge_dryrun.py:70 platform_of() splits dry-run clock data by platform (exploratory clock report only); sessions.py, supplementary_allocation.py, round2_allocation.py, session_cmd*.py and check_no_keys.py read the repo's data/ only.
+  - Conclusion: no code change is needed to keep B separate. To describe B next to the confirmatory platform, a counts script reads two manifests separately (a new script, no change to analysis/).
+
+== 4. Blockers and risks (none is a code blocker)
+  1. Smoke calibration is mandatory (gate above): +20 minutes and <= 300,000 lamports for B.
+  2. VC++ runtime may be missing: step 3 of the kit; not redistributed by us.
+  3. secrets\CLUSTER must ship with master.json (otherwise "holds keys but has no CLUSTER marker" on every command). Shipped.
+  4. The master private key travels to B: throwaway wallet, 0.03 SOL; deliver by a private channel, preferably separate from the zip. Operator decision.
+  5. Blocklists (getBlocks lists for the §9 usable rule) are produced by Python (slwlab.blocklist fetch): done by US on the returned data with our read-only RPC; B needs no Python.
+  6. Our `sender reconcile` fails across a plain transfer out of our master (the 0.03 SOL to B's master is not in the ledger): do it before the next fund block, so that the fund block's closing snapshot becomes the POST (OPERATOR_A_STEPS A2).
+  7. Hard ceiling 50,000,000 is a constant per ledger: B's ledger does not see ours. The combined bound is arithmetic + the caps (AMENDMENT 3 section 3: 43,215,747 at the caps).
+  8. No overlap of the two platforms is not enforced by the tool: operational rule + after-the-fact check from session.json.
+  9. B's Helius free key: 8 req/s and 1 sendTransaction/s are the defaults of the sender; ~150 credits per 10 minutes (about 3,000 for the session) against 1,000,000 a month.
+ 10. Laptop: lid, battery, Wi-Fi power saving, Windows Update restart in the middle (a live session is never resumed; a crash costs the rest of the session, the data so far stays).
+ 11. selection horizon_end_slot of the copy is old (460,944,000) but the plan check worked at slot ~463.3M, so it is not enforced by the planner.
