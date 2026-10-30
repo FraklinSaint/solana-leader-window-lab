@@ -26,3 +26,9 @@ id.json
 
 # local build/run artifacts (never committed)
 /run/
+
+# editor / OS junk
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
