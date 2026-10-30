@@ -1,0 +1,152 @@
+{
+ "allocation": {
+  "n": 6,
+  "plan_quota": {
+   "Agave": {
+    "C": 18,
+    "F": 24,
+    "P": 30,
+    "R": 24,
+    "X": 35
+   },
+   "BamAgave": {
+    "C": 18,
+    "F": 25,
+    "P": 35,
+    "X": 46
+   },
+   "Firedancer": {
+    "C": 30,
+    "F": 30,
+    "P": 30,
+    "R": 20,
+    "X": 57
+   },
+   "HarmonicAgave": {
+    "C": 16,
+    "F": 21,
+    "P": 26,
+    "X": 37
+   },
+   "HarmonicFiredancer": {
+    "C": 16,
+    "F": 18,
+    "P": 16,
+    "X": 28
+   },
+   "JitoAgave": {
+    "C": 16,
+    "F": 21,
+    "P": 26,
+    "R": 21,
+    "X": 39
+   },
+   "Rakurai": {
+    "C": 24,
+    "F": 30,
+    "P": 41,
+    "X": 43
+   }
+  },
+  "spend_per_window_lamports": {
+   "C": 31658.0,
+   "F": 30300.0,
+   "P": 31658.0,
+   "R": 34200.0,
+   "X": 31658.0,
+   "mean": 31894.8
+  },
+  "usable_rate": 0.9907932003008957
+ },
+ "cap": "full",
+ "cumulative_share": "4/4 + supplementary + round 2",
+ "dropped_strata": [
+  "BamFiredancer"
+ ],
+ "excluded_validators": [
+  "EvnRmnMr"
+ ],
+ "full_plan_quota": {
+  "Agave": {
+   "C": 18,
+   "F": 24,
+   "P": 30,
+   "R": 24,
+   "X": 35
+  },
+  "BamAgave": {
+   "C": 18,
+   "F": 25,
+   "P": 35,
+   "X": 46
+  },
+  "Firedancer": {
+   "C": 30,
+   "F": 30,
+   "P": 30,
+   "R": 20,
+   "X": 57
+  },
+  "HarmonicAgave": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "X": 37
+  },
+  "HarmonicFiredancer": {
+   "C": 16,
+   "F": 18,
+   "P": 16,
+   "X": 28
+  },
+  "JitoAgave": {
+   "C": 16,
+   "F": 21,
+   "P": 26,
+   "R": 21,
+   "X": 39
+  },
+  "Rakurai": {
+   "C": 24,
+   "F": 30,
+   "P": 41,
+   "X": 43
+  }
+ },
+ "label": "ROUND-2 ALLOCATION FILE (AMENDMENT 2, 2026-10-30; scripts/round2_allocation.py)",
+ "round2": {
+  "note": "excluded_validators and round2 are NOT read by the sender (planner.rs); the selection copy without EvnRmnMr is",
+  "quota_per_validator": {
+   "Agave": {
+    "X": 4
+   },
+   "BamAgave": {
+    "P": 2,
+    "X": 12
+   },
+   "Firedancer": {
+    "X": 25
+   },
+   "HarmonicAgave": {
+    "X": 8
+   },
+   "HarmonicFiredancer": {
+    "X": 6
+   },
+   "JitoAgave": {
+    "X": 9
+   },
+   "Rakurai": {
+    "X": 11
+   }
+  }
+ },
+ "rounding": "plan_quota = plan_quota of alloc_supplementary_fullcap.json + ceil(attempts of the cell / validators) per validator in a cell in deficit; attempts = ceil(deficit / usable rate of the cell)",
+ "session": "round2",
+ "sessions": 4,
+ "source": {
+  "counts": "usable and attempted windows of purpose measure, sessions 1 to 5, verify_20261030T085225Z.json",
+  "file": "alloc_supplementary_fullcap.json",
+  "targets": "alloc_v2.json scenario calibrated"
+ }
+}

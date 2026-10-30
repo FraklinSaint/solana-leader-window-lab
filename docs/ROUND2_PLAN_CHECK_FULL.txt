@@ -1,0 +1,45 @@
+ROUND 2 PLAN CHECK (AMENDMENT 2): approved sender, mode that cannot send. Generated 2026-10-30 15:08-15:09Z (17:08 local); counts only.
+
+== 1. Command and proof that nothing was sent
+sender: target\release\sender.exe, SHA-256 475fe47a880acab1504ea752633968dc7f1abe9abb09659d80edab663357e718 (475fe47a880a)
+command: sender.exe plan --selection analysis\sim\results\sessions\selection_amendment1_no_EvnRmnMr.json --allocation analysis\sim\results\sessions\alloc_round2.json --slots 130000
+selection: the repo copy (SHA-256 4a879aff21f252ded61a9546b72824e16fb5d6655b5398e29b8d9bf53ae963ed) passed by --selection; nothing was placed in data\snapshots.
+environment: CONFIRM_LIVE not set (checked: "no"); SLWLAB_ENV_FILE, RPC_URL, RPC_WS_URL, MASTER_KEYPAIR, SLWLAB_RATELIMIT_DIR unset; no --live; no --max-spend-lamports.
+`plan` is the subcommand 'Print the window plan for the next --slots slots (no waiting, no sending)' (main.rs Cmd::Plan -> plan_only): no QUIC connection, no transaction, no send.
+output lines proving it (exit code 0; the api key is printed as REDACTED by the sender):
+  first: "INFO sender: connected cluster=mainnet data_root=data endpoint=https://mainnet.helius-rpc.com/?api-key=REDACTED rpc_rps=8.0 send_tx_rps=1.0"
+  second: "selection analysis/sim/results/sessions/selection_amendment1_no_EvnRmnMr.json | cluster mainnet | lamports/signature 5000 | clock 215.2 ms/slot (resid 75.8 ms, n=100) | budget left 7969676"
+  last: "planned 97 windows, expected cost 3072010 lamports; skipped: {"allocation quota met": 5478, "lead 2152 ms < min 3000": 1, "too close to previous planned window": 98}"
+  then: "INFO sender: estimated provider credits run_id="cmd-20261030T150839Z" credits=38.34 ... month_to_date_credits=41908 quota=1000000"
+ledger before/after: data/ledger.jsonl 15,484 lines, SHA-256 41ac23528131ba06694698a36e4af699ef8bc9a58f9278a02dd45c01ab4f3308 both times (no reservation, no tx).
+what the check wrote under data/: data/.ratelimit/rpc.gcra (untracked limiter state); ONE line appended to data/credits/credits.jsonl (tracked; run_id cmd-20261030T150839Z, 38.3 estimated credits). Nothing else (git status shows only that file modified).
+
+== 2. Result
+pair accepted: yes (9 validators, extra keys 'round2', 'cap', 'excluded_validators' ignored by the sender).
+windows planned: 97 = dry run docs/ROUND2_DRYRUN_FULL.txt (97 windows, 3,072,010 lamports); expected cost 3,072,010 = dry run.
+EvnRmnMr windows planned: 0 (the only line of the output containing "EvnRmnMr" is the selection file name).
+budget left printed by plan: 7,969,676 (confirmatory 38,000,000 - 30,030,324).
+the horizon (130,000 slots, about 7.8 h) is longer than the session; every quota is filled inside it. The send times above start 15:09Z because `plan` starts at "now"; the real session plans from its own start.
+
+== 3. Windows per validator x arm (planned; equals plan_quota - windows already attempted, of which left open by the fullcap file in brackets)
+5Us18hLZ  Agave               C 1 (1)  F 1 (1)  P 2 (2)  R 1 (1)  X 6 (2)        total 11
+7QQGNm3p  Agave               X 4 (0)                                              total  4
+9eGrDohd  Firedancer          X 25                                                 total 25
+DRpbCBMx  BamAgave            P 2  X 12                                            total 14
+E1r4Psq8  JitoAgave           X 9                                                  total  9
+HEL1USMZ  JitoAgave           X 9                                                  total  9
+Fd7btgyS  HarmonicAgave       X 8                                                  total  8
+JUPiTERr  HarmonicFiredancer  X 6                                                  total  6
+ana2y2Yv  Rakurai             X 11                                                 total 11
+total 97 windows (X 90, C 1, F 1, P 4, R 1). No other validator x arm has a window.
+
+== 4. Cost
+per arm cost lamports: P 31,658; F 30,300; C 31,658; R 34,200; X 31,658 per window.
+total 97 windows, 3,072,010 lamports; with the 1.05 margin (cap) 3,225,611.
+(Agave X: 2 x 4 = 8 for the 7 attempts of the cell: whole per-validator quotas; this is the one window by which the file exceeds the arithmetic.)
+
+== 5. X windows by gap (rotation, no restriction)
+gap ms: 0: 18, 10: 18, 25: 19, 60: 17, 120: 18 (total 90); 60 and 120 ms together: 35 (38.9%), where usable has been low (sessions 1 to 5, EvnRmnMr excluded: 60 ms 11 of 53, 120 ms 0 of 50 attempted).
+
+== 6. Skips printed
+allocation quota met 5,478; too close to previous planned window 98; lead below 3000 ms 1.
