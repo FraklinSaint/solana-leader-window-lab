@@ -6,7 +6,7 @@ untracked, not ignored) and every commit message for:
 the real provider key(s) found in the local .env/.env.devnet (exact, or 3+ six-char
 fragments), any `api-key=` with a value, REAL ed25519 keypair arrays (a 64-number array is a
 keypair only if its last 32 bytes equal the public key derived from its first 32 bytes; other
-64-number arrays are counted and ignored), 87/88-char base58 strings outside data/, our own
+64-number arrays are counted and ignored), 87/88-char base58 strings outside data/ that decode to a keypair (last 32 bytes = public key of the first 32, as scripts/check_no_keys.py; signatures pass), our own
 secret keys from secrets/ (64 bytes raw, 32-byte seed raw / hex / base58, 64-byte base58, or
 as a number array), and forbidden paths ever committed (.env*, secrets/*, id.json,
 *.keypair.json). Also checks the assistant memory directory.
@@ -83,6 +83,14 @@ def is_real_keypair(vals):
 
 
 _ALPHA = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+
+def b58decode(s):
+    n = 0
+    for c in s:
+        n = n * 58 + _ALPHA.index(c)
+    raw = n.to_bytes((n.bit_length() + 7) // 8, "big")
+    return b"\x00" * (len(s) - len(s.lstrip("1"))) + raw
 
 
 def b58(b):
@@ -180,8 +188,9 @@ def main():
                 pass
         p0 = sorted(paths)[0]
         scan_content(raw, p0, findings, stats)
-        if not all(p.startswith("data/") for p in paths) and B58.search(raw.decode("utf-8", "replace")):
-            findings.append((p0, "87/88-char base58 string outside data/"))
+        if not all(p.startswith("data/") for p in paths) and any(
+                is_real_keypair(list(b58decode(m.group(0)))) for m in B58.finditer(raw.decode("utf-8", "replace"))):
+            findings.append((p0, "87/88-char base58 string outside data/ that decodes to a keypair"))
 
     # working tree: tracked and untracked files that are not ignored (secrets/ and .env are ignored)
     wt = [x for x in git("ls-files", "-co", "--exclude-standard", "-z").split("\0") if x]

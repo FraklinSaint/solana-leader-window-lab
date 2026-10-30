@@ -89,3 +89,22 @@ def test_own_secret_key_in_any_form_fails(tmp_path):
     _git(tmp_path, "commit", "-q", "-m", "rm")
     # still in history
     assert _run(tmp_path)[0] == 1
+
+
+def test_base58_roundtrip():
+    for raw in (b"\x00\x00\x01", bytes(range(1, 65)), bytes(64)):
+        assert sh.b58decode(sh.b58(raw)) == raw
+
+
+def test_long_base58_fails_only_if_keypair(tmp_path):
+    signature = "5XKUFr8E8bsM84EqGXvaXhkVKigfwy86b16db7LEWZywsfKiKExFCRSMmLWLzViVGebRuCdVFi2eoamfNtPqPpqT"
+    _repo(tmp_path, {"docs/a.md": ("signature " + signature + "\n").encode()})
+    code, out = _run(tmp_path)
+    assert code == 0, out
+    kp = sh.b58(bytes(_keypair(3)))
+    assert len(kp) in (87, 88)
+    other = tmp_path / "k"
+    other.mkdir()
+    _repo(other, {"docs/a.md": ("key " + kp + "\n").encode()})
+    code, out = _run(other)
+    assert code == 1 and "decodes to a keypair" in out
