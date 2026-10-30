@@ -1,0 +1,10 @@
+{"end":"2026-10-30T07:30:25Z","event":"start","mode":"measure","ts":"2026-10-29T22:30:25Z"}
+{"active":true,"blocks":"idle sleep only; not a sleep or sign-out requested by the user or Windows","event":"keep_awake","request":"ES_CONTINUOUS | ES_SYSTEM_REQUIRED","ts":"2026-10-29T22:30:27Z"}
+{"event":"run_start","left_secs":32398,"run":1,"ts":"2026-10-29T22:30:27Z"}
+{"at_utc":"2026-10-30T01:02:40.616507Z","event":"tpu_gossip_changed","identity":"JUPiTERrZqgf1jUyR7dSkhMx4Kn2qJyekWsg3LT1h4b","new":"88.216.36.133:9007","old":"198.13.140.105:12349","run_id":"live-20261029T223027Z","ts":"2026-10-30T01:02:40Z"}
+{"at_utc":"2026-10-30T01:02:40.621101Z","event":"tpu_gossip_changed","identity":"Fd7btgySsrjuo25CJCj7oE7VPMyezDhnx7pZkj2v69Nk","new":"141.95.45.24:8022","old":"198.13.140.105:12341","run_id":"live-20261029T223027Z","ts":"2026-10-30T01:02:40Z"}
+{"at_utc":"2026-10-30T01:04:27.667183Z","event":"tpu_gossip_changed","identity":"Fd7btgySsrjuo25CJCj7oE7VPMyezDhnx7pZkj2v69Nk","new":"198.13.140.105:12341","old":"141.95.45.24:8022","run_id":"live-20261029T223027Z","ts":"2026-10-30T01:04:27Z"}
+{"at_utc":"2026-10-30T01:04:27.671379Z","event":"tpu_gossip_changed","identity":"JUPiTERrZqgf1jUyR7dSkhMx4Kn2qJyekWsg3LT1h4b","new":"198.13.140.105:12349","old":"88.216.36.133:9007","run_id":"live-20261029T223027Z","ts":"2026-10-30T01:04:27Z"}
+{"event":"run_exit","exit_code":0,"from":"2026-10-29T22:30:27Z","ran_secs":32362,"run":1,"to":"2026-10-30T07:29:49Z","ts":"2026-10-30T07:29:49Z"}
+{"detail":"end of session","event":"collect","exit_code":0,"ts":"2026-10-30T07:29:51Z"}
+{"covered_secs":32362,"event":"done","ts":"2026-10-30T07:29:51Z"}

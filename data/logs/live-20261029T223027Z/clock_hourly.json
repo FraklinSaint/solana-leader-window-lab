@@ -1,0 +1,179 @@
+{
+  "hours": [
+    {
+      "err": {
+        "max_abs_ms": 275.569768,
+        "mean_ms": -20.39909786666667,
+        "median_abs_ms": 113.589088,
+        "p90_abs_ms": 193.128804,
+        "p95_abs_ms": 193.128804,
+        "share_within_100ms": 0.4666666666666667,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-29T22:00:00Z",
+      "observed": 15,
+      "unobserved": 0,
+      "windows_executed": 15,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 533.804304,
+        "mean_ms": 68.08970053333334,
+        "median_abs_ms": 107.090916,
+        "p90_abs_ms": 171.9393,
+        "p95_abs_ms": 339.807004,
+        "share_within_100ms": 0.5,
+        "share_within_425ms": 0.9666666666666667
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-29T23:00:00Z",
+      "observed": 30,
+      "unobserved": 0,
+      "windows_executed": 30,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 297.805332,
+        "mean_ms": 43.92139462068967,
+        "median_abs_ms": 83.781844,
+        "p90_abs_ms": 139.803688,
+        "p95_abs_ms": 232.373028,
+        "share_within_100ms": 0.6206896551724138,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-30T00:00:00Z",
+      "observed": 29,
+      "unobserved": 0,
+      "windows_executed": 29,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 213.75714,
+        "mean_ms": -6.4026495999999975,
+        "median_abs_ms": 74.172076,
+        "p90_abs_ms": 142.791928,
+        "p95_abs_ms": 171.477776,
+        "share_within_100ms": 0.7,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-30T01:00:00Z",
+      "observed": 30,
+      "unobserved": 0,
+      "windows_executed": 30,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 303.682248,
+        "mean_ms": 19.470479034482757,
+        "median_abs_ms": 97.009152,
+        "p90_abs_ms": 249.70566,
+        "p95_abs_ms": 299.066512,
+        "share_within_100ms": 0.5172413793103449,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-30T02:00:00Z",
+      "observed": 29,
+      "unobserved": 0,
+      "windows_executed": 29,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 417.465144,
+        "mean_ms": 7.094973333333331,
+        "median_abs_ms": 52.04746,
+        "p90_abs_ms": 208.923528,
+        "p95_abs_ms": 262.777276,
+        "share_within_100ms": 0.7,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-30T03:00:00Z",
+      "observed": 30,
+      "unobserved": 0,
+      "windows_executed": 30,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 356.937292,
+        "mean_ms": -4.414604689655173,
+        "median_abs_ms": 66.947784,
+        "p90_abs_ms": 139.729184,
+        "p95_abs_ms": 164.42804,
+        "share_within_100ms": 0.6206896551724138,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-30T04:00:00Z",
+      "observed": 29,
+      "unobserved": 0,
+      "windows_executed": 29,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 396.535096,
+        "mean_ms": 12.496868319999999,
+        "median_abs_ms": 87.888416,
+        "p90_abs_ms": 287.778808,
+        "p95_abs_ms": 351.817724,
+        "share_within_100ms": 0.6,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-30T05:00:00Z",
+      "observed": 25,
+      "unobserved": 0,
+      "windows_executed": 25,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 203.85984,
+        "mean_ms": -16.5004086,
+        "median_abs_ms": 84.810312,
+        "p90_abs_ms": 138.171244,
+        "p95_abs_ms": 139.855988,
+        "share_within_100ms": 0.65,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-30T06:00:00Z",
+      "observed": 20,
+      "unobserved": 0,
+      "windows_executed": 19,
+      "windows_skipped": 1
+    },
+    {
+      "err": {
+        "max_abs_ms": 157.778308,
+        "mean_ms": 7.701191600000001,
+        "median_abs_ms": 61.3895,
+        "p90_abs_ms": 105.6663,
+        "p95_abs_ms": 157.778308,
+        "share_within_100ms": 0.8,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-10-30T07:00:00Z",
+      "observed": 10,
+      "unobserved": 0,
+      "windows_executed": 10,
+      "windows_skipped": 0
+    }
+  ],
+  "label": "EXPLORATORY",
+  "metric": "window-start prediction error at prep time: arrival of the window's first slot notification at this machine minus the prediction. NOT the leader's real block start; real window-hit accuracy is judged in calibration by the landing slot.",
+  "runs": [
+    "data\\logs\\live-20261029T223027Z"
+  ]
+}
