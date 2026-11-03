@@ -64,7 +64,7 @@ and are unusable (0 of 70 windows at 120 ms).
 
 ```bash
 git clone https://github.com/FraklinSaint/solana-leader-window-lab && cd solana-leader-window-lab   # about 1.1 GB: raw blocks are committed
-docker compose run --rm reproduce            # data check, registered analysis, comparison (3 to 20 minutes)
+docker compose up                            # data check, registered analysis, comparison (3 to 20 minutes); needs no key
 docker compose run --rm reproduce python scripts/reproduce.py --skip-verify    # analysis and comparison only (about 1 minute)
 make reproduce                               # the same without Docker (Python 3.12, analysis/requirements.lock)
 ```
@@ -111,7 +111,8 @@ items, each with its date and commit in the LOGBOOK:
 
 ```bash
 cp .env.example .env              # set RPC_URL and RPC_WS_URL (env only; see "RPC provider")
-docker compose up                 # select validators (if needed) + print the window plan. Never sends.
+docker compose up                 # reproduce the result offline (no key needed): data check, analysis, comparison
+docker compose run --rm plan      # select validators (if needed) + print the window plan. Never sends. Needs RPC_URL.
 docker compose run --rm sender dry-run --duration-secs 86400   # real-time loop, nothing sent
 # Windows native, one daytime session (see "Running natively"):
 #   cargo build --release --locked -p slwlab-sender

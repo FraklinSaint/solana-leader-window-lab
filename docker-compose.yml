@@ -1,4 +1,6 @@
-# `docker compose up`                      -> dry-run plan on mainnet (never sends)
+# `docker compose up`                      -> reproduce the result offline: verify data/, rerun the registered analysis,
+#                                             compare with the committed result (needs no key, sends nothing; 3-20 min)
+# `docker compose run --rm plan`           -> dry-run plan on mainnet (never sends; needs RPC_URL in .env)
 # `docker compose run --rm analyze`        -> regenerate docs/REPORT.md from committed data/ (deterministic)
 # `docker compose run --rm verify`         -> re-check data/ offline, then re-fetch every block (read-only)
 # `docker compose run --rm sender dry-run --duration-secs 86400`   (Phase 4, never sends)
@@ -8,6 +10,7 @@ services:
   plan:
     build: { context: ., target: sender }
     image: slwlab-sender:local
+    profiles: ["manual"]
     command: ["plan"]
     env_file: [{ path: .env, required: false }]
     environment: [RPC_URL, RPC_WS_URL, RPC_MAX_RPS, RPC_SEND_TX_RPS, RPC_MONTHLY_CREDITS]
@@ -55,14 +58,15 @@ services:
     volumes:
       - ./data:/lab/data
 
-  # One command: verify the committed data offline, rerun the registered analysis, compare it with the
-  # committed result (analysis/results/confirmatory_2026-11-03/). Reads the repository, writes only /tmp.
-  # `docker compose run --rm reproduce` (3 to 20 minutes with the verification, depending on the disk);
-  # `docker compose run --rm reproduce python scripts/reproduce.py --skip-verify` (a few minutes).
+  # THE one command (`docker compose up`): verify the committed data offline, rerun the registered analysis,
+  # compare it with the committed result (analysis/results/confirmatory_2026-11-03/). Needs no key and no
+  # network, reads the repository read-only, writes only /tmp inside the container. Exit code 0 only if it
+  # reproduces. `docker compose up --exit-code-from reproduce` passes that code on (CI does).
+  # 3 to 20 minutes with the verification, depending on the disk; without it (about a minute):
+  # `docker compose run --rm reproduce python scripts/reproduce.py --skip-verify`
   reproduce:
     build: { context: ., target: analysis }
     image: slwlab-analysis:local
-    profiles: ["manual"]
     working_dir: /lab
     command: ["python", "scripts/reproduce.py", "--out", "/tmp/reproduced"]
     volumes:
