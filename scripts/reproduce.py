@@ -2,7 +2,7 @@
 """One-command reproduction of the confirmatory analysis from the committed data.
 
     python scripts/reproduce.py                 # verify the data offline, rerun the analysis, compare
-    python scripts/reproduce.py --skip-verify   # rerun and compare only (minutes instead of about 20 minutes)
+    python scripts/reproduce.py --skip-verify   # rerun and compare only (about a minute instead of 3-20 minutes)
     docker compose run --rm reproduce           # the same inside the pinned image
 
 Steps
@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", help="directory for the new results (default: a temporary directory)")
     ap.add_argument("--reference", default=str(REFERENCE), help="committed results to compare with")
-    ap.add_argument("--skip-verify", action="store_true", help="skip the offline data verification (~20 min)")
+    ap.add_argument("--skip-verify", action="store_true", help="skip the offline data verification (3-20 min)")
     a = ap.parse_args(argv)
 
     out = pathlib.Path(a.out) if a.out else pathlib.Path(tempfile.mkdtemp(prefix="slwlab-repro-"))
@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.skip_verify:
         print("1/4 verify_manifest: skipped (--skip-verify)")
     else:
-        print("1/4 verify_manifest (offline, about 20 minutes) ...", flush=True)
+        print("1/4 verify_manifest (offline, 3 to 20 minutes) ...", flush=True)
         code, sec, text = run([py, str(ROOT / "scripts" / "verify_manifest.py"), "--out", str(out / "verify.json")],
                               ROOT, env)
         print(text.rstrip().splitlines()[-1] if text.strip() else "(no output)")

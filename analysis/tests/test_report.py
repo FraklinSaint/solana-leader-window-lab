@@ -6,7 +6,7 @@ import gzip
 import json
 import pathlib
 
-from slwlab import ALPENGLOW_GENESIS_SLOT, report, sim
+from slwlab import ALPENGLOW_GENESIS_SLOT, blocklist, report, sim
 from test_parse_analyze import SIM_REF, synth, IDENT
 
 LOGBOOK = """# Logbook
@@ -21,6 +21,14 @@ LOGBOOK = """# Logbook
 BLOCK_TIME0 = 1_793_000_000  # 2026-10-26T07:33:20Z
 
 
+def write_blocklists(data: pathlib.Path, lines) -> None:
+    """data/logs/<run>/blocklist.json with every slot present (the report needs the stored getBlocks list of each
+    confirmatory run, as the analysis does; PREREGISTRATION §9)."""
+    for run, wins in blocklist.windows_by_run(lines).items():
+        blocklist.save(data, blocklist.build_record(
+            run, wins, lambda m, p: 10 ** 9 if m == "getSlot" else list(range(p[0], p[1] + 1))))
+
+
 def tree(tmp: pathlib.Path, lines=None, crlf=False) -> pathlib.Path:
     root = tmp / "repo"
     (root / "data").mkdir(parents=True, exist_ok=True)
@@ -28,11 +36,12 @@ def tree(tmp: pathlib.Path, lines=None, crlf=False) -> pathlib.Path:
     res = root / "analysis" / "sim" / "results"
     res.mkdir(parents=True, exist_ok=True)
     sim = copy.deepcopy(SIM_REF) | {"reps": 200, "min_ceiling": 0.3, "label": "SIMULATION"}
-    (res / "sim_v1.json").write_text(json.dumps(sim), encoding="utf-8")
+    (res / "sim_v2.json").write_text(json.dumps(sim), encoding="utf-8")
     nl = "\r\n" if crlf else "\n"
     (root / "docs" / "LOGBOOK.md").write_bytes(LOGBOOK.replace("\n", nl).encode())
     if lines is not None:
         (root / "data" / "manifest.jsonl").write_bytes("".join(json.dumps(l) + nl for l in lines).encode())
+        write_blocklists(root / "data", lines)
     return root
 
 
@@ -47,7 +56,7 @@ def with_block_times(data_root: pathlib.Path) -> None:
 
 def render(root):
     r = root / "analysis" / "sim" / "results"
-    return report.render(root, r / "sim_v1.json", r / "alloc_v1.json")
+    return report.render(root, r / "sim_v2.json", r / "alloc_v2.json")
 
 
 def section(text: str, title: str) -> str:
@@ -71,6 +80,7 @@ def test_measurements_are_deterministic_dated_and_never_mixed_with_simulation(tm
     lines = synth(root / "data", sim.AGAVE, windows=24)
     with_block_times(root / "data")
     (root / "data" / "manifest.jsonl").write_text("".join(json.dumps(l) + "\n" for l in lines))
+    write_blocklists(root / "data", lines)
     a, b = render(root), render(root)
     assert a == b
     m = section(a, "MEASUREMENT: confirmatory results")
@@ -127,3 +137,26 @@ def test_check_mode_detects_stale_or_edited_report(tmp_path):
     with open(root / "docs" / "LOGBOOK.md", "a", encoding="utf-8") as fh:
         fh.write("| 2026-10-22 22:00 | 4 | failure | New failure. |\n")
     assert report.main(["--root", str(root), "--check"]) == 1  # input changed -> stale
+
+
+def test_a_confirmatory_run_without_its_slot_list_stops_the_report(tmp_path):
+    import pytest
+    lines = synth(tmp_path / "x", sim.AGAVE, windows=3)
+    root = tree(tmp_path, lines)
+    for p in (root / "data" / "logs").rglob("blocklist.json"):
+        p.unlink()
+    with pytest.raises(SystemExit, match="no stored getBlocks list"):
+        render(root)
+
+
+def test_a_window_with_a_skipped_slot_is_not_usable_in_the_report_either(tmp_path):
+    lines = synth(tmp_path / "x", sim.AGAVE, windows=4)
+    root = tree(tmp_path, lines)
+    (p,) = (root / "data" / "logs").rglob("blocklist.json")
+    rec = json.loads(p.read_text(encoding="utf-8"))
+    wid = sorted(rec["windows"])[0]
+    rec["windows"][wid]["slots_with_blocks"] = rec["windows"][wid]["slots_with_blocks"][1:]
+    p.write_text(json.dumps(rec), encoding="utf-8")
+    t = render(root)
+    when = section(t, "MEASUREMENT: when (UTC)")
+    assert f"| {wid} |" in when and "skipped_slot" in when.split(f"| {wid} |", 1)[1].split("\n", 1)[0]

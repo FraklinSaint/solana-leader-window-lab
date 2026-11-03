@@ -25,7 +25,7 @@ import pathlib
 import sys
 from collections import Counter, defaultdict
 
-from . import ALPENGLOW_GENESIS_SLOT, analyze, parse, rules
+from . import ALPENGLOW_GENESIS_SLOT, analyze, blocklist, parse, rules
 from .utc import CORRECTED_LOGBOOK_ROWS, LOCAL_OFFSET_OF_CORRECTED_ROWS_H
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -128,12 +128,33 @@ def table(head: list[str], rows: list[list]) -> list[str]:
     return out
 
 
+def slot_status(lines: list[dict], data_root: pathlib.Path) -> tuple[dict[str, set[int]], bool]:
+    """The PREREGISTRATION §9 skipped-slot inputs, built exactly as `python -m slwlab.analyze --data` builds
+    them: (window_id -> slots with a block, from data/logs/<run>/blocklist.json; require a list for every
+    confirmatory run). Missing lists for a confirmatory run stop the report, as they stop the analysis."""
+    needed = blocklist.runs_with_purpose(lines, "measure")
+    missing = [r for r in needed if blocklist.load(data_root, r) is None]
+    if missing:
+        raise SystemExit("no stored getBlocks list for run(s) " + ", ".join(missing)
+                         + " (data/logs/<run_id>/blocklist.json): the report cannot classify their windows")
+    present = blocklist.present_map(data_root, sorted({l["tx"]["run_id"] for l in lines}))
+    return present, bool(needed)
+
+
+def registered_analysis(lines: list[dict], sim: dict, data_root: pathlib.Path) -> dict:
+    """The same call as the registered command (`python -m slwlab.analyze --data ...`), so the report's table
+    is the committed results.json (tests/test_report_matches_registered.py compares them number by number)."""
+    present, require = slot_status(lines, data_root)
+    return analyze.analyze(lines, sim, seed=SEED, present=present, require_slot_status=require)
+
+
 def measurement_section(lines: list[dict], sim: dict, data_root: pathlib.Path, cache: dict) -> list[str]:
     out = ["## MEASUREMENT: confirmatory results", ""]
     if not lines:
         return out + [NO_DATA + " `data/manifest.jsonl` has no mainnet, post-Alpenglow measurement lines.", ""]
-    res = analyze.analyze(lines, sim, seed=SEED)
-    windows = parse.windows_from_manifest(lines)
+    res = registered_analysis(lines, sim, data_root)
+    present, require = slot_status(lines, data_root)
+    windows = parse.windows_from_manifest(lines, present, require_slot_status=require)
     usable_dates: dict[tuple[str, str], set[str]] = defaultdict(set)
     for w in windows:
         if w.usable:
@@ -163,11 +184,17 @@ def measurement_section(lines: list[dict], sim: dict, data_root: pathlib.Path, c
     return out
 
 
-def dates_section(lines: list[dict], data_root: pathlib.Path, cache: dict, label: str) -> list[str]:
-    """When every window was measured (UTC)."""
+def dates_section(lines: list[dict], data_root: pathlib.Path, cache: dict, label: str,
+                  confirmatory: bool = False) -> list[str]:
+    """When every window was measured (UTC). `confirmatory`: classify with the stored slot lists (§9), the way
+    the analysis does, so "usable" here means what it means in the results."""
     if not lines:
         return [NO_DATA, ""]
-    windows = parse.windows_from_manifest(lines)
+    if confirmatory:
+        present, require = slot_status(lines, data_root)
+        windows = parse.windows_from_manifest(lines, present, require_slot_status=require)
+    else:
+        windows = parse.windows_from_manifest(lines)
     by_date: dict[str, Counter] = defaultdict(Counter)
     rows = []
     for w in windows:
@@ -275,7 +302,7 @@ def render(root: pathlib.Path, sim_path: pathlib.Path, alloc_path: pathlib.Path)
             + "; calibration: " + (", ".join(f"{k} {v}" for k, v in sorted(drop_c.items())) or "none") + ").", ""]
 
     out += measurement_section(measure, sim, data_root, cache)
-    out += ["## MEASUREMENT: when (UTC)", ""] + dates_section(measure, data_root, cache, "confirmatory")
+    out += ["## MEASUREMENT: when (UTC)", ""] + dates_section(measure, data_root, cache, "confirmatory", confirmatory=True)
     out += ["## EXPLORATORY: calibration", "",
             "> EXPLORATORY. It is used only for order-agnostic nuisance estimates (`slwlab.calibrate`), never",
             "> for verdicts.", ""]
@@ -294,8 +321,8 @@ def self_hash_ok(text: str) -> bool:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="docs/REPORT.md from committed data")
     ap.add_argument("--root", default=str(ROOT))
-    ap.add_argument("--sim", default="analysis/sim/results/sim_v1.json")
-    ap.add_argument("--alloc", default="analysis/sim/results/alloc_v1.json")
+    ap.add_argument("--sim", default="analysis/sim/results/sim_v2.json")
+    ap.add_argument("--alloc", default="analysis/sim/results/alloc_v2.json")
     ap.add_argument("--out", default="docs/REPORT.md")
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args(argv)

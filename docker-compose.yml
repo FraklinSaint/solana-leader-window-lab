@@ -57,7 +57,7 @@ services:
 
   # One command: verify the committed data offline, rerun the registered analysis, compare it with the
   # committed result (analysis/results/confirmatory_2026-11-03/). Reads the repository, writes only /tmp.
-  # `docker compose run --rm reproduce` (about 20 minutes with the verification);
+  # `docker compose run --rm reproduce` (3 to 20 minutes with the verification, depending on the disk);
   # `docker compose run --rm reproduce python scripts/reproduce.py --skip-verify` (a few minutes).
   reproduce:
     build: { context: ., target: analysis }

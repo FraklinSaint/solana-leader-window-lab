@@ -152,6 +152,21 @@ def test_clean_data_passes(tmp_path):
         assert {"M", "B", "T", "P", "E", "X", "H", "L", "Q", "O", "K"} <= set(rep.checked)
 
 
+def test_a_tiny_block_cache_gives_the_same_verdict_and_stays_bounded(tmp_path):
+    """The block cache is an LRU: ~1800 blocks do not fit in a 7 GB CI runner (measured >6 GB unbounded)."""
+    lines, ledger = build(tmp_path, windows=6)
+    full = run(tmp_path, lines, ledger)
+    old, vm.BLOCK_CACHE_MAX = vm.BLOCK_CACHE_MAX, 1
+    try:
+        small = run(tmp_path, lines, ledger)
+        lines[0]["outcome"]["block_index"] += 1  # a real failure is still found with the tiny cache
+        bad = run(tmp_path, lines, ledger)
+    finally:
+        vm.BLOCK_CACHE_MAX = old
+    assert full.problems == [] and small.problems == [] and dict(full.checked) == dict(small.checked)
+    assert {"B", "H"} <= {p["check"] for p in bad.problems}
+
+
 def test_main_writes_report_and_exit_code(tmp_path):
     lines, ledger = build(tmp_path)
     (tmp_path / "manifest.jsonl").write_text("".join(json.dumps(l) + "\n" for l in lines))

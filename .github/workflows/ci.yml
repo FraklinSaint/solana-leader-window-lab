@@ -49,6 +49,9 @@ jobs:
       # `plan` is a dry run against mainnet and needs RPC_URL, so it is a documented manual step, not a CI step
       # --check only reads: the container user (uid 10001) may not write the runner's ./docs
       - run: docker compose run --rm analyze python -m slwlab.report --check
+      # the registered analysis rerun inside the pinned image and compared number by number with the committed
+      # result (the data check itself is the separate `verify` job)
+      - run: docker compose run --rm reproduce python scripts/reproduce.py --skip-verify --out /tmp/reproduced
 
   secrets:
     runs-on: ubuntu-24.04
