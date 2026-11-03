@@ -1,0 +1,6 @@
+observed mean raw tau of R_RATIO_AGAVE, Arm C, pooled Agave: 0.5333 over 35 usable windows (registered W = 15)
+  primary           [0.6310, 1.0000]  W [15, 15]
+  preset_only       [0.6521, 1.0000]  W 15
+  calibrated        [0.6310, 1.0000]  W 15
+  wifi_sensitivity  [0.5867, 1.0000]  W 10
+POSITIVE CONTROL *** FAILED *** (reported prominently; weakens every Agave-family verdict, PREREGISTRATION section 7)

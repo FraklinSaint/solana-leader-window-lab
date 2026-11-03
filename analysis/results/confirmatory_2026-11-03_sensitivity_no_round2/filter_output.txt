@@ -1,0 +1,3 @@
+session 20261102T123836Z: dropped 552 lines from run(s) ['live-20261102T123839Z']
+input  7110 lines sha256 dbbcc7b7c4108ed3274debef676142382231f4bf70753ec28c14454d68b6466f
+output 6558 lines sha256 41ef2cc3030f2a4b9b3a749af8c2309c8078c90395fddcbc2ce2b7c4259a8b77 -> C:\Users\user\slwlab-run\analysis\results\confirmatory_2026-11-03_sensitivity_no_round2\manifest_no_round2.jsonl
