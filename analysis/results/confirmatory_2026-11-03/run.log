@@ -1,0 +1,5 @@
+start 2026-11-03T12:44:18Z
+46 validator x arm cells -> results/confirmatory_2026-11-03/results.json
+5 pooled Agave arm cells -> results\confirmatory_2026-11-03\results_pooled_Agave.json
+exit 0
+end 2026-11-03T12:45:55Z wall_s 97

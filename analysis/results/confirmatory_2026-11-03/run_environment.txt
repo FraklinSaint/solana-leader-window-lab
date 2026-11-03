@@ -1,0 +1,8 @@
+HEAD eaeddd8816246adb5805180e113d51ca8d9ab8f5
+tag analysis-pre-run-2 object 3ea28ba4c7624a3a485b98c90966000fa913310b
+data-freeze 3ec33cf11ca05b356ebe429a17779c4280b22932
+python Python 3.12.12 at /c/Users/user/solana-leader-window-lab/.venv/Scripts/python.exe
+pip freeze sha256 be8de0c1d20a684c5cb16e6158cf3f65aadcd1d966bfea9e02a12c157a19408e
+sim_v2.json sha256 (working file) d914265743adaedeffe38a987904414a5118668632f3bc8922c9f08969b5183f
+manifest sha256 dbbcc7b7c4108ed3274debef676142382231f4bf70753ec28c14454d68b6466f
+started 2026-11-03T12:44:11Z
