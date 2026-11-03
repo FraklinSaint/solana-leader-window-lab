@@ -74,8 +74,9 @@ def load_windows(root: pathlib.Path) -> list:
     return parse.windows_from_manifest(lines, present, False, bool(needed))
 
 
-def render(root: pathlib.Path) -> str:
-    wins = load_windows(root)
+def arm_x_cells(wins: list) -> tuple[dict, dict]:
+    """Arm X per (stratum, send gap in ms): the registered per-window R_PRICE taus of the usable windows, and
+    [sent, usable] window counts. Shared with scripts/gap_figure.py so the figure and the table cannot disagree."""
     by_gap: dict[tuple[str, int], list[float]] = {}
     sent_gap: dict[tuple[str, int], list[int]] = {}
     for w in wins:
@@ -87,6 +88,12 @@ def render(root: pathlib.Path) -> str:
         if w.usable:
             s[1] += 1
             by_gap.setdefault(k, []).append(analyze.window_scores(w, ["R_PRICE"])["R_PRICE"][1])
+    return by_gap, sent_gap
+
+
+def render(root: pathlib.Path) -> str:
+    wins = load_windows(root)
+    by_gap, sent_gap = arm_x_cells(wins)
     gaps = sorted({k[1] for k in sent_gap})
     strata = sorted({k[0] for k in sent_gap})
 

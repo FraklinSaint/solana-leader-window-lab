@@ -17,6 +17,7 @@ report:            # docs/REPORT.md from committed files (MEASUREMENT / EXPLORAT
 	cd analysis && $(PY) -m slwlab.report
 report-check:      # exit 1 if docs/REPORT.md is stale or was edited by hand
 	cd analysis && $(PY) -m slwlab.report --check
+	$(PY) scripts/exploratory_gap_table.py --check && $(PY) scripts/validators_table.py --check && $(PY) scripts/gap_figure.py --check
 verify-online:     # also re-fetch every saved block, leaders and sig statuses from RPC_URL (read-only)
 	$(PY) scripts/verify_manifest.py --online
 secrets-check:

@@ -1,0 +1,290 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 590" width="850" height="590" role="img" aria-labelledby="fig-title fig-desc">
+  <title id="fig-title">Arm X: does the block follow the fee or the send order, by gap between sends</title>
+  <desc id="fig-desc">Small multiples, one panel for all groups together and one per client group. Each panel plots the mean Kendall tau between the block order and the fee order of the six transactions of Arm X, against the gap between sends (0, 10, 25, 60, 120 ms; no usable window at 120 ms). Plus one means the block follows the fee, minus one means it follows the send order. All groups pooled: 0 ms +0.31 over 66 windows; 10 ms −0.37 over 67 windows; 25 ms −0.81 over 47 windows; 60 ms −0.63 over 14 windows. The same numbers are in docs/EXPLORATORY_GAP_TABLE.md.</desc>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; }
+    .bg { fill: #fcfcfb; } .ink { fill: #0b0b0b; } .ink2 { fill: #52514e; }
+    .grid { stroke: #e6e5e1; stroke-width: 1; } .zero { stroke: #b9b8b3; stroke-width: 1; }
+    .s { stroke: #2a78d6; fill: none; } .f { fill: #2a78d6; } .hole { fill: #fcfcfb; stroke: #2a78d6; stroke-width: 2; }
+    .ring { fill: #fcfcfb; }
+    .b { font-weight: 600; } .t { font-size: 17px; font-weight: 600; } .sm { font-size: 11px; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #1a1a19; } .ink { fill: #f0efec; } .ink2 { fill: #c3c2b7; }
+      .grid { stroke: #2d2d2b; } .zero { stroke: #5a5a56; }
+      .s { stroke: #3987e5; } .f { fill: #3987e5; } .hole { fill: #1a1a19; stroke: #3987e5; }
+      .ring { fill: #1a1a19; }
+    }
+  </style>
+  <rect class="bg" x="0" y="0" width="850" height="590"/>
+  <text class="ink t" x="20" y="30">Arm X: does the block follow the fee or the send order?</text>
+  <text class="ink2" x="20" y="52">Mean tau of the fee rule per window, by gap between the sends. +1: block follows the fee. −1: block follows the send order.</text>
+  <circle class="f" cx="28" cy="74" r="4.5"/>
+  <text class="ink2 sm" x="38" y="78">at least 5 usable windows</text>
+  <circle class="hole" cx="190" cy="74" r="4.5"/>
+  <text class="ink2 sm" x="200" y="78">fewer than 5</text>
+  <line class="s" stroke-width="1.5" x1="296" y1="68" x2="296" y2="80"/>
+  <text class="ink2 sm" x="306" y="78">bootstrap 95% interval over windows</text>
+  <text class="ink2 sm" x="20" y="96">x axis: gap between sends in ms (categories, not to scale). n: usable windows in that cell.</text>
+  <g id="panel-0">
+    <text class="ink b" x="50" y="122">All groups <tspan class="ink2" font-weight="400">· windows pooled</tspan></text>
+    <line class="grid" x1="50" y1="141.9" x2="200" y2="141.9"/>
+    <text class="ink2 sm" x="44" y="145.9" text-anchor="end">+1</text>
+    <line class="zero" x1="50" y1="201" x2="200" y2="201"/>
+    <text class="ink2 sm" x="44" y="205" text-anchor="end">0</text>
+    <line class="grid" x1="50" y1="260.1" x2="200" y2="260.1"/>
+    <text class="ink2 sm" x="44" y="264.1" text-anchor="end">−1</text>
+    <text class="ink2 sm" x="65" y="282" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="65" y="298" text-anchor="middle">66</text>
+    <text class="ink2 sm" x="95" y="282" text-anchor="middle">10</text>
+    <text class="ink2 sm" x="95" y="298" text-anchor="middle">67</text>
+    <text class="ink2 sm" x="125" y="282" text-anchor="middle">25</text>
+    <text class="ink2 sm" x="125" y="298" text-anchor="middle">47</text>
+    <text class="ink2 sm" x="155" y="282" text-anchor="middle">60</text>
+    <text class="ink2 sm" x="155" y="298" text-anchor="middle">14</text>
+    <text class="ink2 sm" x="185" y="282" text-anchor="middle">120</text>
+    <text class="ink2 sm" x="185" y="298" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="44" y="298" text-anchor="end">n</text>
+    <line class="s" stroke-width="1.5" x1="65" y1="190.1" x2="65" y2="175.1"/>
+    <line class="s" stroke-width="1.5" x1="95" y1="232" x2="95" y2="213.3"/>
+    <line class="s" stroke-width="1.5" x1="125" y1="254.6" x2="125" y2="241.5"/>
+    <line class="s" stroke-width="1.5" x1="155" y1="250.2" x2="155" y2="222.1"/>
+    <polyline class="s" stroke-width="2" stroke-linejoin="round" points="65,182.7 95,222.7 125,248.9 155,238.4"/>
+    <circle class="ring" cx="65" cy="182.7" r="6.5"/>
+    <circle class="f" cx="65" cy="182.7" r="4.5"/>
+    <circle class="ring" cx="95" cy="222.7" r="6.5"/>
+    <circle class="f" cx="95" cy="222.7" r="4.5"/>
+    <circle class="ring" cx="125" cy="248.9" r="6.5"/>
+    <circle class="f" cx="125" cy="248.9" r="4.5"/>
+    <circle class="ring" cx="155" cy="238.4" r="6.5"/>
+    <circle class="f" cx="155" cy="238.4" r="4.5"/>
+  </g>
+  <g id="panel-1">
+    <text class="ink b" x="255" y="122">Agave</text>
+    <line class="grid" x1="255" y1="141.9" x2="405" y2="141.9"/>
+    <text class="ink2 sm" x="249" y="145.9" text-anchor="end">+1</text>
+    <line class="zero" x1="255" y1="201" x2="405" y2="201"/>
+    <text class="ink2 sm" x="249" y="205" text-anchor="end">0</text>
+    <line class="grid" x1="255" y1="260.1" x2="405" y2="260.1"/>
+    <text class="ink2 sm" x="249" y="264.1" text-anchor="end">−1</text>
+    <text class="ink2 sm" x="270" y="282" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="270" y="298" text-anchor="middle">14</text>
+    <text class="ink2 sm" x="300" y="282" text-anchor="middle">10</text>
+    <text class="ink2 sm" x="300" y="298" text-anchor="middle">13</text>
+    <text class="ink2 sm" x="330" y="282" text-anchor="middle">25</text>
+    <text class="ink2 sm" x="330" y="298" text-anchor="middle">9</text>
+    <text class="ink2 sm" x="360" y="282" text-anchor="middle">60</text>
+    <text class="ink2 sm" x="360" y="298" text-anchor="middle">4</text>
+    <text class="ink2 sm" x="390" y="282" text-anchor="middle">120</text>
+    <text class="ink2 sm" x="390" y="298" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="249" y="298" text-anchor="end">n</text>
+    <line class="s" stroke-width="1.5" x1="270" y1="224.6" x2="270" y2="188.6"/>
+    <line class="s" stroke-width="1.5" x1="300" y1="252.8" x2="300" y2="207.4"/>
+    <line class="s" stroke-width="1.5" x1="330" y1="260.1" x2="330" y2="249.6"/>
+    <line class="s" stroke-width="1.5" x1="360" y1="248.3" x2="360" y2="174.4"/>
+    <polyline class="s" stroke-width="2" stroke-linejoin="round" points="270,206.1 300,232.2 330,255.7 360,217.7"/>
+    <circle class="ring" cx="270" cy="206.1" r="6.5"/>
+    <circle class="f" cx="270" cy="206.1" r="4.5"/>
+    <circle class="ring" cx="300" cy="232.2" r="6.5"/>
+    <circle class="f" cx="300" cy="232.2" r="4.5"/>
+    <circle class="ring" cx="330" cy="255.7" r="6.5"/>
+    <circle class="f" cx="330" cy="255.7" r="4.5"/>
+    <circle class="ring" cx="360" cy="217.7" r="6.5"/>
+    <circle class="hole" cx="360" cy="217.7" r="4.5"/>
+  </g>
+  <g id="panel-2">
+    <text class="ink b" x="460" y="122">BamAgave</text>
+    <line class="grid" x1="460" y1="141.9" x2="610" y2="141.9"/>
+    <text class="ink2 sm" x="454" y="145.9" text-anchor="end">+1</text>
+    <line class="zero" x1="460" y1="201" x2="610" y2="201"/>
+    <text class="ink2 sm" x="454" y="205" text-anchor="end">0</text>
+    <line class="grid" x1="460" y1="260.1" x2="610" y2="260.1"/>
+    <text class="ink2 sm" x="454" y="264.1" text-anchor="end">−1</text>
+    <text class="ink2 sm" x="475" y="282" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="475" y="298" text-anchor="middle">7</text>
+    <text class="ink2 sm" x="505" y="282" text-anchor="middle">10</text>
+    <text class="ink2 sm" x="505" y="298" text-anchor="middle">8</text>
+    <text class="ink2 sm" x="535" y="282" text-anchor="middle">25</text>
+    <text class="ink2 sm" x="535" y="298" text-anchor="middle">6</text>
+    <text class="ink2 sm" x="565" y="282" text-anchor="middle">60</text>
+    <text class="ink2 sm" x="565" y="298" text-anchor="middle">2</text>
+    <text class="ink2 sm" x="595" y="282" text-anchor="middle">120</text>
+    <text class="ink2 sm" x="595" y="298" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="454" y="298" text-anchor="end">n</text>
+    <line class="s" stroke-width="1.5" x1="475" y1="170" x2="475" y2="150.9"/>
+    <line class="s" stroke-width="1.5" x1="505" y1="238.4" x2="505" y2="183.3"/>
+    <line class="s" stroke-width="1.5" x1="535" y1="260.1" x2="535" y2="252.2"/>
+    <line class="s" stroke-width="1.5" x1="565" y1="224.6" x2="565" y2="220.7"/>
+    <polyline class="s" stroke-width="2" stroke-linejoin="round" points="475,158.8 505,213.8 535,257.5 565,222.7"/>
+    <circle class="ring" cx="475" cy="158.8" r="6.5"/>
+    <circle class="f" cx="475" cy="158.8" r="4.5"/>
+    <circle class="ring" cx="505" cy="213.8" r="6.5"/>
+    <circle class="f" cx="505" cy="213.8" r="4.5"/>
+    <circle class="ring" cx="535" cy="257.5" r="6.5"/>
+    <circle class="f" cx="535" cy="257.5" r="4.5"/>
+    <circle class="ring" cx="565" cy="222.7" r="6.5"/>
+    <circle class="hole" cx="565" cy="222.7" r="4.5"/>
+  </g>
+  <g id="panel-3">
+    <text class="ink b" x="665" y="122">Firedancer</text>
+    <line class="grid" x1="665" y1="141.9" x2="815" y2="141.9"/>
+    <text class="ink2 sm" x="659" y="145.9" text-anchor="end">+1</text>
+    <line class="zero" x1="665" y1="201" x2="815" y2="201"/>
+    <text class="ink2 sm" x="659" y="205" text-anchor="end">0</text>
+    <line class="grid" x1="665" y1="260.1" x2="815" y2="260.1"/>
+    <text class="ink2 sm" x="659" y="264.1" text-anchor="end">−1</text>
+    <text class="ink2 sm" x="680" y="282" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="680" y="298" text-anchor="middle">12</text>
+    <text class="ink2 sm" x="710" y="282" text-anchor="middle">10</text>
+    <text class="ink2 sm" x="710" y="298" text-anchor="middle">11</text>
+    <text class="ink2 sm" x="740" y="282" text-anchor="middle">25</text>
+    <text class="ink2 sm" x="740" y="298" text-anchor="middle">6</text>
+    <text class="ink2 sm" x="770" y="282" text-anchor="middle">60</text>
+    <text class="ink2 sm" x="770" y="298" text-anchor="middle">1</text>
+    <text class="ink2 sm" x="800" y="282" text-anchor="middle">120</text>
+    <text class="ink2 sm" x="800" y="298" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="659" y="298" text-anchor="end">n</text>
+    <line class="s" stroke-width="1.5" x1="680" y1="141.9" x2="680" y2="141.9"/>
+    <line class="s" stroke-width="1.5" x1="710" y1="216.4" x2="710" y2="189.9"/>
+    <line class="s" stroke-width="1.5" x1="740" y1="250.2" x2="740" y2="194.4"/>
+    <line class="s" stroke-width="1.5" x1="770" y1="252.2" x2="770" y2="252.2"/>
+    <polyline class="s" stroke-width="2" stroke-linejoin="round" points="680,141.9 710,204.9 740,230.5 770,252.2"/>
+    <circle class="ring" cx="680" cy="141.9" r="6.5"/>
+    <circle class="f" cx="680" cy="141.9" r="4.5"/>
+    <circle class="ring" cx="710" cy="204.9" r="6.5"/>
+    <circle class="f" cx="710" cy="204.9" r="4.5"/>
+    <circle class="ring" cx="740" cy="230.5" r="6.5"/>
+    <circle class="f" cx="740" cy="230.5" r="4.5"/>
+    <circle class="ring" cx="770" cy="252.2" r="6.5"/>
+    <circle class="hole" cx="770" cy="252.2" r="4.5"/>
+  </g>
+  <g id="panel-4">
+    <text class="ink b" x="50" y="327">HarmonicAgave</text>
+    <line class="grid" x1="50" y1="346.9" x2="200" y2="346.9"/>
+    <text class="ink2 sm" x="44" y="350.9" text-anchor="end">+1</text>
+    <line class="zero" x1="50" y1="406" x2="200" y2="406"/>
+    <text class="ink2 sm" x="44" y="410" text-anchor="end">0</text>
+    <line class="grid" x1="50" y1="465.1" x2="200" y2="465.1"/>
+    <text class="ink2 sm" x="44" y="469.1" text-anchor="end">−1</text>
+    <text class="ink2 sm" x="65" y="487" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="65" y="503" text-anchor="middle">8</text>
+    <text class="ink2 sm" x="95" y="487" text-anchor="middle">10</text>
+    <text class="ink2 sm" x="95" y="503" text-anchor="middle">6</text>
+    <text class="ink2 sm" x="125" y="487" text-anchor="middle">25</text>
+    <text class="ink2 sm" x="125" y="503" text-anchor="middle">6</text>
+    <text class="ink2 sm" x="155" y="487" text-anchor="middle">60</text>
+    <text class="ink2 sm" x="155" y="503" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="185" y="487" text-anchor="middle">120</text>
+    <text class="ink2 sm" x="185" y="503" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="44" y="503" text-anchor="end">n</text>
+    <line class="s" stroke-width="1.5" x1="65" y1="405" x2="65" y2="383.3"/>
+    <line class="s" stroke-width="1.5" x1="95" y1="440.1" x2="95" y2="413.9"/>
+    <line class="s" stroke-width="1.5" x1="125" y1="457.2" x2="125" y2="453.3"/>
+    <polyline class="s" stroke-width="2" stroke-linejoin="round" points="65,394.2 95,427 125,455.9"/>
+    <circle class="ring" cx="65" cy="394.2" r="6.5"/>
+    <circle class="f" cx="65" cy="394.2" r="4.5"/>
+    <circle class="ring" cx="95" cy="427" r="6.5"/>
+    <circle class="f" cx="95" cy="427" r="4.5"/>
+    <circle class="ring" cx="125" cy="455.9" r="6.5"/>
+    <circle class="f" cx="125" cy="455.9" r="4.5"/>
+  </g>
+  <g id="panel-5">
+    <text class="ink b" x="255" y="327">HarmonicFiredancer</text>
+    <line class="grid" x1="255" y1="346.9" x2="405" y2="346.9"/>
+    <text class="ink2 sm" x="249" y="350.9" text-anchor="end">+1</text>
+    <line class="zero" x1="255" y1="406" x2="405" y2="406"/>
+    <text class="ink2 sm" x="249" y="410" text-anchor="end">0</text>
+    <line class="grid" x1="255" y1="465.1" x2="405" y2="465.1"/>
+    <text class="ink2 sm" x="249" y="469.1" text-anchor="end">−1</text>
+    <text class="ink2 sm" x="270" y="487" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="270" y="503" text-anchor="middle">5</text>
+    <text class="ink2 sm" x="300" y="487" text-anchor="middle">10</text>
+    <text class="ink2 sm" x="300" y="503" text-anchor="middle">6</text>
+    <text class="ink2 sm" x="330" y="487" text-anchor="middle">25</text>
+    <text class="ink2 sm" x="330" y="503" text-anchor="middle">5</text>
+    <text class="ink2 sm" x="360" y="487" text-anchor="middle">60</text>
+    <text class="ink2 sm" x="360" y="503" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="390" y="487" text-anchor="middle">120</text>
+    <text class="ink2 sm" x="390" y="503" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="249" y="503" text-anchor="end">n</text>
+    <line class="s" stroke-width="1.5" x1="270" y1="398.9" x2="270" y2="375.3"/>
+    <line class="s" stroke-width="1.5" x1="300" y1="454.6" x2="300" y2="432.3"/>
+    <line class="s" stroke-width="1.5" x1="330" y1="457.2" x2="330" y2="419.4"/>
+    <polyline class="s" stroke-width="2" stroke-linejoin="round" points="270,387.1 300,444.1 330,444.6"/>
+    <circle class="ring" cx="270" cy="387.1" r="6.5"/>
+    <circle class="f" cx="270" cy="387.1" r="4.5"/>
+    <circle class="ring" cx="300" cy="444.1" r="6.5"/>
+    <circle class="f" cx="300" cy="444.1" r="4.5"/>
+    <circle class="ring" cx="330" cy="444.6" r="6.5"/>
+    <circle class="f" cx="330" cy="444.6" r="4.5"/>
+  </g>
+  <g id="panel-6">
+    <text class="ink b" x="460" y="327">JitoAgave</text>
+    <line class="grid" x1="460" y1="346.9" x2="610" y2="346.9"/>
+    <text class="ink2 sm" x="454" y="350.9" text-anchor="end">+1</text>
+    <line class="zero" x1="460" y1="406" x2="610" y2="406"/>
+    <text class="ink2 sm" x="454" y="410" text-anchor="end">0</text>
+    <line class="grid" x1="460" y1="465.1" x2="610" y2="465.1"/>
+    <text class="ink2 sm" x="454" y="469.1" text-anchor="end">−1</text>
+    <text class="ink2 sm" x="475" y="487" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="475" y="503" text-anchor="middle">15</text>
+    <text class="ink2 sm" x="505" y="487" text-anchor="middle">10</text>
+    <text class="ink2 sm" x="505" y="503" text-anchor="middle">15</text>
+    <text class="ink2 sm" x="535" y="487" text-anchor="middle">25</text>
+    <text class="ink2 sm" x="535" y="503" text-anchor="middle">9</text>
+    <text class="ink2 sm" x="565" y="487" text-anchor="middle">60</text>
+    <text class="ink2 sm" x="565" y="503" text-anchor="middle">4</text>
+    <text class="ink2 sm" x="595" y="487" text-anchor="middle">120</text>
+    <text class="ink2 sm" x="595" y="503" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="454" y="503" text-anchor="end">n</text>
+    <line class="s" stroke-width="1.5" x1="475" y1="414.7" x2="475" y2="392.1"/>
+    <line class="s" stroke-width="1.5" x1="505" y1="454.1" x2="505" y2="408.4"/>
+    <line class="s" stroke-width="1.5" x1="535" y1="465.1" x2="535" y2="429.6"/>
+    <line class="s" stroke-width="1.5" x1="565" y1="462.1" x2="565" y2="450.3"/>
+    <polyline class="s" stroke-width="2" stroke-linejoin="round" points="475,403.6 505,432.5 535,450.6 565,455.2"/>
+    <circle class="ring" cx="475" cy="403.6" r="6.5"/>
+    <circle class="f" cx="475" cy="403.6" r="4.5"/>
+    <circle class="ring" cx="505" cy="432.5" r="6.5"/>
+    <circle class="f" cx="505" cy="432.5" r="4.5"/>
+    <circle class="ring" cx="535" cy="450.6" r="6.5"/>
+    <circle class="f" cx="535" cy="450.6" r="4.5"/>
+    <circle class="ring" cx="565" cy="455.2" r="6.5"/>
+    <circle class="hole" cx="565" cy="455.2" r="4.5"/>
+  </g>
+  <g id="panel-7">
+    <text class="ink b" x="665" y="327">Rakurai</text>
+    <line class="grid" x1="665" y1="346.9" x2="815" y2="346.9"/>
+    <text class="ink2 sm" x="659" y="350.9" text-anchor="end">+1</text>
+    <line class="zero" x1="665" y1="406" x2="815" y2="406"/>
+    <text class="ink2 sm" x="659" y="410" text-anchor="end">0</text>
+    <line class="grid" x1="665" y1="465.1" x2="815" y2="465.1"/>
+    <text class="ink2 sm" x="659" y="469.1" text-anchor="end">−1</text>
+    <text class="ink2 sm" x="680" y="487" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="680" y="503" text-anchor="middle">5</text>
+    <text class="ink2 sm" x="710" y="487" text-anchor="middle">10</text>
+    <text class="ink2 sm" x="710" y="503" text-anchor="middle">8</text>
+    <text class="ink2 sm" x="740" y="487" text-anchor="middle">25</text>
+    <text class="ink2 sm" x="740" y="503" text-anchor="middle">6</text>
+    <text class="ink2 sm" x="770" y="487" text-anchor="middle">60</text>
+    <text class="ink2 sm" x="770" y="503" text-anchor="middle">3</text>
+    <text class="ink2 sm" x="800" y="487" text-anchor="middle">120</text>
+    <text class="ink2 sm" x="800" y="503" text-anchor="middle">0</text>
+    <text class="ink2 sm" x="659" y="503" text-anchor="end">n</text>
+    <line class="s" stroke-width="1.5" x1="680" y1="405.2" x2="680" y2="383.2"/>
+    <line class="s" stroke-width="1.5" x1="710" y1="453.3" x2="710" y2="387.3"/>
+    <line class="s" stroke-width="1.5" x1="740" y1="465.1" x2="740" y2="461.2"/>
+    <line class="s" stroke-width="1.5" x1="770" y1="465.1" x2="770" y2="453.3"/>
+    <polyline class="s" stroke-width="2" stroke-linejoin="round" points="680,395.8 710,424.7 740,463.8 770,461.2"/>
+    <circle class="ring" cx="680" cy="395.8" r="6.5"/>
+    <circle class="f" cx="680" cy="395.8" r="4.5"/>
+    <circle class="ring" cx="710" cy="424.7" r="6.5"/>
+    <circle class="f" cx="710" cy="424.7" r="4.5"/>
+    <circle class="ring" cx="740" cy="463.8" r="6.5"/>
+    <circle class="f" cx="740" cy="463.8" r="4.5"/>
+    <circle class="ring" cx="770" cy="461.2" r="6.5"/>
+    <circle class="hole" cx="770" cy="461.2" r="4.5"/>
+  </g>
+  <text class="ink2 sm" x="20" y="526">Post-hoc and exploratory: written after the confirmatory results were seen, not part of the preregistered analysis, no verdict.</text>
+  <text class="ink2 sm" x="20" y="541">In Arm X the fee is the reverse of the send order, so the tau of the send-order rule is the same number with the opposite sign. Cells are small</text>
+  <text class="ink2 sm" x="20" y="556">and windows of one validator are not independent; the intervals are descriptive, not tests. Table: docs/EXPLORATORY_GAP_TABLE.md.</text>
+</svg>
+<!-- sha256: 050ceda54e71d643341d814e6416ffaecac829b9d201c242357c12a0de7efde3 -->

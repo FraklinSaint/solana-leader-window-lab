@@ -28,6 +28,7 @@ jobs:
       - run: pip install --require-hashes --no-deps -r analysis/requirements.lock
       - run: cd analysis && python -m pytest
       - run: cd analysis && python -m slwlab.report --check   # docs/REPORT.md is regenerated, never hand-edited
+      - run: python scripts/exploratory_gap_table.py --check && python scripts/validators_table.py --check && python scripts/gap_figure.py --check   # generated docs and figure, never hand-edited
 
   # Offline check of every saved block against the manifest (about 15-25 minutes), kept apart so a slow
   # run never hides the unit-test result.
