@@ -1,5 +1,5 @@
 PY ?= python
-.PHONY: test rust-test py-test lint facts verify verify-online report report-check secrets-check sim history-scan sessions merge
+.PHONY: reproduce test rust-test py-test lint facts verify verify-online report report-check secrets-check sim history-scan sessions merge
 
 test: rust-test py-test secrets-check
 rust-test:
@@ -31,3 +31,5 @@ sessions:          # PLANNING: hours per validator/cell + time-constrained sessi
 	cd analysis && $(PY) -m slwlab.sessions
 merge:             # EXPLORATORY: merge session chunks since SINCE (e.g. 20261024T000000Z) -> coverage by UTC hour
 	cd analysis && $(PY) -m slwlab.merge_dryrun --since $(SINCE)
+reproduce:         # verify the data offline, rerun the registered analysis, compare with analysis/results/ (~20 min)
+	$(PY) scripts/reproduce.py

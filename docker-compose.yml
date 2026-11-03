@@ -54,3 +54,16 @@ services:
     command: ["python", "scripts/verify_manifest.py", "--online"]
     volumes:
       - ./data:/lab/data
+
+  # One command: verify the committed data offline, rerun the registered analysis, compare it with the
+  # committed result (analysis/results/confirmatory_2026-11-03/). Reads the repository, writes only /tmp.
+  # `docker compose run --rm reproduce` (about 20 minutes with the verification);
+  # `docker compose run --rm reproduce python scripts/reproduce.py --skip-verify` (a few minutes).
+  reproduce:
+    build: { context: ., target: analysis }
+    image: slwlab-analysis:local
+    profiles: ["manual"]
+    working_dir: /lab
+    command: ["python", "scripts/reproduce.py", "--out", "/tmp/reproduced"]
+    volumes:
+      - .:/lab:ro
