@@ -1,5 +1,7 @@
 # solana-leader-window-lab
 
+[![CI](https://github.com/FraklinSaint/solana-leader-window-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/FraklinSaint/solana-leader-window-lab/actions/workflows/ci.yml)
+
 **Inside the Block: How Solana Validators Order Transactions** (Superteam Ukraine bounty; full text
 in [docs/BOUNTY.md](docs/BOUNTY.md)).
 
@@ -14,6 +16,14 @@ leader window (4 slots); the primary evidence is only our own transactions.
 > `analysis/results/confirmatory_2026-11-03/`. Simulator output is always labeled SIMULATION.
 > The full table is [docs/REPORT.md](docs/REPORT.md) (generated, never hand-edited).
 
+**Contents:** [Results](#results-at-a-glance) · [Reproduce in one command](#reproduce-in-one-command) ·
+[Check one transaction by hand](#check-one-transaction-by-hand) ·
+[Where each bounty requirement is met](#where-each-bounty-requirement-is-met) ·
+[Registration order](#registration-order-what-a-third-party-can-check) ·
+[What went wrong](#what-went-wrong-and-what-this-does-not-show) · [Why this design](#why-this-design) ·
+[Bounty considerations](#bounty-considerations-one-subsection-each) ·
+[What this does NOT separate](#what-this-does-not-separate) · [Running the sender](#quick-start)
+
 ## Results at a glance
 
 **What was measured.** Six sessions on a Windows PC over Wi-Fi, 2026-10-26 to 2026-11-02, all after
@@ -21,6 +31,41 @@ Alpenglow (slots 461,826,696 to 464,527,566): 1,185 leader windows (890 usable),
 transactions (6,243 landed), 10 validators in 7 client groups (9 measurable). All fees, including
 calibration and funding transfers, came to 38,905,322 lamports (0.0389 SOL) against a 0.05 SOL
 ceiling that is a compile-time constant (`crates/common/src/limits.rs`). No Jito bundles or tips.
+The date of every window is in [docs/REPORT.md](docs/REPORT.md); the six runs:
+
+| Run | Started (UTC) | Registered as | Windows sent / usable | Transactions sent / landed | Slots |
+|---|---|---|---|---|---|
+| `live-20261026T220348Z` | 2026-10-26 22:03 | session 1 | 188 / 156 | 1,128 / 1,006 | 461,826,696 to 461,927,524 |
+| `live-20261027T214442Z` | 2026-10-27 21:44 | session 2 | 249 / 167 | 1,494 / 1,086 | 462,227,404 to 462,328,752 |
+| `live-20261028T165833Z` | 2026-10-28 16:58 | session 3 | 171 / 133 | 1,026 / 887 | 462,552,664 to 462,619,564 |
+| `live-20261028T213507Z` | 2026-10-28 21:35 | session 4 | 239 / 179 | 1,434 / 1,253 | 462,630,317 to 462,722,539 |
+| `live-20261029T223027Z` | 2026-10-29 22:30 | session 5 (amendment 1) | 246 / 200 | 1,476 / 1,460 | 463,049,896 to 463,201,228 |
+| `live-20261102T123839Z` | 2026-11-02 12:38 | round 2 (amendment 2) | 92 / 55 | 552 / 551 | 464,498,385 to 464,527,566 |
+| all | | | 1,185 / 890 | 7,110 / 6,243 | |
+
+**Short answer** to the bounty's three questions (by what rule, how strictly, whether there is a rule at all),
+to be read together with the controls below. tau is the mean Kendall tau over usable windows (+1: the block follows
+the rule exactly):
+
+- **Rule.** At Firedancer `9eGrDohd` the order follows the priority fee **per requested compute unit**, not the
+  total fee: that rule has tau +1.00 in Arm R (equal price, different compute-unit limits; 20 windows) and the total
+  fee -1.00. Vanilla Agave and JitoAgave `HEL1USMZ` lean the same way, weakly (per compute unit SOFT, total fee INCONCLUSIVE or
+  NO_RULE). BamAgave is strictly price-ordered in Arms P and C, where every transaction requests the same
+  compute-unit limit, so fee, fee per unit and total fee are not separated there (Arm R was not run). Send time
+  takes over when transactions do not arrive together: with simultaneous sends (gap 0 ms) price decides at
+  Firedancer (+1.00) and BamAgave (+0.71); with 25 ms between sends the earlier-sent transaction tends to go first
+  in every group.
+- **Strictness.** STRICT: Firedancer (Arms P, C and R) and BamAgave (Arm C 0.96; Arm P 0.81 with a
+  low-separation label). The other Agave-family validators and HarmonicFiredancer show a measurable but incomplete
+  effect of price (mostly SOFT, tau about 0.2 to 0.6, a few cells inconclusive). The Agave positive control failed,
+  so we cannot say whether that incompleteness belongs to the scheduler or to our path.
+- **Ties** (equal fee, Arm F). Firedancer puts the later-sent transaction first (LIFO, +0.42), as predicted from
+  its source before the first send. HarmonicAgave, HarmonicFiredancer and Rakurai put the earlier-sent first
+  (FIFO, +0.39 to +0.48), and so does JitoAgave `HEL1USMZ` (+0.26). Vanilla Agave (predicted), BamAgave and JitoAgave
+  `E1r4Psq8`: no determinant found.
+- **Is there a rule at all?** For every measurable validator at least one candidate rule is significant after Holm
+  correction. NO_RULE (not significant although the test had 90% power for a half-strength version of the rule) appears in only 3 of 191 cells and
+  INCONCLUSIVE in 75: in the lock-free arms the noise is large, and we report that instead of calling it a rule.
 
 **The controls, first.**
 
@@ -36,13 +81,29 @@ the reverse of the send order, gap 0 to 120 ms between sends):
 
 | Group (validators) | Arm P | Arm C | Arm X |
 |---|---|---|---|
-| Firedancer (`9eGrDohd`; `EvnRmnMr` never landed a transaction, 0 of 75 windows usable) | price STRICT, tau 1.00 (30 of 30 windows) | price STRICT, 0.83 | fee decides at gap 0 ms (tau +1.00, 12 windows); send order wins from 25 ms (-0.50) |
+| Firedancer (`9eGrDohd`; `EvnRmnMr` never landed a transaction, 0 of 75 windows usable) | price STRICT, tau 1.00 (30 of 30 windows) | price STRICT, 0.83 | fee decides at gap 0 ms (tau +1.00, 12 windows); from 25 ms send order tends to win (-0.50, 6 windows, interval includes 0) |
 | BamAgave (`DRpbCBMx`; lands only 74 to 83% of its transactions) | price STRICT_LOW_SEPARATION, 0.81 | price STRICT, 0.96 | fee at 0 ms (+0.71), send order at 25 ms (-0.96) |
 | Agave (`5Us18hLZ`, `7QQGNm3p`, pooled) | price SOFT, 0.21 | price SOFT, 0.54 (control failed) | send order SOFT (FIFO +0.44, price -0.44); at 0 ms neither decides (-0.09) |
 | JitoAgave (`E1r4Psq8`, `HEL1USMZ`) | price SOFT 0.20 / INCONCLUSIVE 0.15 | price SOFT, 0.37 / 0.54 | send order SOFT, 0.37 / 0.39 |
 | HarmonicAgave (`Fd7btgyS`) | INCONCLUSIVE, 0.03 | price SOFT, 0.60 | send order SOFT, 0.28 |
 | HarmonicFiredancer (`JUPiTERr`) | price SOFT, 0.26 | price SOFT, 0.57 | send order SOFT, 0.35 |
-| Rakurai (`ana2y2Yv`) | price STRICT_LOW_SEPARATION, 0.36 | price INCONCLUSIVE (0.20), send order SOFT (0.56) | send order SOFT, 0.47 |
+| Rakurai (`ana2y2Yv`; lands 68 to 78% of its transactions) | price STRICT_LOW_SEPARATION, 0.36 | price INCONCLUSIVE (0.20), send order SOFT (0.56) | send order SOFT, 0.47 |
+
+Equal fee, and equal price with different compute-unit limits (Arm F: same fee, fixed send order 10 ms apart,
+which tie-break? Arm R: same price per compute unit, six different compute-unit limits, random send order):
+
+| Group (validators) | Arm F: tie-break | Arm R: fee per compute unit vs total fee |
+|---|---|---|
+| Firedancer (`9eGrDohd`) | later-sent first (LIFO), SOFT, +0.42 (30 windows); ties by payer key are weakly significant too (+0.18) | fee per compute unit STRICT, +1.00 (20 windows); total fee -1.00 |
+| BamAgave (`DRpbCBMx`) | none found (all four tie rules INCONCLUSIVE, tau within ±0.08; 20 windows) | not measured |
+| Agave (`5Us18hLZ`, `7QQGNm3p`, pooled) | none found (INCONCLUSIVE, 47 windows), as predicted | per compute unit SOFT, +0.29 / +0.25 (47 windows pooled); total fee NO_RULE |
+| JitoAgave (`E1r4Psq8`, `HEL1USMZ`) | `E1r4Psq8` none found; `HEL1USMZ` earlier-sent first (FIFO), SOFT, +0.26 | `E1r4Psq8` INCONCLUSIVE +0.12; `HEL1USMZ` SOFT +0.20 |
+| HarmonicAgave (`Fd7btgyS`) | earlier-sent first (FIFO), SOFT, +0.39 (21 windows) | not measured |
+| HarmonicFiredancer (`JUPiTERr`) | earlier-sent first (FIFO), SOFT, +0.42 (15 windows) | not measured |
+| Rakurai (`ana2y2Yv`) | earlier-sent first (FIFO), SOFT, +0.48 (20 windows) | not measured |
+
+Arm R was run for the three required groups only (Agave, JitoAgave, Firedancer). Per-validator values for every arm:
+[docs/VALIDATORS.md](docs/VALIDATORS.md) and [docs/REPORT.md](docs/REPORT.md).
 
 Verdict counts over all 191 validator x arm x rule cells: 17 STRICT, 9 STRICT_LOW_SEPARATION, 87
 SOFT, 3 NO_RULE, 75 INCONCLUSIVE. Without the last session (round 2) four X-arm verdicts change
@@ -50,20 +111,34 @@ class and nothing else does (`analysis/results/confirmatory_2026-11-03_sensitivi
 
 **How to read it.** The registered X verdicts pool the send gaps. Split by gap (a post-hoc,
 exploratory table, no verdicts; [docs/EXPLORATORY_GAP_TABLE.md](docs/EXPLORATORY_GAP_TABLE.md))
-the picture is clearer: when sends are simultaneous (gap 0 ms) price decides the order for
-Firedancer and, less so, BamAgave and does not for the Agave-based validators; at a 10 ms gap price
-and send order are mixed (all groups -0.37; Firedancer -0.07); at 25 ms it is the send order in every
-group (tau of price -0.65 to -0.98, Firedancer -0.50; 47 usable windows). In other words, in our data a
-priority fee helps at most against transactions that arrive within roughly ten milliseconds of each
-other; otherwise the earlier transaction goes first. These are
-conclusions about the validators we measured on the dates we measured them, over our Wi-Fi path,
-not about a client in general. Gaps of 60 and 120 ms mostly spread a window over more than one slot
-and are unusable (0 of 70 windows at 120 ms).
+the picture is clearer. When sends are simultaneous (gap 0 ms) price decides the order at Firedancer (+1.00,
+12 windows) and, less so, at BamAgave (+0.71); at the other Agave-family validators (Agave -0.09, JitoAgave +0.04,
+HarmonicAgave +0.20, Rakurai +0.17) and at HarmonicFiredancer (+0.32, 5 windows) neither price nor send order
+decides clearly. At a 10 ms gap price and send order are mixed (all groups -0.37; Firedancer -0.07). At 25 ms the
+earlier-sent transaction tends to go first in every group (tau of price -0.65 to -0.98 in six groups; Firedancer
+-0.50 over 6 windows, with an interval that includes 0; 47 usable windows in all). In other words, in our data a
+priority fee helped only against transactions that arrived (nearly) together; with 10 ms or more between sends,
+send order mattered as much or more. These are conclusions about the validators we measured on the dates we
+measured them, over our Wi-Fi path, not about a client in general. Gaps of 60 and 120 ms mostly spread a window
+over more than one slot and are unusable (0 of 70 windows at 120 ms).
 
 ![Arm X: mean tau of the fee rule by gap between sends, all groups and each client group](docs/figures/arm_x_by_gap.svg)
 
 *Post-hoc, exploratory; generated by `scripts/gap_figure.py` from `data/` (the numbers are the table's).
 Per-validator identification and results: [docs/VALIDATORS.md](docs/VALIDATORS.md).*
+
+**Predictions registered before the data, and what happened.** The design text with these predictions
+(`docs/PREREGISTRATION.md` §4, §5, §5b; `docs/VERIFIED_FACTS.md` F6, F6b; derived from the scheduler source code and
+the simulator) was on GitHub on 2026-10-25 12:12:44 UTC (commit `25724f9`), before any send
+([Registration order](#registration-order-what-a-third-party-can-check)).
+
+| Prediction | Result |
+|---|---|
+| Firedancer ranks by the exact ratio of reward to compute cost; with one lock chain (Arm C) it is strict | **Held.** Arm C STRICT 0.83; also Arm P 1.00 and Arm R 1.00 |
+| Agave ranks by the same ratio, but its 4 worker threads interleave lock-free transactions, so Arms P and R are noisy | **Held.** SOFT in P and R (tau 0.17 to 0.29) |
+| Agave in Arm C (one thread, no interleaving) is close to strict: the positive control | **Did not hold.** SOFT; 0.5333 against the registered interval [0.6310, 1.0000]; cause unknown |
+| Equal-fee ties: Agave by an internal index that cannot be told from random (TIE_NONE); Firedancer by the last arrival (LIFO) | **Held** for vanilla Agave (no tie rule significant, 47 windows) and Firedancer (LIFO +0.42; payer order also weak, +0.18). No prediction was registered for Harmonic or Rakurai (rule unpublished); all three show FIFO, as does one JitoAgave validator |
+| Arm X: a priority scheduler follows price only when sends are close together; as the gap grows arrival order wins. Simulated at N = 8 for 0 / 10 / 25 ms: Firedancer +0.82 / +0.32 / -0.25, Agave +0.43 / 0.00 / -0.37 (`docs/SIMULATION.md`) | **Held in shape.** Measured at N = 6: Firedancer +1.00 / -0.07 / -0.50, Agave -0.09 / -0.53 / -0.93. Arrival order takes over earlier than simulated, most of all at Agave |
 
 ## Reproduce in one command
 
@@ -89,6 +164,30 @@ of 30 of our saved blocks) and a request with `0` fails on those blocks. Blocks 
 transactions (VERIFIED_FACTS F1). The order in which things were done is in [docs/LOGBOOK.md](docs/LOGBOOK.md);
 what a third party can check about it is the next section.
 
+## Check one transaction by hand
+
+The first line of `data/manifest.jsonl` is transaction `2ctcRfqc…` (Arm X, validator `Fd7btgyS`, slot 461,826,696). The
+manifest says it sits at index 213 of a block with 471 transactions. Offline, from the saved block, with Python only:
+
+```bash
+python3 - <<'EOF'
+import gzip, json
+b = json.load(gzip.open("data/raw/blocks/461826696.json.gz"))
+t = b["transactions"]
+print(len(t), t[213]["transaction"]["signatures"][0])                  # 471 2ctcRfqckoQjo9g29JbkNR9ens...
+print([r["pubkey"] for r in b["rewards"] if r["rewardType"] == "Fee"]) # ['Fd7btgySsrj...']: the block's producer
+EOF
+```
+
+Against the chain, with any archival mainnet RPC (a free Helius key works): the order is the chain's, not ours.
+
+```bash
+curl -s "$RPC_URL" -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"getBlock","params":[461826696,{"maxSupportedTransactionVersion":1,"transactionDetails":"signatures","rewards":false}]}' \
+  | python3 -c "import json,sys; s=json.load(sys.stdin)['result']['signatures']; print(len(s), s.index('2ctcRfqckoQjo9g29JbkNR9ensr3dqsWngvYhgNMrCbJumCpeTYCse3k3GffEGn7URYTzvtjDiMQURVs4b9tx4uG'))"   # 471 213
+```
+
+`scripts/verify_manifest.py` does this for all 7,110 transactions (offline) and for a sample or all blocks (`--online`).
+
 ## Where each bounty requirement is met
 
 | Requirement | Where |
@@ -101,7 +200,7 @@ what a third party can check about it is the next section.
 | One command, Docker Compose | `docker compose up` ([Reproduce in one command](#reproduce-in-one-command)) |
 | Dry-run by default, real sending behind a flag and a cap | `live` + `CONFIRM_LIVE=yes` + `--max-spend-lamports` ([Safety invariants](#safety-invariants)) |
 | Keys only via volume or env | `./secrets` is git-ignored; gitleaks and `scripts/check_no_keys.py` run in CI |
-| Raw data to check claims with `getBlock` | `data/manifest.jsonl` (signature, slot, block index per transaction), `data/raw/blocks/` (saved blocks), `scripts/verify_manifest.py --online`; use `maxSupportedTransactionVersion: 1` |
+| Raw data to check claims with `getBlock` | `data/manifest.jsonl` (signature, slot, block index per transaction), `data/raw/blocks/` (saved blocks), `scripts/verify_manifest.py --online`; use `maxSupportedTransactionVersion: 1`; worked example: [Check one transaction by hand](#check-one-transaction-by-hand) |
 | README: leader schedule and types | [Leader schedule and leader types](#leader-schedule-and-leader-types) |
 | README: path from our backend to the executing node | [Path from our backend to the executing node](#path-from-our-backend-to-the-executing-node-and-everything-in-between), [Wi-Fi limits](#limitations-wi-fi-no-ethernet) |
 | README: interaction of our own transactions | [Interaction of our own transactions with each other](#interaction-of-our-own-transactions-with-each-other) |
@@ -157,8 +256,9 @@ items, each with its date and commit in the LOGBOOK:
   second operator's platform (Amendment 3 draft) was started and cancelled with no data.
 - **Not separated** (see "What this does NOT separate" below): hours the PC was off, Wi-Fi vs
   wired paths, transactions we cannot observe in flight, self-reported client labels. Client labels
-  come from gossip `clientId`, version scheme and Jito Kobe, with an evidence list per validator in
-  the `data/snapshots/selection_*.json` files; they are not proof.
+  come from gossip `clientId`, version scheme and Jito Kobe (evidence per validator in
+  [docs/VALIDATORS.md](docs/VALIDATORS.md)); they are not proof, and they were taken once, on 2026-10-22, four
+  to eleven days before the sessions. We kept no second snapshot of them during the measurement.
 
 
 ## Quick start
@@ -733,7 +833,9 @@ a simulated reference (`analysis/slwlab/sim.py`, labeled SIMULATION everywhere):
   false-STRICT rate stays above 10% at W = 20. In these arms an absent effect is reported as
   INCONCLUSIVE, never as "no rule", and STRICT carries a low-separability label. The Agave
   positive control and the strictness test are therefore **Arm C** (shared write lock, one
-  thread, ceiling ≈ 0.87), where both are cleanly separable in simulation.
+  thread, ceiling ≈ 0.87), where both are cleanly separable in simulation. This is about one validator's 20 to 30
+  windows per arm: the pooled Agave cells (47 windows in Arm R, 40 in Arm X) did reach NO_RULE, for the total-fee rule in Arm R and
+  the 50 ms-buffer rule in Arm X (`analysis/results/confirmatory_2026-11-03/results_pooled_Agave.json`).
 - An internal Agave tie-break index (Slab key) cannot be told apart from random from outside
   (Arm F, TIE_NONE).
 - Simulator nuisance parameters that cannot be estimated without looking at our txs' order
