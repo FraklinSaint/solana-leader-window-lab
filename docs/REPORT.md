@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | `c34697f5adc9b94a4acb39707a4659c95338cad1fc34018c9be0ffcda9fa20d2` | 936 |
 | `analysis/sim/results/sim_v2.json` | `d914265743adaedeffe38a987904414a5118668632f3bc8922c9f08969b5183f` | 21159 |
 | `analysis/sim/results/alloc_v2.json` | `b138fdbd3b018e9e029ab370851a613d50fe5d90be36b4e86b893c51f4e066dd` | 3310 |
-| `docs/LOGBOOK.md` | `e8624e9fa774f07ac143146107c4fa1fb7a6b809f1a0e89c1623254f5e0263ca` | 176 |
+| `docs/LOGBOOK.md` | `e10258353eeeac52a6e5f0d79a54a6a501c36cd9d99ee83baa319cca4be34f5c` | 178 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -1582,7 +1582,7 @@ Confirmatory total 37,743,052 lamports (budget 38,000,000).
 
 Built from docs/LOGBOOK.md (kinds: failure, surprise, rate limit, env, limitation, correction, missed window). Times are UTC.
 
-Counts: failure 22, surprise 32, rate limit 1, env 4, limitation 6, correction 5
+Counts: failure 22, surprise 32, rate limit 1, env 4, limitation 7, correction 5
 
 | UTC | phase | kind | entry |
 |---|---|---|---|
@@ -1656,6 +1656,7 @@ Counts: failure 22, surprise 32, rate limit 1, env 4, limitation 6, correction 5
 | 2026-11-03T13:48:00Z | 6 | env | Nine text files of the confirmatory output (results and pooled json of the main and sensitivity runs, positive_control.txt, filter_output.txt and the three run logs) came out of Python with CRLF line endings. They were converted to LF (line endings only) before they were committed and `SHA256SUMS.txt` was regenerated; the hashes of the CRLF originals are in the message of 6a6e2b1. Written 2026-11-03. |
 | 2026-11-03T13:48:00Z | 6 | limitation | Scenario verdict marks (PREREGISTRATION section 0b item 4 and section 6d: cells whose verdict class differs under the calibrated scenario or the Wi-Fi sensitivity) were not implemented: they need new simulator runs at jitter 4.8 ms and per-scenario thresholds that the text does not fix. See docs/ANALYSIS_CLARIFICATIONS_PRE_RUN.md (c). They are reported as specified but not done. Written 2026-11-03. |
 | 2026-11-03T13:48:00Z | 6 | env | CI history (written 2026-11-03). `verify_manifest` kept every saved block in memory (more than 6 GB) and the 7 GB GitHub runner was shut down; fixed with a bounded cache (40f5a7d), measured 531 MB and 167 s. Earlier CI failures: the docker `plan` step needs RPC_URL (removed from CI), gitleaks flagged a transaction signature in data/ (allowlisted, 3b5fd9f), the docker analyze service wrote to a read-only docs/ (now `report --check` inside the image, 5a8556c). |
+| 2026-11-03T14:00:00Z | 6 | limitation | **Registration order: only part of it is timestamped by a third party** (written 2026-11-03). GitHub received the design text of `docs/PREREGISTRATION.md` (251 lines, commit 25724f9) on 2026-10-25 12:12:44 UTC, before the calibration session (15:55 UTC) and before any confirmatory send. The tags `prereg-v1` (05a3b23; git time 2026-10-26 21:56:47 UTC, 7 min 34 s before the first confirmatory send at 22:04:21 UTC), `amendment-1` (ebddf54) and `amendment-2` (ef3e726) were pushed to GitHub together on 2026-10-30 16:14:46 UTC, after sessions 1 to 5. For those sessions the order of the frozen numbers and of amendment 1 is therefore attested by git dates only (set by the author's machine). Round 2, the data freeze and the analysis are ordered by GitHub's own clock. The README section "Registration order" has the table; the difference between the two versions of the registration is `git diff 25724f9 05a3b23 -- docs/PREREGISTRATION.md`. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: f14252390bc10fae8b40c720843ba19721b85b989b3db7e2e73192c46616a1ea -->
+<!-- report-sha256: 4c164c6cf6e69af5b640ec7ffba64778d65ac5feeca8275e27ede3a875e376cf -->
