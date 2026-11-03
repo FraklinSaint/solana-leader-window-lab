@@ -1,0 +1,8 @@
+{"end":"2026-11-02T14:23:37Z","event":"start","mode":"measure","ts":"2026-11-02T12:38:37Z"}
+{"active":true,"blocks":"idle sleep only; not a sleep or sign-out requested by the user or Windows","event":"keep_awake","request":"ES_CONTINUOUS | ES_SYSTEM_REQUIRED","ts":"2026-11-02T12:38:39Z"}
+{"event":"run_start","left_secs":6298,"run":1,"ts":"2026-11-02T12:38:39Z"}
+{"event":"feed_stale","reason":"slot feed stale: last WebSocket notification 2225 ms ago (limit 2000 ms)","run_id":"live-20261102T123839Z","ts":"2026-11-02T13:15:44Z","window_id":"464508644-E1r4Psq8","ws_age_ms":2225}
+{"event":"feed_recovered","run_id":"live-20261102T123839Z","since":"2026-11-02T13:15:44Z","skipped_windows":1,"ts":"2026-11-02T13:16:50Z","window_id":"464508956-Fd7btgyS","ws_age_ms":107}
+{"event":"run_exit","exit_code":0,"from":"2026-11-02T12:38:39Z","ran_secs":6306,"run":1,"to":"2026-11-02T14:23:45Z","ts":"2026-11-02T14:23:45Z"}
+{"detail":"end of session","event":"collect","exit_code":0,"ts":"2026-11-02T14:23:47Z"}
+{"covered_secs":6251,"event":"done","ts":"2026-11-02T14:23:47Z"}

@@ -1,0 +1,132 @@
+{
+  "access_point_changes": 0,
+  "access_points": 1,
+  "bands": {
+    "2.4 GHz": 207
+  },
+  "channels": {
+    "13": 207
+  },
+  "label": "PATH RECORD (Wi-Fi limitation; README, PREREGISTRATION)",
+  "method": "rtt: JSON-RPC getSlot over a kept-alive HTTPS connection, one probe per 5 s, first probe of a connection excluded; a proxy for the path, not the delay of QUIC sends to a leader. wifi: WLAN API sample per 30 s (SSID never read).",
+  "network_types": {
+    "wifi": 207
+  },
+  "phys": {
+    "802.11n": 207
+  },
+  "preflight": {
+    "description": "TP-Link Wireless USB Adapter",
+    "if_type": 71,
+    "name": "Беспроводная сеть",
+    "type": "wifi",
+    "wifi": true,
+    "wifi_link": {
+      "ap_id": "ac18fd41",
+      "band": "2.4 GHz",
+      "channel": 13,
+      "phy": "802.11n",
+      "rssi_dbm": null,
+      "rx_mbps": 150,
+      "signal_quality": 98,
+      "tx_mbps": 150
+    },
+    "wifi_power_saving_ac": 0
+  },
+  "rssi_dbm": {
+    "max": 0.0,
+    "median": 0.0,
+    "min": 0.0,
+    "p5": 0.0,
+    "p95": 0.0
+  },
+  "rtt": {
+    "jitter_ms": 26.747571440195262,
+    "loss_share": 0.0024271844660194173,
+    "max_ms": 3641.822,
+    "min_ms": 43.7959,
+    "n": 1236,
+    "n_err": 3,
+    "n_ok": 1233,
+    "n_pairs": 1229,
+    "p50_ms": 53.406,
+    "p90_ms": 76.6145,
+    "p95_ms": 100.8391,
+    "p99_ms": 125.9083,
+    "sigma_mad_ms": 6.141077459999998
+  },
+  "rtt_by_hour": [
+    {
+      "hour_utc": "2026-11-02T12:00:00Z",
+      "jitter_ms": 17.012370119521908,
+      "loss_share": 0.0,
+      "max_ms": 124.4783,
+      "min_ms": 47.4875,
+      "n": 252,
+      "n_err": 0,
+      "n_ok": 252,
+      "n_pairs": 251,
+      "p50_ms": 54.4274,
+      "p90_ms": 113.7135,
+      "p95_ms": 117.9305,
+      "p99_ms": 123.5485,
+      "sigma_mad_ms": 4.980794699999995
+    },
+    {
+      "hour_utc": "2026-11-02T13:00:00Z",
+      "jitter_ms": 37.266214511494226,
+      "loss_share": 0.004267425320056899,
+      "max_ms": 3641.822,
+      "min_ms": 43.7959,
+      "n": 703,
+      "n_err": 3,
+      "n_ok": 700,
+      "n_pairs": 696,
+      "p50_ms": 53.5881,
+      "p90_ms": 78.9054,
+      "p95_ms": 96.7123,
+      "p99_ms": 164.6898,
+      "sigma_mad_ms": 6.4979392799999935
+    },
+    {
+      "hour_utc": "2026-11-02T14:00:00Z",
+      "jitter_ms": 9.466398214285716,
+      "loss_share": 0.0,
+      "max_ms": 128.54080000000002,
+      "min_ms": 44.297999999999995,
+      "n": 281,
+      "n_err": 0,
+      "n_ok": 281,
+      "n_pairs": 280,
+      "p50_ms": 51.1831,
+      "p90_ms": 66.9443,
+      "p95_ms": 78.8451,
+      "p99_ms": 97.8659,
+      "sigma_mad_ms": 5.10815004000001
+    }
+  ],
+  "rtt_warmup_probes": 4,
+  "rx_mbps": {
+    "max": 150.0,
+    "median": 150.0,
+    "min": 150.0,
+    "p5": 150.0,
+    "p95": 150.0
+  },
+  "signal_quality": {
+    "max": 100.0,
+    "median": 96.0,
+    "min": 84.0,
+    "p5": 88.0,
+    "p95": 100.0
+  },
+  "tx_mbps": {
+    "max": 150.0,
+    "median": 150.0,
+    "min": 150.0,
+    "p5": 150.0,
+    "p95": 150.0
+  },
+  "wifi_link_samples": 207,
+  "wifi_samples": 207
+}

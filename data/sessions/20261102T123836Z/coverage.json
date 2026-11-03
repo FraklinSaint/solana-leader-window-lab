@@ -1,0 +1,215 @@
+{
+  "covered_secs_total": 6251,
+  "end": "2026-11-02T14:23:37Z",
+  "hours": [
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 249.817108,
+        "mean_ms": 35.525996761904764,
+        "median_abs_ms": 68.824428,
+        "p90_abs_ms": 225.03208,
+        "p95_abs_ms": 227.122384,
+        "share_within_100ms": 0.6190476190476191,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 1281,
+      "flag": "OK",
+      "hour_utc": "2026-11-02T12:00:00Z",
+      "reserved_lamports": 664818,
+      "session_secs": 1283,
+      "windows_executed": 21,
+      "windows_skipped": 0
+    },
+    {
+      "blind_secs": {
+        "slot_feed": 47
+      },
+      "clock_err": {
+        "max_abs_ms": 338.60188,
+        "mean_ms": -15.266403157894736,
+        "median_abs_ms": 83.967992,
+        "p90_abs_ms": 162.886752,
+        "p95_abs_ms": 228.944904,
+        "share_within_100ms": 0.6140350877192983,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 3553,
+      "flag": "OK",
+      "hour_utc": "2026-11-02T13:00:00Z",
+      "reserved_lamports": 1804506,
+      "session_secs": 3600,
+      "windows_executed": 57,
+      "windows_skipped": 1
+    },
+    {
+      "blind_secs": {},
+      "clock_err": {
+        "max_abs_ms": 225.176348,
+        "mean_ms": 20.616366571428575,
+        "median_abs_ms": 96.01426,
+        "p90_abs_ms": 205.970768,
+        "p95_abs_ms": 205.970768,
+        "share_within_100ms": 0.5714285714285714,
+        "share_within_425ms": 1.0
+      },
+      "covered_secs": 1425,
+      "flag": "OK",
+      "hour_utc": "2026-11-02T14:00:00Z",
+      "reserved_lamports": 443212,
+      "session_secs": 1417,
+      "windows_executed": 14,
+      "windows_skipped": 0
+    }
+  ],
+  "label": "EXPLORATORY",
+  "max_spend_lamports": 3225611,
+  "metric": "covered_secs = seconds a worker was running minus its own gaps (host_stall, slot_feed, rpc_error). Hours with no coverage are GAP, never filled. clock_err: window-start prediction error at prep time (see sender clock-report).",
+  "mode": "measure",
+  "network": {
+    "access_point_changes": 0,
+    "access_points": 1,
+    "bands": {
+      "2.4 GHz": 207
+    },
+    "channels": {
+      "13": 207
+    },
+    "label": "PATH RECORD (Wi-Fi limitation; README, PREREGISTRATION)",
+    "method": "rtt: JSON-RPC getSlot over a kept-alive HTTPS connection, one probe per 5 s, first probe of a connection excluded; a proxy for the path, not the delay of QUIC sends to a leader. wifi: WLAN API sample per 30 s (SSID never read).",
+    "network_types": {
+      "wifi": 207
+    },
+    "phys": {
+      "802.11n": 207
+    },
+    "preflight": {
+      "description": "TP-Link Wireless USB Adapter",
+      "if_type": 71,
+      "name": "Беспроводная сеть",
+      "type": "wifi",
+      "wifi": true,
+      "wifi_link": {
+        "ap_id": "ac18fd41",
+        "band": "2.4 GHz",
+        "channel": 13,
+        "phy": "802.11n",
+        "rssi_dbm": null,
+        "rx_mbps": 150,
+        "signal_quality": 98,
+        "tx_mbps": 150
+      },
+      "wifi_power_saving_ac": 0
+    },
+    "rssi_dbm": {
+      "max": 0.0,
+      "median": 0.0,
+      "min": 0.0,
+      "p5": 0.0,
+      "p95": 0.0
+    },
+    "rtt": {
+      "jitter_ms": 26.747571440195262,
+      "loss_share": 0.0024271844660194173,
+      "max_ms": 3641.822,
+      "min_ms": 43.7959,
+      "n": 1236,
+      "n_err": 3,
+      "n_ok": 1233,
+      "n_pairs": 1229,
+      "p50_ms": 53.406,
+      "p90_ms": 76.6145,
+      "p95_ms": 100.8391,
+      "p99_ms": 125.9083,
+      "sigma_mad_ms": 6.141077459999998
+    },
+    "rtt_by_hour": [
+      {
+        "hour_utc": "2026-11-02T12:00:00Z",
+        "jitter_ms": 17.012370119521908,
+        "loss_share": 0.0,
+        "max_ms": 124.4783,
+        "min_ms": 47.4875,
+        "n": 252,
+        "n_err": 0,
+        "n_ok": 252,
+        "n_pairs": 251,
+        "p50_ms": 54.4274,
+        "p90_ms": 113.7135,
+        "p95_ms": 117.9305,
+        "p99_ms": 123.5485,
+        "sigma_mad_ms": 4.980794699999995
+      },
+      {
+        "hour_utc": "2026-11-02T13:00:00Z",
+        "jitter_ms": 37.266214511494226,
+        "loss_share": 0.004267425320056899,
+        "max_ms": 3641.822,
+        "min_ms": 43.7959,
+        "n": 703,
+        "n_err": 3,
+        "n_ok": 700,
+        "n_pairs": 696,
+        "p50_ms": 53.5881,
+        "p90_ms": 78.9054,
+        "p95_ms": 96.7123,
+        "p99_ms": 164.6898,
+        "sigma_mad_ms": 6.4979392799999935
+      },
+      {
+        "hour_utc": "2026-11-02T14:00:00Z",
+        "jitter_ms": 9.466398214285716,
+        "loss_share": 0.0,
+        "max_ms": 128.54080000000002,
+        "min_ms": 44.297999999999995,
+        "n": 281,
+        "n_err": 0,
+        "n_ok": 281,
+        "n_pairs": 280,
+        "p50_ms": 51.1831,
+        "p90_ms": 66.9443,
+        "p95_ms": 78.8451,
+        "p99_ms": 97.8659,
+        "sigma_mad_ms": 5.10815004000001
+      }
+    ],
+    "rtt_warmup_probes": 4,
+    "rx_mbps": {
+      "max": 150.0,
+      "median": 150.0,
+      "min": 150.0,
+      "p5": 150.0,
+      "p95": 150.0
+    },
+    "signal_quality": {
+      "max": 100.0,
+      "median": 96.0,
+      "min": 84.0,
+      "p5": 88.0,
+      "p95": 100.0
+    },
+    "tx_mbps": {
+      "max": 150.0,
+      "median": 150.0,
+      "min": 150.0,
+      "p5": 150.0,
+      "p95": 150.0
+    },
+    "wifi_link_samples": 207,
+    "wifi_samples": 207
+  },
+  "reserved_lamports_total": 2912536,
+  "runs": [
+    "live-20261102T123839Z"
+  ],
+  "session": "20261102T123836Z",
+  "skips_by_reason": {
+    "allocation quota met": 628,
+    "lead # ms < min #": 1,
+    "pacing: # + # > # (plus one window)": 481,
+    "slot feed stale: last WebSocket notification # ms ago (limit # ms)": 1,
+    "too close to previous planned window": 72,
+    "window truncated by schedule range": 9
+  },
+  "start": "2026-11-02T12:38:37Z"
+}

@@ -1,0 +1,62 @@
+{
+  "hours": [
+    {
+      "err": {
+        "max_abs_ms": 249.817108,
+        "mean_ms": 35.525996761904764,
+        "median_abs_ms": 68.824428,
+        "p90_abs_ms": 225.03208,
+        "p95_abs_ms": 227.122384,
+        "share_within_100ms": 0.6190476190476191,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-11-02T12:00:00Z",
+      "observed": 21,
+      "unobserved": 0,
+      "windows_executed": 21,
+      "windows_skipped": 0
+    },
+    {
+      "err": {
+        "max_abs_ms": 338.60188,
+        "mean_ms": -15.266403157894736,
+        "median_abs_ms": 83.967992,
+        "p90_abs_ms": 162.886752,
+        "p95_abs_ms": 228.944904,
+        "share_within_100ms": 0.6140350877192983,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {
+        "slot_feed": 45.63546519999999
+      },
+      "hour_utc": "2026-11-02T13:00:00Z",
+      "observed": 57,
+      "unobserved": 1,
+      "windows_executed": 57,
+      "windows_skipped": 1
+    },
+    {
+      "err": {
+        "max_abs_ms": 225.176348,
+        "mean_ms": 20.616366571428575,
+        "median_abs_ms": 96.01426,
+        "p90_abs_ms": 205.970768,
+        "p95_abs_ms": 205.970768,
+        "share_within_100ms": 0.5714285714285714,
+        "share_within_425ms": 1.0
+      },
+      "gap_secs": {},
+      "hour_utc": "2026-11-02T14:00:00Z",
+      "observed": 14,
+      "unobserved": 0,
+      "windows_executed": 14,
+      "windows_skipped": 0
+    }
+  ],
+  "label": "EXPLORATORY",
+  "metric": "window-start prediction error at prep time: arrival of the window's first slot notification at this machine minus the prediction. NOT the leader's real block start; real window-hit accuracy is judged in calibration by the landing slot.",
+  "runs": [
+    "data\\logs\\live-20261102T123839Z"
+  ]
+}
