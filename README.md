@@ -84,6 +84,26 @@ of 30 of our saved blocks) and a request with `0` fails on those blocks. Blocks 
 transactions (VERIFIED_FACTS F1). The order in which things were done is in [docs/LOGBOOK.md](docs/LOGBOOK.md);
 what a third party can check about it is the next section.
 
+## Where each bounty requirement is met
+
+| Requirement | Where |
+|---|---|
+| Mainnet only, after Alpenglow, not mixed | The code refuses any slot below 459,653,000 (`crates/common`); all 7,110 transactions are later (check M of `verify_manifest.py`); [Safety invariants](#safety-invariants) |
+| At least 6 validators, 3 client types | 10 validators in 7 groups, 9 measurable ([Results](#results-at-a-glance)); label evidence per validator in `data/snapshots/selection_*.json` |
+| Fee spend limit enforced in code | `HARD_CEILING_LAMPORTS = 50_000_000` (compile-time constant) and a write-ahead ledger (`crates/common/src/limits.rs`, `data/ledger.jsonl`); total spent 38,905,322 lamports = 0.0389 SOL |
+| Our own transactions as the primary evidence | All 7,110 analyzed transactions are ours; other transactions are never scored ([Competition inside the block](#competition-inside-the-block)) |
+| Jito bundles and tips out of scope | Plain transactions only; Jito-Solana validators are measured as validators |
+| One command, Docker Compose | `docker compose up` ([Reproduce in one command](#reproduce-in-one-command)) |
+| Dry-run by default, real sending behind a flag and a cap | `live` + `CONFIRM_LIVE=yes` + `--max-spend-lamports` ([Safety invariants](#safety-invariants)) |
+| Keys only via volume or env | `./secrets` is git-ignored; gitleaks and `scripts/check_no_keys.py` run in CI |
+| Raw data to check claims with `getBlock` | `data/manifest.jsonl` (signature, slot, block index per transaction), `data/raw/blocks/` (saved blocks), `scripts/verify_manifest.py --online`; use `maxSupportedTransactionVersion: 1` |
+| README: leader schedule and types | [Leader schedule and leader types](#leader-schedule-and-leader-types) |
+| README: path from our backend to the executing node | [Path from our backend to the executing node](#path-from-our-backend-to-the-executing-node-and-everything-in-between), [Wi-Fi limits](#limitations-wi-fi-no-ethernet) |
+| README: interaction of our own transactions | [Interaction of our own transactions with each other](#interaction-of-our-own-transactions-with-each-other) |
+| README: competition inside the block, send order, noise vs rule | [Competition inside the block](#competition-inside-the-block), [Send order](#send-order), [Noise vs rule](#noise-vs-rule) |
+| README: why this design, what it does NOT separate | [Why this design](#why-this-design), [What this does NOT separate](#what-this-does-not-separate) |
+| Report with the date of every measurement and "what went wrong" | [docs/REPORT.md](docs/REPORT.md) (every window with slot and UTC block time; "What went wrong"), [the short list above](#what-went-wrong-and-what-this-does-not-show) |
+
 ## Registration order: what a third party can check
 
 Commit and tag times in git come from the author's machine and prove little on their own. The independent time
