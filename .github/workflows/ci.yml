@@ -47,7 +47,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - run: docker compose build
       # `plan` is a dry run against mainnet and needs RPC_URL, so it is a documented manual step, not a CI step
-      - run: docker compose run --rm analyze
+      # --check only reads: the container user (uid 10001) may not write the runner's ./docs
+      - run: docker compose run --rm analyze python -m slwlab.report --check
 
   secrets:
     runs-on: ubuntu-24.04
