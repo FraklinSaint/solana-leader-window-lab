@@ -67,7 +67,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from collections import Counter, defaultdict
+from collections import Counter, OrderedDict, defaultdict
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
@@ -78,6 +78,9 @@ LOADED_ACCOUNTS_DATA_LIMIT = 32 * 1024  # crates/sender/src/txbuild.rs
 ORDERING_PURPOSES = ("measure", "calibrate")
 B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 _IDX = {c: i for i, c in enumerate(B58)}
+
+
+BLOCK_CACHE_MAX = 24  # blocks kept in memory by check_offline (see there)
 
 
 def b58decode(s: str) -> bytes:
@@ -418,11 +421,18 @@ def check_offline(lines: list[dict], data_root: pathlib.Path, ledger: list[dict]
     # funding and sweep transfers have no manifest line by design
     transfer_sigs = {e["sig"] for e in ledger if e.get("kind") == "reserve" and e.get("purpose") not in ORDERING_PURPOSES}
     by_sig = {l["tx"]["sig"]: l for l in lines}
-    cache: dict[int, dict | None] = {}
+    # A saved block is about 1.5-4 MB of JSON and ~20 MB as Python objects; the data holds ~1800 of
+    # them, so an unbounded cache needs >6 GB (a 7 GB CI runner is shut down). Manifest lines are in
+    # window order, so a small LRU keeps nearly every repeat read and bounds the memory (~0.5 GB).
+    cache: OrderedDict[int, dict | None] = OrderedDict()
 
     def block(slot: int) -> dict | None:
-        if slot not in cache:
-            cache[slot] = load_block(data_root, slot)
+        if slot in cache:
+            cache.move_to_end(slot)
+            return cache[slot]
+        cache[slot] = load_block(data_root, slot)
+        while len(cache) > BLOCK_CACHE_MAX:
+            cache.popitem(last=False)
         return cache[slot]
 
     for l in lines:
