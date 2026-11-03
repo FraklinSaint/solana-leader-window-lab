@@ -616,6 +616,9 @@ only: `data/manifest.jsonl` (MEASUREMENT), `data/exploratory/calibration_manifes
 
 - **Dry-run by default.** Live mode requires `live`, `CONFIRM_LIVE=yes` and an explicit
   `--max-spend-lamports N`, with `N ≤ HARD_CEILING_LAMPORTS = 50_000_000` (a compile-time constant).
+  The gate is in the type system, not in a flag check deep in the sender: a `LiveAuth` value can only come from
+  `live::authorize` (all three conditions), every function that writes transaction bytes to the network takes
+  `&LiveAuth`, and dry-run code never holds one, so it cannot send (`crates/sender/src/live.rs`).
 - **Alpenglow guard.** The code refuses any slot `< 459_653_000` (see VERIFIED_FACTS F1). Live
   plans additionally require `epoch ≥ 1065`.
 - **Write-ahead spend ledger** (`data/ledger.jsonl`). Every tx is reserved at its worst-case fee,
