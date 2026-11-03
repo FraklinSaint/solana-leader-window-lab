@@ -97,9 +97,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--skip-verify", action="store_true", help="skip the offline data verification (3-20 min)")
     a = ap.parse_args(argv)
 
-    out = pathlib.Path(a.out) if a.out else pathlib.Path(tempfile.mkdtemp(prefix="slwlab-repro-"))
+    # absolute paths: the analysis command runs from analysis/, so a relative --out would point somewhere else
+    out = (pathlib.Path(a.out) if a.out else pathlib.Path(tempfile.mkdtemp(prefix="slwlab-repro-"))).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    ref = pathlib.Path(a.reference)
+    ref = pathlib.Path(a.reference).resolve()
     for f in FILES:
         if not (ref / f).is_file():
             print(f"missing reference file {ref / f}", file=sys.stderr)

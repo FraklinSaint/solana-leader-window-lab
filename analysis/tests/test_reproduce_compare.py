@@ -58,3 +58,9 @@ def test_missing_key_and_list_length():
     new = _copy()
     new["cells"].append({})
     assert any("list length" in w for _, w in rep.compare(BASE, new)["diffs"])
+
+
+def test_a_relative_out_dir_is_resolved_before_the_analysis_changes_directory():
+    import inspect
+    src = inspect.getsource(rep.main)
+    assert ".resolve()" in src and "pathlib.Path(a.out)" in src
