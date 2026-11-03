@@ -1,5 +1,9 @@
 name: ci
-on: [push, pull_request]
+on:
+  push:
+    branches: [main, cloud-work]   # tags do not start CI (the registered tags are frozen history)
+  pull_request:
+  workflow_dispatch:
 permissions: { contents: read }
 
 jobs:
@@ -16,6 +20,7 @@ jobs:
 
   python:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -23,6 +28,17 @@ jobs:
       - run: pip install --require-hashes --no-deps -r analysis/requirements.lock
       - run: cd analysis && python -m pytest
       - run: cd analysis && python -m slwlab.report --check   # docs/REPORT.md is regenerated, never hand-edited
+
+  # Offline check of every saved block against the manifest (about 15-25 minutes), kept apart so a slow
+  # run never hides the unit-test result.
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with: { python-version: "3.12" }
+      - run: pip install --require-hashes --no-deps -r analysis/requirements.lock
       - run: python scripts/verify_manifest.py --out /tmp/verify.json
 
   docker:
@@ -30,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - run: docker compose build
-      - run: docker compose run --rm plan
+      # `plan` is a dry run against mainnet and needs RPC_URL, so it is a documented manual step, not a CI step
       - run: docker compose run --rm analyze
 
   secrets:

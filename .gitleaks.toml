@@ -8,5 +8,5 @@ description = "solana-keygen keypair (64-integer JSON array)"
 regex = '''\[\s*(?:\d{1,3}\s*,\s*){63}\d{1,3}\s*\]'''
 
 [allowlist]
-description = "public on-chain data (signatures, pubkeys) is not secret"
-paths = ['''^data/raw/''', '''^data/snapshots/''', '''^docs/BOUNTY\.md$''']
+description = "everything under data/ is public on-chain data (signatures, pubkeys, hashes); the generic-api-key rule fires on 88-character base58 signatures. scripts/check_no_keys.py runs the exact keypair-shape test (a 64-byte secret key whose last 32 bytes equal the public key derived from the first 32) over data/ and the whole history instead."
+paths = ['''^data/''', '''^docs/BOUNTY\.md$''']
