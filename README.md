@@ -78,9 +78,38 @@ ends with `REPRODUCED: ...` or `NOT REPRODUCED`, and its exit code says which. O
 Windows PC (Python 3.12.12, numpy 2.5.4): 3,067 numbers, largest relative difference 0. CI repeats it in
 the pinned image on every push. Raw evidence for any single claim: `data/manifest.jsonl` has the signature,
 slot and block index of each of the 7,110 transactions; `RPC_URL=<mainnet rpc> python scripts/verify_manifest.py --online --sample 50`
-re-fetches blocks with `getBlock` and compares them. The procedure was registered before the data (tags
-`prereg-v1`, `amendment-1`, `amendment-2`, `analysis-pre-run-2`); the order in which things were done is in
-[docs/LOGBOOK.md](docs/LOGBOOK.md).
+re-fetches blocks with `getBlock` and compares them. If you call `getBlock` yourself, use
+`"maxSupportedTransactionVersion": 1`: since Alpenglow about 4 in 10 transactions are version 1 (41% in a sample
+of 30 of our saved blocks) and a request with `0` fails on those blocks. Blocks after Alpenglow carry no vote
+transactions (VERIFIED_FACTS F1). The order in which things were done is in [docs/LOGBOOK.md](docs/LOGBOOK.md);
+what a third party can check about it is the next section.
+
+## Registration order: what a third party can check
+
+Commit and tag times in git come from the author's machine and prove little on their own. The independent time
+is when GitHub first received a commit (the push events and the CI runs of the tags). Times are UTC.
+
+| Event | Git time (author's clock) | First seen by GitHub |
+|---|---|---|
+| `PREREGISTRATION.md` with the design: data classes, candidate rules, arms P/F/X/R/C, statistics (Holm, Kendall, randomization tests, bootstrap), verdict classes, controls, independence units, allocation framework; 251 lines; commit `25724f9` | 2026-10-25 12:12:00 | **2026-10-25 12:12:44** (push to `main`) |
+| Calibration session `20261025T155544Z` (exploratory) | 15:55 to 18:54 on 2026-10-25 | |
+| `prereg-v1` (`05a3b23`): numbers frozen after calibration; adds §0b operator decisions, §6d path and platform strata, the §9 skipped-slot rule, §12 limitations, the allocation; 504 lines | 2026-10-26 21:56:47 | 2026-10-30 16:14:46 |
+| First confirmatory send (session 1) | 2026-10-26 22:04:21 (planned send time; block times are on chain) | |
+| `amendment-1` (`ebddf54`), decided from counts only | 2026-10-29 17:47:43 | 2026-10-30 16:14:46 |
+| Session 5 (run under amendment 1) | 2026-10-29 22:30 | |
+| `amendment-2` (`ef3e726`), decided from counts only | 2026-10-30 15:20:31 | 2026-10-30 16:14:46 |
+| Round 2 (run under amendment 2) | 2026-11-02 12:38:39 | |
+| `data-freeze` (`3ec33cf`) | 2026-11-03 12:09:07 | 2026-11-03 12:10:19 |
+| `analysis-pre-run` / `analysis-pre-run-2` (open details fixed before the analysis) | 12:27:07 / 12:37:03 | 12:27:13 / 12:37:08 |
+| `confirmatory-results` (the analysis, run once) | 2026-11-03 13:21:21 | 13:21:28 |
+
+What this supports and what it does not: the **design** was on GitHub before any calibration or confirmatory
+send; **round 2 and the analysis** are ordered by GitHub's own clock. The **frozen numbers (`prereg-v1`) and
+both amendments for sessions 1 to 5** are ordered only by git dates, because the tags were pushed on
+2026-10-30, after those sessions. The additions between the two versions of the registration are listed in
+the table; the whole diff is `git diff 25724f9 05a3b23 -- docs/PREREGISTRATION.md`. The git dates are
+consistent with the sessions (the tag is seven minutes before the first send), but we cannot prove that they
+were not set afterwards. We tell you so because the point of registering is that you do not have to take our word.
 
 ## What went wrong, and what this does not show
 
@@ -637,6 +666,15 @@ at the leader, and we do not model them one by one. The design handles them in f
 
 What stays unobserved: competing transactions' fees and arrival times, Jito bundles (out of scope), and the
 leader's real block start. See "What this does NOT separate".
+
+### Why a passive statistic is not enough
+A rank correlation between fee and position over a whole block (other people's transactions) mixes every
+arrival pattern at once and can sit near zero while every single pattern is far from it. In our controlled
+data the tau between fee and position of the same six transactions is +1.00 for Firedancer when they are sent
+together and -0.5 to -0.98 when they are sent 25 ms apart (`docs/EXPLORATORY_GAP_TABLE.md`); a block full of
+transactions with arbitrary arrival gaps would average such cases. Only our own transactions let us fix fee,
+send order and gap and read the order back, which is why they are the primary evidence and other
+transactions in the block are context at most.
 
 ### Send order
 Send order is a controlled variable. It is seeded-random in P, R and C, fixed in F, and the
