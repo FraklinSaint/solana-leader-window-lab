@@ -4,15 +4,108 @@
 in [docs/BOUNTY.md](docs/BOUNTY.md)).
 
 We send small, controlled bursts of our own transactions into the leader windows of chosen
-mainnet validators. From the produced blocks we then decide which candidate ordering rule each
-validator follows, how strictly it follows it, or whether it follows any rule at all.
+mainnet validators (after Alpenglow). From the produced blocks we decide which candidate ordering
+rule each validator follows, how strictly, or whether no rule explains the order. The unit is one
+leader window (4 slots); the primary evidence is only our own transactions.
 
-> **Status: Phase 2 built; Phase 1 (rules, statistics, simulator, power analysis, analysis
-> pipeline) built; the pre-registered *procedure* is drafted. Its numbers are provisional
-> (pre-calibration SIMULATION) and are re-derived after calibration, then frozen.** No
-> transaction has been sent to mainnet or devnet. No measurement exists yet. All dry-run data is
-> exploratory. Phase 3 (a devnet run that funds, sends, collects and sweeps) has **not** been
-> done; on devnet only a read-only selection and a 2-minute dry-run exist (see "Phases").
+> **Status (2026-11-03): measurement finished and frozen (tag `data-freeze`); the confirmatory
+> analysis was run once, from the tagged procedure (tags `analysis-pre-run-2`, `confirmatory-results`).**
+> Everything under "Results at a glance" is MEASUREMENT from
+> `analysis/results/confirmatory_2026-11-03/`. Simulator output is always labeled SIMULATION.
+> The full table is [docs/REPORT.md](docs/REPORT.md) (generated, never hand-edited).
+
+## Results at a glance
+
+**What was measured.** Six sessions on a Windows PC over Wi-Fi, 2026-10-26 to 2026-11-02, all after
+Alpenglow (slots 461,826,696 to 464,527,566): 1,185 leader windows (890 usable), 7,110 own
+transactions (6,243 landed), 10 validators in 7 client groups (9 measurable). All fees, including
+calibration and funding transfers, came to 38,905,322 lamports (0.0389 SOL) against a 0.05 SOL
+ceiling that is a compile-time constant (`crates/common/src/limits.rs`). No Jito bundles or tips.
+
+**The controls, first.**
+
+| Control | Result |
+|---|---|
+| Positive control (Agave, Arm C, mean raw tau of `R_RATIO_AGAVE`; PREREGISTRATION §7) | **FAILED.** 0.5333 over 35 usable windows (0.535 with equal validator weights) against the simulator's 95% interval [0.6310, 1.0000]; the three sensitivity intervals fail too ([0.6521, 1.0], [0.6310, 1.0], [0.5867, 1.0] at W = 10). §7 says this weakens every Agave-family verdict (the simulator's `agave` family: Agave, JitoAgave, HarmonicAgave, BamAgave and Rakurai). We read those verdicts as "price has a measurable but incomplete effect", not as a measure of strictness. We do not know the cause: per run the Arm C mean is 0.45 to 0.65, with too few windows per cell to say more ([docs/EXPLORATORY_GAP_TABLE.md](docs/EXPLORATORY_GAP_TABLE.md) §2). |
+| Negative control (labels shuffled inside windows, 20 shuffles per family, 51 families; ANALYSIS_CLARIFICATIONS_PRE_RUN (b)) | **Passed.** At most 2 hits in any family (limit 3), no family over the limit. |
+
+**What the blocks show** (verdict names are those of PREREGISTRATION §8; `STRICT` = the block follows
+the rule and meets the simulator's thresholds, `SOFT` = a significant tendency that is not strict;
+Arm P: fee varies, send order random; Arm C: all transactions write-lock one account; Arm X: fee is
+the reverse of the send order, gap 0 to 120 ms between sends):
+
+| Group (validators) | Arm P | Arm C | Arm X |
+|---|---|---|---|
+| Firedancer (`9eGrDohd`; `EvnRmnMr` never landed a transaction, 0 of 75 windows usable) | price STRICT, tau 1.00 (30 of 30 windows) | price STRICT, 0.83 | fee decides at gap 0 ms (tau +1.00, 12 windows); send order wins from 25 ms (-0.50) |
+| BamAgave (`DRpbCBMx`; lands only 74 to 83% of its transactions) | price STRICT_LOW_SEPARATION, 0.81 | price STRICT, 0.96 | fee at 0 ms (+0.71), send order at 25 ms (-0.96) |
+| Agave (`5Us18hLZ`, `7QQGNm3p`, pooled) | price SOFT, 0.21 | price SOFT, 0.54 (control failed) | send order SOFT (FIFO +0.44, price -0.44); at 0 ms neither decides (-0.09) |
+| JitoAgave (`E1r4Psq8`, `HEL1USMZ`) | price SOFT 0.20 / INCONCLUSIVE 0.15 | price SOFT, 0.37 / 0.54 | send order SOFT, 0.37 / 0.39 |
+| HarmonicAgave (`Fd7btgyS`) | INCONCLUSIVE, 0.03 | price SOFT, 0.60 | send order SOFT, 0.28 |
+| HarmonicFiredancer (`JUPiTERr`) | price SOFT, 0.26 | price SOFT, 0.57 | send order SOFT, 0.35 |
+| Rakurai (`ana2y2Yv`) | price STRICT_LOW_SEPARATION, 0.36 | price INCONCLUSIVE (0.20), send order SOFT (0.56) | send order SOFT, 0.47 |
+
+Verdict counts over all 191 validator x arm x rule cells: 17 STRICT, 9 STRICT_LOW_SEPARATION, 87
+SOFT, 3 NO_RULE, 75 INCONCLUSIVE. Without the last session (round 2) four X-arm verdicts change
+class and nothing else does (`analysis/results/confirmatory_2026-11-03_sensitivity_no_round2/`).
+
+**How to read it.** The registered X verdicts pool the send gaps. Split by gap (a post-hoc,
+exploratory table, no verdicts; [docs/EXPLORATORY_GAP_TABLE.md](docs/EXPLORATORY_GAP_TABLE.md))
+the picture is clearer: when sends are simultaneous (gap 0 ms) price decides the order for
+Firedancer and, less so, BamAgave and does not for the Agave-based validators; at a 10 ms gap price
+and send order are mixed (all groups -0.37; Firedancer -0.07); at 25 ms it is the send order in every
+group (tau of price -0.65 to -0.98, Firedancer -0.50; 47 usable windows). In other words, in our data a
+priority fee helps at most against transactions that arrive within roughly ten milliseconds of each
+other; otherwise the earlier transaction goes first. These are
+conclusions about the validators we measured on the dates we measured them, over our Wi-Fi path,
+not about a client in general. Gaps of 60 and 120 ms mostly spread a window over more than one slot
+and are unusable (0 of 70 windows at 120 ms).
+
+## Reproduce in one command
+
+```bash
+git clone https://github.com/FraklinSaint/solana-leader-window-lab && cd solana-leader-window-lab   # about 1.1 GB: raw blocks are committed
+docker compose run --rm reproduce            # data check, registered analysis, comparison (3 to 20 minutes)
+docker compose run --rm reproduce python scripts/reproduce.py --skip-verify    # analysis and comparison only (about 1 minute)
+make reproduce                               # the same without Docker (Python 3.12, analysis/requirements.lock)
+```
+
+What it does, offline: (1) `scripts/verify_manifest.py` checks every claim in `data/manifest.jsonl` against
+the saved blocks, plans, leader-schedule snapshots, slot lists and the spend ledger; (2) it runs the registered
+command, `python -m slwlab.analyze --manifest ../data/manifest.jsonl --sim sim/results/sim_v2.json --data ../data --pooled Agave`;
+(3) it re-checks the positive control; (4) it compares both result files number by number with the committed ones. It
+ends with `REPRODUCED: ...` or `NOT REPRODUCED`, and its exit code says which. On a Linux machine
+(Python 3.13, numpy 2.5.3) the two result files came out byte-identical to the ones produced on the
+Windows PC (Python 3.12.12, numpy 2.5.4): 3,067 numbers, largest relative difference 0. CI repeats it in
+the pinned image on every push. Raw evidence for any single claim: `data/manifest.jsonl` has the signature,
+slot and block index of each of the 7,110 transactions; `RPC_URL=<mainnet rpc> python scripts/verify_manifest.py --online --sample 50`
+re-fetches blocks with `getBlock` and compares them. The procedure was registered before the data (tags
+`prereg-v1`, `amendment-1`, `amendment-2`, `analysis-pre-run-2`); the order in which things were done is in
+[docs/LOGBOOK.md](docs/LOGBOOK.md).
+
+## What went wrong, and what this does not show
+
+The generated list is in [docs/REPORT.md](docs/REPORT.md) ("What went wrong", from the LOGBOOK); the main
+items, each with its date and commit in the LOGBOOK:
+- **The Agave positive control failed** (above). **One validator never landed a transaction** (`EvnRmnMr`, 0 of 75
+  windows), so the Firedancer group rests on one measurable validator. **Arm X at gaps of 60 and 120 ms is
+  mostly unusable** (a window spreads over more than one slot); the simulator had no slot model, so this was
+  found, not predicted.
+- **Clock offset.** The PC clock was about +346 ms off in sessions 1 to 4, near 0 in session 5 and about
+  -600 ms in round 2 (a resync did not help; round 2 was started before the clock check had been
+  reviewed). No clock requirement was registered. The window-start prediction error, which is what the
+  protocol constrains, had medians of 77 to 84 ms in all three regimes (exploratory observation).
+- **Process slips.** The tag `prereg-v1` was made while a script-hygiene test was failing; CI was red at
+  several tags (a mainnet-only step, a false secret-scanner hit, a read-only `docs/`, and an unbounded block
+  cache that needed more memory than a CI runner has); a simulator run crashed on a full disk; the report
+  step run before the confirmatory run wrote a table nobody had looked at and that did not use the same call as
+  the registered command (replaced; post-tag change to `report.py` only); the scenario verdict marks of
+  PREREGISTRATION were not implemented; output files came out with CRLF and were converted to LF. A
+  second operator's platform (Amendment 3 draft) was started and cancelled with no data.
+- **Not separated** (see "What this does NOT separate" below): hours the PC was off, Wi-Fi vs
+  wired paths, transactions we cannot observe in flight, self-reported client labels. Client labels
+  come from gossip `clientId`, version scheme and Jito Kobe, with an evidence list per validator in
+  the `data/snapshots/selection_*.json` files; they are not proof.
+
 
 ## Quick start
 
@@ -82,15 +175,21 @@ for it, and no provider region or key anywhere in the code.
 
 ## Phases
 
-Order (Phase 0 gate, corrected at the Phase 1 gate): **2** (sender, ledger, dry-run, clock) →
-3 (devnet end-to-end with sending, collect and sweep, operator; **not done yet**) → 4 (mainnet dry-run in daytime session chunks, merged by
-UTC hour, selection snapshot, clock error report) → 5 (calibration, ≤ 5,000,000 lamports, operator, **exploratory**) → **re-run the
-simulator with nuisance parameters estimated from calibration** (`slwlab.calibrate`,
-order-agnostic statistics only), re-derive ceilings, thresholds, allocation and the positive
-control interval, then **freeze and tag `prereg-v1`** → 6 (confirmatory live campaigns on
-≥ 3 dates, ≤ 38,000,000 lamports) → 7 (report). The pre-registered object is the
-*procedure* (docs/PREREGISTRATION.md §0). Its numbers are filled in after calibration and
-before the first confirmatory window. Phase 1 (parser, rules, stats, simulator) is built.
+What was done, in order (dates and commits are in [docs/LOGBOOK.md](docs/LOGBOOK.md)): **Phase 1** (parser,
+candidate rules, statistics, simulator, power analysis, analysis pipeline); **Phase 2** (sender, spend ledger,
+dry-run, clock); **Phase 3**, devnet end-to-end (funding, sending, collect, sweep; 2026-10-25); **Phase 4**,
+mainnet dry-runs in daytime session chunks; **Phase 5**, calibration on mainnet (≤ 5,000,000 lamports,
+**exploratory**, 2026-10-25), after which the simulator was re-run with nuisance parameters estimated from it
+(`slwlab.calibrate`, order-agnostic statistics only) and the procedure was frozen and tagged `prereg-v1`;
+**Phase 6**, confirmatory live sessions (six, 2026-10-26 to 2026-11-02, ≤ 38,000,000 lamports) four
+sessions as registered, then two extra rounds for cells short of usable windows, each decided outcome-blind
+from counts only and pinned by a tag before it was run (`amendment-1`: a supplementary session;
+`amendment-2`: round 2, deficit cells only, "there is no round 3"); the data
+were frozen (`data-freeze`), the analysis details that the text left open were fixed in
+`docs/ANALYSIS_CLARIFICATIONS_PRE_RUN.md` before the analysis was run, and the analysis was run once
+(`confirmatory-results`); **Phase 7**, this report. The pre-registered object is the *procedure*
+(docs/PREREGISTRATION.md §0); its numbers were filled in after calibration and before the first confirmatory
+window.
 
 **What exists on devnet** (`data/nonmainnet/devnet/`, 12 files, committed in `8abd145`, never
 analyzed). On 2026-10-22, on the dev PC with `SLWLAB_ENV_FILE=.env.devnet` (Helius devnet
@@ -106,9 +205,9 @@ endpoint), two read-only commands were run. Nothing was funded or sent:
 
 It checked cluster detection by genesis hash, the routing of non-mainnet data to
 `data/nonmainnet/`, selection and planning on a second cluster, and the slot feed. It did not
-check `init-payers`, airdrop, `fund`, `live`, `collect`, `sweep` or `reconcile`. Those are Phase 3,
-still open. The localnet end-to-end test (`localnet_tests.rs`, CI job `localnet`) covers them on
-a local validator but has not run yet: it runs only in CI, which has not run yet.
+check `init-payers`, airdrop, `fund`, `live`, `collect`, `sweep` or `reconcile`. Those were checked in
+the Phase 3 devnet run of 2026-10-25 (LOGBOOK) and in the localnet end-to-end test (`localnet_tests.rs`,
+CI job `localnet`, which runs `solana-test-validator` and passes in CI).
 
 Without Docker: `make test`, `make facts`, `make verify`, `make verify-online`.
 
@@ -354,7 +453,9 @@ only: `data/manifest.jsonl` (MEASUREMENT), `data/exploratory/calibration_manifes
 - **Dates.** Every window is listed with its slot and its block time in UTC. Windows that
   never landed show their run's UTC start. Each validator × arm row lists the UTC dates of its
   usable windows.
-- With no measurements, every measured section says **NO DATA YET**.
+- A section without data says **NO DATA YET** (tested on an empty tree). The measurement table is the
+  registered analysis itself: `report.py` makes the same call as the registered command (stored slot lists
+  required), and a test compares it with the committed `results.json` number by number.
 
 ## Safety invariants
 
@@ -388,13 +489,19 @@ only: `data/manifest.jsonl` (MEASUREMENT), `data/exploratory/calibration_manifes
 
 ## Why this design
 
-_To be written in Phases 1–4._ Summary of the logic:
-- **Unit of replication:** one 4-slot leader window.
-- **Primary evidence:** only our own txs.
-- **Four arms** (P, F, X, R). They make the candidate rules predict *different* permutations, so the
-  data can discriminate between rules.
-- **Statistics:** pre-registered.
-- **Power and false-positive rate:** measured on a simulator before any live data.
+The logic in short:
+- **Unit of replication:** one 4-slot leader window; every verdict is about many windows of one validator.
+- **Primary evidence:** only our own transactions. Their order inside the block is read from the block,
+  never from our logs, and `scripts/verify_manifest.py` re-derives every claim from the saved blocks.
+- **Five arms** (P, F, X, R, C). They make the candidate rules predict *different* permutations, so the data can
+  discriminate between rules: P varies the fee with a random send order; F gives equal fees and a fixed send
+  order (tie-breaks); X reverses the send order against the fee, with a gap of 0 to 120 ms between sends; R
+  gives equal fees and different compute-unit limits; C makes all six transactions write-lock one account
+  (a positive control, because it removes interleaving between worker threads).
+- **Statistics:** registered before the data; exact randomization tests, Holm correction, bootstrap intervals
+  (`analysis/slwlab/stats.py`).
+- **Power and false-positive rate:** measured on a simulator before any live data, with the nuisance levels
+  reported next to each other. Two controls (a positive and a negative one) are part of the registration.
 
 ## Bounty considerations (one subsection each)
 
@@ -508,7 +615,27 @@ deliberately makes all N txs write-lock one shared account. It measures scheduli
 conflict, is reported separately, and its source-derived prediction is in VERIFIED_FACTS F6b.
 
 ### Competition inside the block
-_TODO._
+A block holds a few hundred transactions from other users (the single producer is the one named in the
+block's Fee reward; `block_tx_count` is stored for each of our transactions). We cannot see when they arrived
+at the leader, and we do not model them one by one. The design handles them in four ways:
+- **Only relative order is analyzed.** Each window is scored by Kendall tau between the order of our six
+  transactions in the block and the order a candidate rule predicts for them. Other users' transactions sit
+  between ours and are ignored; for a rule that sorts all transactions by one key (price, arrival time) the
+  relative order of ours is the same with or without them.
+- **No lock conflicts with others.** Each of our transactions has its own fee payer and writes no other account
+  (checked on-chain by `verify_manifest.py`, check T), so only Arm C creates a conflict, and only among our own
+  transactions.
+- **Interleaving is a modelled nuisance, not hidden.** Where the scheduler runs several worker threads, other
+  transactions change which of ours are batched together. The simulator carries this as arrival-jitter,
+  execution-time and worker-busy parameters at several levels (`docs/SIMULATION.md`), and verdict thresholds
+  are looked up per cell. Calibration estimated only order-agnostic quantities from our own data.
+- **Windows that straddle a slot are excluded by rule.** A window is usable only if at least 5 of its 6
+  transactions landed in one slot and no slot of the window was skipped (PREREGISTRATION §9, from the stored
+  `getBlocks` list, never from our transactions). Load differs by hour and day; the report lists windows by UTC
+  date and hour, and hours the PC was off are shown as not measured.
+
+What stays unobserved: competing transactions' fees and arrival times, Jito bundles (out of scope), and the
+leader's real block start. See "What this does NOT separate".
 
 ### Send order
 Send order is a controlled variable. It is seeded-random in P, R and C, fixed in F, and the
@@ -563,8 +690,11 @@ crates/sender    planner, clock, tx builder, QUIC sender, spend ledger, sessions
 crates/winsys    the only unsafe code: keep-awake, free RAM, default-route adapter, loaded UI DLLs
 analysis/        parser, candidate rules, stats, simulator, report (Python, pytest)
 scripts/         verify_facts.py (re-derives docs/VERIFIED_FACTS.md from RPC), verify_manifest.py
-                 (independent check of data/), check_no_keys.py, scan_history.py
-data/            manifest, raw blocks, snapshots, ledger, logs (committed)
+                 (independent check of data/), reproduce.py (one-command reproduction), check_no_keys.py,
+                 scan_history.py, positive_control_check.py, negative_control.py,
+                 exploratory_gap_table.py (post-hoc, no verdicts)
+data/            manifest, raw blocks, snapshots, ledger, logs (committed, about 1.1 GB)
+analysis/results/  committed outputs of the confirmatory analysis, its sensitivity run and both controls
 docs/            BOUNTY, VERIFIED_FACTS, PREREGISTRATION, LOGBOOK, REPORT
 secrets/         payer keypairs (gitignored, never committed)
 ```
