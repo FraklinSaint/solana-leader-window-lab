@@ -48,9 +48,10 @@ Arms: **P** (fee varies, send order random), **F** (equal fee, fixed send order:
 **R** (equal price per compute unit, six compute-unit limits), **C** (all transactions write-lock one account), plus a positive and a negative control.
 The date of every window: [docs/REPORT.md](docs/REPORT.md); the six runs: [docs/README_FULL.md](docs/README_FULL.md#results-at-a-glance).
 
-**Registered before the data.** The design text with the predictions for Arms F, C and X is [docs/PREREGISTRATION.md](docs/PREREGISTRATION.md).
-What happened to each prediction, hits and misses: the table "Predictions registered before the data, and what happened" in
-[README_FULL](docs/README_FULL.md#results-at-a-glance).
+**Predictions written before the data.** [docs/PREREGISTRATION.md](docs/PREREGISTRATION.md) holds the design and the predictions for Arms F, C and X
+(amendments made during data collection are tagged `amendment-1` and `amendment-2`). What happened to each prediction, hits and misses: the table
+"Predictions registered before the data, and what happened" in [README_FULL](docs/README_FULL.md#results-at-a-glance).
+What a third party can and cannot confirm about the order: [Registration order](docs/README_FULL.md#registration-order-what-a-third-party-can-check).
 
 ## Where to find what the judges ask for
 
