@@ -15,7 +15,7 @@ SHA-256 of the LF-normalized file content.
 | `data/exploratory/calibration_manifest.jsonl` | `c34697f5adc9b94a4acb39707a4659c95338cad1fc34018c9be0ffcda9fa20d2` | 936 |
 | `analysis/sim/results/sim_v2.json` | `d914265743adaedeffe38a987904414a5118668632f3bc8922c9f08969b5183f` | 21159 |
 | `analysis/sim/results/alloc_v2.json` | `b138fdbd3b018e9e029ab370851a613d50fe5d90be36b4e86b893c51f4e066dd` | 3310 |
-| `docs/LOGBOOK.md` | `6659e319d1a59b535a44f655a2ee35208ef37f78f525d3da32edb621418bc789` | 180 |
+| `docs/LOGBOOK.md` | `70e10de70dc18e3491fadb177b3f5a61f33348601e322a92b2256a51c0bc06ea` | 182 |
 
 Scope filters: `data/nonmainnet/` is never read. Lines from another cluster or before slot 459,653,000 are dropped (manifest: none; calibration: none).
 
@@ -1659,4 +1659,4 @@ Counts: failure 22, surprise 32, rate limit 1, env 4, limitation 7, correction 5
 | 2026-11-03T14:00:00Z | 6 | limitation | **Registration order: only part of it is timestamped by a third party** (written 2026-11-03). GitHub received the design text of `docs/PREREGISTRATION.md` (251 lines, commit 25724f9) on 2026-10-25 12:12:44 UTC, before the calibration session (15:55 UTC) and before any confirmatory send. The tags `prereg-v1` (05a3b23; git time 2026-10-26 21:56:47 UTC, 7 min 34 s before the first confirmatory send at 22:04:21 UTC), `amendment-1` (ebddf54) and `amendment-2` (ef3e726) were pushed to GitHub together on 2026-10-30 16:14:46 UTC, after sessions 1 to 5. For those sessions the order of the frozen numbers and of amendment 1 is therefore attested by git dates only (set by the author's machine). Round 2, the data freeze and the analysis are ordered by GitHub's own clock. The README section "Registration order" has the table; the difference between the two versions of the registration is `git diff 25724f9 05a3b23 -- docs/PREREGISTRATION.md`. |
 
 † Logged in local time (UTC+3) and converted here (LOGBOOK correction, 2026-10-22 21:30).
-<!-- report-sha256: 7989bd563245df5d6e9766a4d66d3b469de44286bdd3645b073aba72fcbaa8ad -->
+<!-- report-sha256: aa4f71d9d06827c96e4d4d2318f031b9bfe3f9b147cf5e11db31465781242db3 -->
