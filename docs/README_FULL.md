@@ -59,7 +59,7 @@ the rule exactly):
   in every group.
 - **Strictness.** STRICT: Firedancer (Arms P, C and R) and BamAgave (Arm C 0.96; Arm P 0.81 with a
   low-separation label). The other Agave-family validators and HarmonicFiredancer show a measurable but incomplete
-  effect of price (mostly SOFT, tau about 0.2 to 0.6, a few cells inconclusive). The Agave positive control failed,
+  effect of price (SOFT in most Arm P and C cells, tau 0.17 to 0.60; exceptions: HarmonicAgave Arm P 0.03 and JitoAgave `E1r4Psq8` Arm P 0.15 INCONCLUSIVE, Rakurai Arm C 0.20 INCONCLUSIVE, Rakurai Arm P 0.36 STRICT_LOW_SEPARATION). The Agave positive control failed,
   so we cannot say whether that incompleteness belongs to the scheduler or to our path.
 - **Ties** (equal fee, Arm F). Firedancer puts the later-sent transaction first (LIFO, +0.42), as predicted from
   its source before the first send. HarmonicAgave, HarmonicFiredancer and Rakurai put the earlier-sent first
