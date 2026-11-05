@@ -17,7 +17,7 @@ tau is the mean Kendall tau over usable windows (+1: the block follows the rule 
 - **Rule.** At Firedancer `9eGrDohd` the order follows the priority fee **per requested compute unit**, not the total fee.
 - **Strictness.** STRICT at Firedancer and BamAgave; the other Agave-family validators and HarmonicFiredancer show a measurable but incomplete effect.
 - **Send time** takes over when transactions do not arrive together: with simultaneous sends (gap 0 ms) price decides
-  at Firedancer and BamAgave; with 25 ms the earlier-sent transaction tends to go first in every group.
+  at Firedancer and BamAgave; with 25 ms the earlier-sent transaction tends to go first (six of seven groups; Firedancer: see below).
 
 | Question | Result |
 |---|---|
@@ -25,13 +25,13 @@ tau is the mean Kendall tau over usable windows (+1: the block follows the rule 
 | BamAgave | price STRICT in Arm C (0.96), STRICT_LOW_SEPARATION in Arm P (0.81); Arm R not run, so fee, fee per unit and total fee are not separated |
 | Other validators, Arms P and C (price) | Agave, JitoAgave, HarmonicAgave, HarmonicFiredancer: SOFT in most cells, tau 0.17 to 0.60; positive control failed |
 | Ties, equal fee (Arm F) | Firedancer later-sent first (LIFO, +0.42); earlier-sent first (FIFO, +0.26 to +0.48): HarmonicAgave, HarmonicFiredancer, Rakurai, JitoAgave `HEL1USMZ` |
-| Ties, no determinant found | vanilla Agave (predicted), BamAgave, JitoAgave `E1r4Psq8` |
-| Arm X, by gap between sends | 0 ms: price decides at Firedancer (+1.00, 12 windows) and BamAgave (+0.71); 25 ms: earlier-sent tends to go first |
+| Ties, no determinant found | vanilla Agave (TIE_NONE, as registered), BamAgave, JitoAgave `E1r4Psq8` |
+| Arm X, by gap between sends | 0 ms: price decides at Firedancer (+1.00, 12 windows) and BamAgave (+0.71); 25 ms: earlier-sent tends to go first, except Firedancer (below) |
 
 Not SOFT in Arms P and C: INCONCLUSIVE in Arm P at HarmonicAgave (0.03) and JitoAgave `E1r4Psq8` (0.15), and in Arm C at Rakurai (0.20);
 Rakurai Arm P is STRICT_LOW_SEPARATION (0.36). Per validator: [docs/VALIDATORS.md](docs/VALIDATORS.md).
 
-Arm X at 25 ms for Firedancer is -0.50 over 6 windows, with an interval that includes 0. At 0 ms the other Agave-family validators and
+Arm X at 25 ms: every group has a negative mean tau of price with an interval below 0, except Firedancer (-0.50 over 6 windows, interval includes 0). At 0 ms the other Agave-family validators and
 HarmonicFiredancer show neither price nor send order deciding clearly. Full tables per group: [docs/README_FULL.md](docs/README_FULL.md#results-at-a-glance).
 
 ![Arm X: mean tau of the fee rule by gap between sends, all groups and each client group](docs/figures/arm_x_by_gap.svg)
@@ -47,6 +47,10 @@ Six sessions on a Windows PC over Wi-Fi, 2026-10-26 to 2026-11-02, all after Alp
 Arms: **P** (fee varies, send order random), **F** (equal fee, fixed send order: which tie-break?), **X** (fee reverse of send order, gap 0 to 120 ms),
 **R** (equal price per compute unit, six compute-unit limits), **C** (all transactions write-lock one account), plus a positive and a negative control.
 The date of every window: [docs/REPORT.md](docs/REPORT.md); the six runs: [docs/README_FULL.md](docs/README_FULL.md#results-at-a-glance).
+
+**Registered before the data.** The design text with the predictions for Arms F, C and X is [docs/PREREGISTRATION.md](docs/PREREGISTRATION.md).
+What happened to each prediction, hits and misses: the table "Predictions registered before the data, and what happened" in
+[README_FULL](docs/README_FULL.md#results-at-a-glance).
 
 ## Where to find what the judges ask for
 
